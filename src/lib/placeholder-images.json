@@ -1,3 +1,34 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-bg",
+      "description": "Professional moving truck on a highway",
+      "imageUrl": "https://picsum.photos/seed/move1/1920/1080",
+      "imageHint": "moving truck"
+    },
+    {
+      "id": "service-local",
+      "description": "Movers carrying boxes in a residential area",
+      "imageUrl": "https://picsum.photos/seed/move2/800/600",
+      "imageHint": "residential moving"
+    },
+    {
+      "id": "service-commercial",
+      "description": "Office relocation with desks and computers",
+      "imageUrl": "https://picsum.photos/seed/move3/800/600",
+      "imageHint": "office moving"
+    },
+    {
+      "id": "service-long-distance",
+      "description": "A scenic highway representing long distance travel",
+      "imageUrl": "https://images.unsplash.com/photo-1640328441917-6e8c1245791a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxoaWdod2F5JTIwcm9hZHxlbnwwfHx8fDE3NzI1NDc0NTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "highway road"
+    },
+    {
+      "id": "team-member",
+      "description": "Professional friendly mover",
+      "imageUrl": "https://picsum.photos/seed/mover5/400/400",
+      "imageHint": "friendly mover"
+    }
+  ]
 }
