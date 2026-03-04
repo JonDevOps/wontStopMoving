@@ -13,6 +13,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Check, Upload, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useFirestore, addDocumentNonBlocking } from "@/firebase";
+import { collection, serverTimestamp } from "firebase/firestore";
 
 const appSchema = z.object({
   fullName: z.string().min(2, "Name required"),
@@ -29,12 +31,23 @@ type AppValues = z.infer<typeof appSchema>;
 
 export default function ApplicationPage() {
   const [submitted, setSubmitted] = useState(false);
+  const firestore = useFirestore();
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<AppValues>({
     resolver: zodResolver(appSchema),
   });
 
   const onSubmit = (data: AppValues) => {
-    console.log("Application Submitted:", data);
+    const appsRef = collection(firestore, 'applications');
+    addDocumentNonBlocking(appsRef, {
+      name: data.fullName,
+      email: data.email,
+      phone: data.phone,
+      state: data.state,
+      experience: data.experience,
+      resume: "https://example.com/resume-placeholder.pdf", // In a real app, you'd upload to Storage first
+      status: 'new',
+      createdAt: serverTimestamp()
+    });
     setSubmitted(true);
   };
 

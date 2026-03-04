@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Truck, MapPin, Package, User, ChevronRight, ChevronLeft, Check } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { useFirestore, addDocumentNonBlocking } from "@/firebase";
+import { collection, serverTimestamp } from "firebase/firestore";
 
 const formSchema = z.object({
   pickupZip: z.string().min(5, "Invalid Zip"),
@@ -29,6 +30,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function QuoteForm() {
   const [step, setStep] = useState(1);
   const totalSteps = 4;
+  const firestore = useFirestore();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -38,7 +40,19 @@ export function QuoteForm() {
   });
 
   const onSubmit = (data: FormValues) => {
-    console.log("Form Submitted:", data);
+    const quotesRef = collection(firestore, 'quotes');
+    addDocumentNonBlocking(quotesRef, {
+      ...data,
+      status: 'new',
+      createdAt: serverTimestamp(),
+      details: JSON.stringify({
+        pickupZip: data.pickupZip,
+        dropoffZip: data.dropoffZip,
+        moveDate: data.moveDate,
+        moveSize: data.moveSize,
+        specialItems: data.specialItems
+      })
+    });
     setStep(5); // Success step
   };
 
