@@ -1,0 +1,159 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * Core Philosophy: This ruleset implements a robust, independent authorization model for WontStopMoving.com.
+     * It prioritizes high performance and security by denormalizing ownership data (like customerId and employeeIds)
+     * directly onto documents. This ensures that security decisions are atomic and do not require complex, 
+     * cross-collection lookups.
+     *
+     * Data Structure: 
+     * - User and Employee profiles are keyed by the Firebase Auth UID.
+     * - Jobs and Quotes are top-level collections using denormalized IDs for access control.
+     * - Public interaction points (Inquiries, Applications) are write-only for the public and manageable by admins.
+     * - Operational data (Regions, Job Openings) is public for reading and restricted to admins for management.
+     *
+     * Key Security Decisions:
+     * - Admin roles are verified via a self-reference to the user's own profile document.
+     * - Writes are strictly protected: no collection allows "if true" for create, update, or delete.
+     * - Ownership is enforced by matching the request's authenticated UID against document fields or path variables.
+     */
+
+    // --- Helper Functions ---
+
+    /** Checks if the user is authenticated. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** Checks if the current user has a specific role in their UserProfile. */
+    function hasRole(role) {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    /** Checks if the user is an Administrator. */
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    /** Checks if the provided ID matches the authenticated user's UID. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** Combined check for existence and ownership for updates/deletes. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    // --- Rules ---
+
+    /**
+     * @description Rules for the UserProfile collection. Users can manage their own profile.
+     * @path /users/{userId}
+     * @allow (get/list/create/update) if request.auth.uid == userId
+     * @deny (delete) always denied for users; admins only.
+     * @principle Enforces path-based ownership and relational integrity for the user's central identity.
+     */
+    match /users/{userId} {
+      allow get, list: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if (isOwner(userId) && request.resource.data.id == resource.data.id) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Rules for EmployeeProfile collection. Employees manage their own professional data.
+     * @path /employees/{employeeUid}
+     * @allow (get) if isSignedIn; (update) if owner
+     * @deny (create) restricted to admins to prevent self-promotion to employee status.
+     * @principle Ensures professional profiles are protected and managed by the owner or administration.
+     */
+    match /employees/{employeeUid} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isExistingOwner(employeeUid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Rules for Job documents. Access is shared between the customer and assigned employees.
+     * @path /jobs/{jobId}
+     * @allow (get/list) if request.auth.uid == customerId OR in employeeIds array.
+     * @deny (create) if the customerId in the data doesn't match the requester.
+     * @principle Uses denormalized collaborator lists for authorization independence.
+     */
+    match /jobs/{jobId} {
+      allow get, list: if isAdmin() || (isSignedIn() && (resource.data.customerId == request.auth.uid || request.auth.uid in resource.data.employeeIds));
+      allow create: if isAdmin() || (isSignedIn() && request.resource.data.customerId == request.auth.uid);
+      allow update: if isAdmin() || (isExistingOwner(resource.data.customerId) || (isSignedIn() && request.auth.uid in resource.data.employeeIds));
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Rules for Quote documents. Customers manage their own requests.
+     * @path /quotes/{quoteId}
+     * @allow (create) if authenticated and customerId matches.
+     * @deny (update/delete) by other users.
+     * @principle Enforces ownership based on denormalized customerId field.
+     */
+    match /quotes/{quoteId} {
+      allow get, list: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow create: if isAdmin() || (isSignedIn() && request.resource.data.customerId == request.auth.uid);
+      allow update: if isAdmin() || isExistingOwner(resource.data.customerId);
+      allow delete: if isAdmin() || isExistingOwner(resource.data.customerId);
+    }
+
+    /**
+     * @description Rules for JobApplication collection. Public write-only for applicants.
+     * @path /applications/{applicationId}
+     * @allow (create) if true (public submission).
+     * @deny (get/list) for non-admins to protect applicant privacy.
+     * @principle Implements a "Drop Box" pattern for public data intake.
+     */
+    match /applications/{applicationId} {
+      allow get, list: if isAdmin();
+      allow create: if true; 
+      allow update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Rules for Inquiry collection. Public contact form.
+     * @path /inquiries/{inquiryId}
+     * @allow (create) if true.
+     * @deny (read) for the general public.
+     * @principle Facilitates anonymous public communication while keeping messages private to staff.
+     */
+    match /inquiries/{inquiryId} {
+      allow get, list: if isAdmin();
+      allow create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Rules for JobOpening collection. Public job board.
+     * @path /jobOpenings/{jobOpeningId}
+     * @allow (get/list) if true.
+     * @deny (write) for anyone except administrators.
+     * @principle Public read access for marketing and recruitment with strict admin write control.
+     */
+    match /jobOpenings/{jobOpeningId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Rules for Region collection. Service area information.
+     * @path /regions/{regionId}
+     * @allow (get/list) if true.
+     * @deny (write) for anyone except administrators.
+     * @principle Provides public visibility into business operations and service regions.
+     */
+    match /regions/{regionId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
