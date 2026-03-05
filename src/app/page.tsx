@@ -23,8 +23,8 @@ export default function Home() {
       {/* Header */}
       <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="bg-primary text-white p-2 rounded-lg">
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="bg-primary text-white p-2 rounded-lg transition-transform group-hover:scale-110">
               <Truck className="h-6 w-6" />
             </div>
             <span className="text-xl font-headline font-extrabold uppercase tracking-tighter text-primary">
@@ -32,15 +32,15 @@ export default function Home() {
             </span>
           </Link>
           
-          <nav className="hidden lg:flex items-center gap-8">
-            <Link href="/services" className="text-sm font-bold hover:text-accent transition-colors">Services</Link>
-            <Link href="/about" className="text-sm font-bold hover:text-accent transition-colors">About</Link>
-            <Link href="/careers" className="text-sm font-bold hover:text-accent transition-colors">Careers</Link>
-            <Link href="/contact" className="text-sm font-bold hover:text-accent transition-colors">Contact</Link>
+          <nav className="hidden lg:flex items-center gap-8 text-primary font-bold">
+            <Link href="/services" className="text-sm hover:text-accent transition-colors">Services</Link>
+            <Link href="/about" className="text-sm hover:text-accent transition-colors">About</Link>
+            <Link href="/careers" className="text-sm hover:text-accent transition-colors">Careers</Link>
+            <Link href="/contact" className="text-sm hover:text-accent transition-colors">Contact</Link>
           </nav>
 
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" className="hidden sm:flex rounded-full text-primary font-bold hover:bg-primary/5">
+          <div className="flex items-center gap-4">
+            <Button asChild variant="ghost" className="hidden sm:flex rounded-full text-primary font-black uppercase tracking-widest text-[10px] hover:bg-primary/5">
               <Link href="/login">Log In</Link>
             </Button>
             <Button asChild className="bg-primary hover:bg-primary/90 rounded-full px-6 font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
@@ -75,10 +75,10 @@ export default function Home() {
               Nationwide moving excellence across 50 states + Puerto Rico. 51,000 professional movers ready to handle your journey.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-8 text-lg font-bold">
+              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-8 h-16 text-lg font-bold shadow-xl shadow-accent/20">
                 <Link href="/quote">Get a Free Quote</Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="text-white border-white hover:bg-white hover:text-primary rounded-full px-8 text-lg font-bold">
+              <Button asChild size="lg" variant="ghost" className="text-white border-2 border-white/40 hover:border-white hover:bg-white/10 rounded-full px-8 h-16 text-lg font-bold">
                 <Link href="/track">Track My Move</Link>
               </Button>
             </div>
@@ -127,7 +127,7 @@ export default function Home() {
               { title: "Secure Storage", icon: ShieldCheck, desc: "Climate-controlled facilities for long or short term." },
               { title: "Express Delivery", icon: Clock, desc: "Time-sensitive moving for urgent requirements." }
             ].map((service, i) => (
-              <Card key={i} className="group hover:shadow-xl transition-all border-none overflow-hidden">
+              <Card key={i} className="group hover:shadow-xl transition-all border-none overflow-hidden bg-white">
                 <CardContent className="p-8">
                   <div className="bg-primary/5 p-4 rounded-2xl w-fit mb-6 group-hover:bg-accent group-hover:text-white transition-colors">
                     <service.icon className="h-8 w-8" />
@@ -200,10 +200,10 @@ export default function Home() {
             Get an instant quote in minutes or join our growing team of 51,000 professional movers.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-6">
-            <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-12 h-16 text-xl font-black">
+            <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-12 h-16 text-xl font-black shadow-xl shadow-accent/20">
               <Link href="/quote">BOOK MY MOVE</Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="border-white hover:bg-white hover:text-primary rounded-full px-12 h-16 text-xl font-black">
+            <Button asChild size="lg" variant="ghost" className="text-white border-2 border-white/40 hover:border-white hover:bg-white/10 rounded-full px-12 h-16 text-xl font-black">
               <Link href="/careers">JOIN THE TEAM</Link>
             </Button>
           </div>
