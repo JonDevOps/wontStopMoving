@@ -32,16 +32,18 @@ export default function Home() {
             </span>
           </Link>
           
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="/services" className="text-sm font-medium hover:text-accent transition-colors">Services</Link>
-            <Link href="/about" className="text-sm font-medium hover:text-accent transition-colors">About</Link>
-            <Link href="/careers" className="text-sm font-medium hover:text-accent transition-colors">Careers</Link>
-            <Link href="/contact" className="text-sm font-medium hover:text-accent transition-colors">Contact</Link>
+          <nav className="hidden lg:flex items-center gap-8">
+            <Link href="/services" className="text-sm font-bold hover:text-accent transition-colors">Services</Link>
+            <Link href="/about" className="text-sm font-bold hover:text-accent transition-colors">About</Link>
+            <Link href="/careers" className="text-sm font-bold hover:text-accent transition-colors">Careers</Link>
+            <Link href="/contact" className="text-sm font-bold hover:text-accent transition-colors">Contact</Link>
           </nav>
 
-          <div className="flex items-center gap-4">
-            <Link href="/login" className="hidden sm:block text-sm font-medium">Log In</Link>
-            <Button asChild variant="default" className="bg-primary hover:bg-primary/90 rounded-full px-6">
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost" className="hidden sm:flex rounded-full text-primary font-bold hover:bg-primary/5">
+              <Link href="/login">Log In</Link>
+            </Button>
+            <Button asChild className="bg-primary hover:bg-primary/90 rounded-full px-6 font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
               <Link href="/quote">Get a Quote</Link>
             </Button>
           </div>
