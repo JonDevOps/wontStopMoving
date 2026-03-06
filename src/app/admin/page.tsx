@@ -1,9 +1,26 @@
+
+"use client";
+
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Truck, FileText, ClipboardList, TrendingUp, AlertCircle } from "lucide-react";
+import { Users, Truck, FileText, TrendingUp, AlertCircle, ChevronRight } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy, limit } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+import Link from "next/link";
+import { format } from "date-fns";
 
 export default function AdminDashboard() {
+  const firestore = useFirestore();
+
+  // Fetch real applications from Firestore
+  const appsQuery = useMemoFirebase(() => {
+    return query(collection(firestore, "applications"), orderBy("createdAt", "desc"), limit(5));
+  }, [firestore]);
+
+  const { data: applications, isLoading } = useCollection(appsQuery);
+
   const kpis = [
     { label: "Total Revenue", value: "$42,850", trend: "+12.5%", icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10" },
     { label: "Active Jobs", value: "32", icon: Truck, color: "text-blue-500", bg: "bg-blue-500/10" },
@@ -42,28 +59,41 @@ export default function AdminDashboard() {
           <Card className="lg:col-span-2 border-none shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>RECENT APPLICATIONS</CardTitle>
-              <button className="text-xs font-bold text-accent hover:underline">View All</button>
+              <Link href="/admin/careers" className="text-xs font-bold text-accent hover:underline">View All</Link>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[
-                  { name: "Sarah Jenkins", state: "TX", exp: "5 years", status: "Reviewing" },
-                  { name: "David Miller", state: "NY", exp: "2 years", status: "New" },
-                  { name: "Linda Chen", state: "CA", exp: "8 years", status: "Reviewing" },
-                ].map((app, i) => (
-                  <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold">{app.name[0]}</div>
-                      <div>
-                        <p className="font-bold text-primary">{app.name}</p>
-                        <p className="text-xs text-muted-foreground">{app.state} • {app.exp} Exp</p>
+                {isLoading ? (
+                  <div className="p-8 text-center text-muted-foreground">Loading applications...</div>
+                ) : applications && applications.length > 0 ? (
+                  applications.map((app) => (
+                    <Link key={app.id} href={`/admin/applications/${app.id}`}>
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group mb-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold">
+                            {app.name?.[0] || "?"}
+                          </div>
+                          <div>
+                            <p className="font-bold text-primary">{app.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {app.state} • {app.experience} Years Exp • {app.createdAt ? format(app.createdAt.toDate(), "MMM d") : "Just now"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-orange-100 text-orange-600`}>
+                            {app.status}
+                          </span>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-accent transition-colors" />
+                        </div>
                       </div>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${app.status === 'New' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
-                      {app.status}
-                    </span>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-muted-foreground border-2 border-dashed rounded-xl">
+                    No applications received yet.
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
