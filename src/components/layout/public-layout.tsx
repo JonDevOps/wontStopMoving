@@ -175,7 +175,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             </div>
           </div>
           <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
-            <p>© 2024 Wont Stop Moving Inc. Licensed & Insured DOT #1234567.</p>
+            <p>© 2024 Wont Stop Moving Inc. Licensed & Insured DOT #1234567</p>
             <div className="flex gap-6">
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
