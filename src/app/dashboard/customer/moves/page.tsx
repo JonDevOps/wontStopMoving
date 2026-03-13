@@ -35,9 +35,14 @@ export default function MyMovesPage() {
             <h1 className="text-3xl font-black text-primary uppercase">My <span className="text-accent">Moves</span></h1>
             <p className="text-muted-foreground">Track and manage your scheduled relocations</p>
           </div>
-          <Button asChild className="bg-accent hover:bg-accent/90 rounded-full font-bold px-8 h-12">
-            <Link href="/book">Book a Move</Link>
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild className="bg-accent hover:bg-accent/90 rounded-full font-bold px-8 h-12">
+              <Link href="/book">Book a Move</Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full border-accent text-accent hover:bg-accent hover:text-white font-bold px-8 h-12">
+              <Link href="/quote">Request Quote</Link>
+            </Button>
+          </div>
         </header>
 
         <div className="grid gap-6">
