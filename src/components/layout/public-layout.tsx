@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Truck, Menu, X, ArrowRight } from 'lucide-react';
-import React, { useState } from 'react';
+import { Truck, Menu, X, ArrowRight, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Accordion,
@@ -11,6 +11,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface PublicLayoutProps {
   children: React.ReactNode;
@@ -18,12 +24,22 @@ interface PublicLayoutProps {
 
 export function PublicLayout({ children }: PublicLayoutProps) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const navLinks = [
     { href: "/services", label: "Services" },
-    { href: "/about", label: "About" },
-    { href: "/careers", label: "Careers" },
-    { href: "/contact", label: "Contact" },
+    { href: "/services", label: "Types of Moves" },
+    { href: "/services", label: "Local Moves" },
+  ];
+
+  const resourceLinks = [
+    { href: "#", label: "Blog" },
+    { href: "/faq", label: "FAQ" },
+    { href: "/contact", label: "Customer Support" },
   ];
 
   const footerSections = [
@@ -76,13 +92,28 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           <nav className="hidden lg:flex items-center gap-8 text-primary font-bold">
             {navLinks.map((link) => (
               <Link 
-                key={link.href} 
+                key={link.label} 
                 href={link.href} 
                 className="text-sm hover:text-accent transition-colors"
               >
                 {link.label}
               </Link>
             ))}
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-1 text-sm hover:text-accent transition-colors outline-none">
+                Resources <ChevronDown className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl border-none shadow-xl">
+                {resourceLinks.map((link) => (
+                  <DropdownMenuItem key={link.label} asChild>
+                    <Link href={link.href} className="w-full cursor-pointer font-bold text-primary hover:text-accent transition-colors py-2">
+                      {link.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
 
           <div className="flex items-center gap-4">
@@ -96,71 +127,86 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               </Button>
             </div>
 
-            {/* Mobile Actions */}
-            <div className="sm:hidden flex items-center">
-               <Button asChild size="sm" className="bg-primary rounded-full px-4 font-bold text-xs h-9">
-                <Link href="/quote">Quote</Link>
-              </Button>
-            </div>
-
             {/* Mobile Menu Trigger */}
             <div className="lg:hidden">
-              <Sheet open={open} onOpenChange={setOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-primary hover:bg-primary/5 rounded-full">
-                    <Menu className="h-6 w-6" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[300px] sm:w-[400px] p-0">
-                  <div className="flex flex-col h-full">
-                    <SheetHeader className="p-6 border-b">
-                      <SheetTitle className="text-left">
-                        <div className="flex items-center gap-2">
-                          <div className="bg-primary text-white p-1.5 rounded-lg">
-                            <Truck className="h-5 w-5" />
+              {mounted && (
+                <Sheet open={open} onOpenChange={setOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-primary hover:bg-primary/5 rounded-full">
+                      <Menu className="h-6 w-6" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="w-[300px] sm:w-[400px] p-0">
+                    <div className="flex flex-col h-full">
+                      <SheetHeader className="p-6 border-b">
+                        <SheetTitle className="text-left">
+                          <div className="flex items-center gap-2">
+                            <div className="bg-primary text-white p-1.5 rounded-lg">
+                              <Truck className="h-5 w-5" />
+                            </div>
+                            <span className="text-lg font-headline font-black uppercase tracking-tighter text-primary">
+                              Wont Stop <span className="text-accent">Moving</span>
+                            </span>
                           </div>
-                          <span className="text-lg font-headline font-black uppercase tracking-tighter text-primary">
-                            Wont Stop <span className="text-accent">Moving</span>
-                          </span>
+                        </SheetTitle>
+                      </SheetHeader>
+                      
+                      <nav className="flex-1 p-6 space-y-6 overflow-y-auto">
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Navigation</p>
+                          {navLinks.map((link) => (
+                            <Link 
+                              key={link.label} 
+                              href={link.href} 
+                              onClick={() => setOpen(false)}
+                              className="flex items-center justify-between group py-3 text-xl font-black text-primary hover:text-accent transition-colors border-b border-gray-50 last:border-0"
+                            >
+                              {link.label}
+                              <ArrowRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                            </Link>
+                          ))}
+                          
+                          <Accordion type="single" collapsible className="w-full">
+                            <AccordionItem value="resources" className="border-none">
+                              <AccordionTrigger className="text-xl font-black text-primary hover:text-accent hover:no-underline py-3">
+                                Resources
+                              </AccordionTrigger>
+                              <AccordionContent className="pt-2 pb-4 space-y-4">
+                                {resourceLinks.map((link) => (
+                                  <Link 
+                                    key={link.label} 
+                                    href={link.href} 
+                                    onClick={() => setOpen(false)}
+                                    className="block text-lg font-bold text-muted-foreground hover:text-accent pl-4"
+                                  >
+                                    {link.label}
+                                  </Link>
+                                ))}
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
                         </div>
-                      </SheetTitle>
-                    </SheetHeader>
-                    
-                    <nav className="flex-1 p-6 space-y-6">
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Navigation</p>
-                        {navLinks.map((link) => (
-                          <Link 
-                            key={link.href} 
-                            href={link.href} 
-                            onClick={() => setOpen(false)}
-                            className="flex items-center justify-between group py-3 text-xl font-black text-primary hover:text-accent transition-colors border-b border-gray-50 last:border-0"
-                          >
-                            {link.label}
-                            <ArrowRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
-                          </Link>
-                        ))}
-                      </div>
 
-                      <div className="pt-8 space-y-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Account & Services</p>
-                        <Button asChild variant="outline" className="w-full rounded-xl h-14 font-bold uppercase tracking-widest text-xs border-primary/20 text-primary">
-                          <Link href="/login" onClick={() => setOpen(false)}>Log In to Portal</Link>
-                        </Button>
-                        <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest text-xs shadow-lg shadow-accent/20">
-                          <Link href="/quote" onClick={() => setOpen(false)}>Start Free Quote</Link>
-                        </Button>
-                      </div>
-                    </nav>
+                        <div className="pt-8 space-y-4">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Account & Services</p>
+                          <Button asChild variant="outline" className="w-full rounded-xl h-14 font-bold uppercase tracking-widest text-xs border-primary/20 text-primary">
+                            <Link href="/login" onClick={() => setOpen(false)}>Log In to Portal</Link>
+                          </Button>
+                          <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest text-xs shadow-lg shadow-accent/20">
+                            <Link href="/quote" onClick={() => setOpen(false)}>Start Free Quote</Link>
+                          </Button>
+                        </div>
+                      </nav>
 
-                    <div className="p-6 bg-gray-50 mt-auto">
-                      <p className="text-[10px] font-bold text-muted-foreground text-center uppercase tracking-widest">
-                        Nationwide Coverage 24/7
-                      </p>
+                      <div className="p-6 bg-gray-50 mt-auto">
+                        <p className="text-[10px] font-bold text-muted-foreground text-center uppercase tracking-widest">
+                          Nationwide Coverage 24/7
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
+                  </SheetContent>
+                </Sheet>
+              )}
             </div>
           </div>
         </div>
