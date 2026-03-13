@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -33,7 +32,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
   const navLinks = [
     { href: "/services", label: "Services" },
-    { href: "/services", label: "Types of Moves" },
+    { href: "/services/types-of-moves", label: "Types of Moves" },
     { href: "/services/local-moving", label: "Local Moves" },
   ];
 
@@ -48,7 +47,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       title: "Quick Links",
       links: [
         { label: "Services", href: "/services" },
-        { label: "Types of Moves", href: "/services" },
+        { label: "Types of Moves", href: "/services/types-of-moves" },
         { label: "Local Moving", href: "/services/local-moving" },
       ]
     },
