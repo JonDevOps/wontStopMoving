@@ -93,7 +93,7 @@ export default function CommercialMovingPage() {
                 </div>
                 <div className="pt-4">
                   <Button asChild className="rounded-full bg-primary px-8 h-14 font-bold">
-                    <Link href="/book">Reserve Move Team</Link>
+                    <Link href="/book">Reserve Team</Link>
                   </Button>
                 </div>
               </div>
