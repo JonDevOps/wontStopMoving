@@ -50,6 +50,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
         { label: "Types of Moves", href: "/services/types-of-moves" },
         { label: "Local Moving", href: "/services/local-moving" },
         { label: "Long Distance", href: "/services/long-distance" },
+        { label: "Locations", href: "/locations" },
       ]
     },
     {
