@@ -70,7 +70,7 @@ export default function Home() {
                 <div className="text-sm uppercase tracking-widest opacity-80">US Regions</div>
               </div>
               <div>
-                <div className="text-4xl font-black font-headline">100k+</div>
+                <div className="text-4xl font-black font-headline">1m+</div>
                 <div className="text-sm uppercase tracking-widest opacity-80">Moves Completed</div>
               </div>
               <div>
