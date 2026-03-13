@@ -178,7 +178,7 @@ export default function ProtectionPlansPage() {
               <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
                 <Link href="/book">Book Protected Move</Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10 rounded-full px-12 h-16 text-xl font-bold uppercase">
+              <Button asChild size="lg" className="bg-secondary hover:bg-secondary/90 text-white rounded-full px-12 h-16 text-xl font-bold uppercase shadow-xl">
                 <Link href="/contact">Contact Support</Link>
               </Button>
             </div>
