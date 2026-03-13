@@ -1,24 +1,11 @@
 "use client";
 
 import { PublicLayout } from '@/components/layout/public-layout';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, MapPin, ArrowLeft, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { useState, use } from 'react';
-
-const ALABAMA_CITIES = [
-  "Abbeville", "Adamsville", "Alabaster", "Albertville", "Alexander City", "Alexandria", "Alpine", "Altoona", "Andalusia", "Anniston", "Arab", "Ardmore", "Ariton", "Arley", "Ashford", "Ashland", "Athens", "Atmore", "Attalla", "Auburn", "Bay Minette", "Beatrice", "Berry", "Bessemer", "Birmingham", "Blountsville", "Boaz", "Brantley", "Bremen", "Brent", "Brewton", "Bridgeport", "Brookwood", "Brownsboro", "Brundidge", "Calera", "Carrollton", "Cedar Bluff", "Centre", "Chelsea", "Cherokee", "Chickasaw", "Childersburg", "Citronelle", "Clanton", "Clayton", "Cleveland", "Coffeeville", "Cottondale", "Cottonwood", "Cowarts", "Cropwell", "Crossville", "Cuba", "Cullman", "Cusseta", "Dadeville", "Daleville", "Daphne", "Dawson", "Decatur", "Demopolis", "Dothan", "Douglas", "Eastaboga", "Eclectic", "Eight Mile", "Elba", "Elberta", "Elmore", "Enterprise", "Eufaula", "Eutaw", "Eva", "Evergreen", "Fairhope", "Falkville", "Fayette", "Flomaton", "Florala", "Florence", "Foley", "Forestdale", "Fort Deposit", "Fort Mitchell", "Fort Payne", "Fultondale", "Fyffe", "Gadsden", "Gardendale", "Geneva", "Georgiana", "Gordo", "Grand Bay", "Grant", "Graysville", "Greensboro", "Greenville", "Grove Hill", "Gulf Shores", "Guntersville", "Haleyville", "Hamilton", "Hanceville", "Harpersville", "Hartford", "Hartselle", "Harvest", "Hatchechubbee", "Hazel Green", "Headland", "Heflin", "Helena", "Henagar", "Highland Home", "Holly Pond", "Hollywood", "Hoover", "Hueytown", "Huntsville", "Irondale", "Irvington", "Jacksons Gap", "Jacksonville", "Jasper", "Jemison", "Killen", "Laceys Spring", "Lafayette", "Lanett", "Leeds", "Leesburg", "Leroy", "Lexington", "Lillian", "Lineville", "Livingston", "Louisville", "Loxley", "Madison", "Marion", "Maylene", "Mc Calla", "Mc Kenzie", "Meridianville", "Midfield", "Midland City", "Millbrook", "Mobile", "Monroeville", "Montevallo", "Montgomery", "Moody", "Moulton", "Mount Olive", "Mount Vernon", "Munford", "Muscle Shoals", "Nauvoo", "New Hope", "New Market", "Newton", "Newville", "Northport", "Oak Grove", "Odenville", "Oneonta", "Opelika", "Opp", "Orange Beach", "Owens Cross Roads", "Owens Crossroads", "Oxford", "Ozark", "Pansey", "Pelham", "Pell City", "Peterman", "Phenix", "Phenix City", "Phil Campbell", "Piedmont", "Pinson", "Prattville", "Rainbow City", "Remlap", "Roanoke", "Robertsdale", "Rogersville", "Russellville", "Rutledge", "Salem", "Samson", "Sand Rock", "Saraland", "Satsuma", "Scottsboro", "Selma", "Semmes", "Sheffield", "Shelby", "Slocomb", "Smiths Station", "Snead", "Somerville", "Southside", "Spanish Fort", "Springville", "Steele", "Sterrett", "Sumiton", "Sweet Water", "Sylacauga", "Sylvan Springs", "Talladega", "Tallassee", "Tanner", "Theodore", "Toney", "Town Creek", "Trafford", "Trinity", "Troy", "Trussville", "Tuscaloosa", "Tuscumbia", "Tuskegee", "Union Springs", "Valley", "Vernon", "Vestavia Hills", "Vinemont", "Wadley", "Warrior", "Weaver", "Wedowee", "West Blocton", "Wetumpka", "Wilmer", "Winfield", "Woodstock", "York"
-].sort();
-
-const ALASKA_CITIES = [
-  "Anchor Point", "Anchorage", "Chugiak", "Cordova", "Craig", "Delta Junction", "Eagle River", "Fairbanks", "Glennallen", "Haines", "Homer", "Juneau", "Kenai", "Ketchikan", "Kodiak", "Nenana", "North Pole", "Palmer", "Petersburg", "Seward", "Sitka", "Soldotna", "Tok", "Wasilla", "Willow", "Wrangell"
-].sort();
-
-const CITIES_BY_STATE: Record<string, string[]> = {
-  alabama: ALABAMA_CITIES,
-  alaska: ALASKA_CITIES,
-};
+import { ALL_LOCATIONS, CITIES_BY_STATE, slugify } from '@/lib/location-data';
 
 export default function StatePage({ params }: { params: Promise<{ stateSlug: string }> }) {
   const { stateSlug } = use(params);
@@ -29,10 +16,6 @@ export default function StatePage({ params }: { params: Promise<{ stateSlug: str
       .split('-')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
-  };
-
-  const slugify = (text: string) => {
-    return text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
   };
 
   const stateName = formatTitle(stateSlug);
@@ -56,7 +39,7 @@ export default function StatePage({ params }: { params: Promise<{ stateSlug: str
                 <MapPin className="h-3 w-3 fill-current" />
                 Active Service Area
               </div>
-              <h1 className="text-4xl sm:text-5xl md:text-7xl font-black text-primary uppercase tracking-tighter break-words leading-tight">
+              <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-primary uppercase tracking-tighter leading-[0.9] break-words">
                 MOVERS IN <span className="text-accent">{stateName}</span>
               </h1>
               <p className="text-xl text-muted-foreground leading-relaxed">

@@ -1,27 +1,37 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Search, MapPin, Globe } from 'lucide-react';
 import Link from 'next/link';
-
-const ALL_LOCATIONS = [
-  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "District Of Columbia", "Delaware", "Florida", "Georgia", "Hawaii", "Iowa", "Idaho", "Illinois", "Indiana", "Kansas", "Kentucky", "Louisiana", "Massachusetts", "Maryland", "Maine", "Michigan", "Minnesota", "Missouri", "Mississippi", "Montana", "North Carolina", "North Dakota", "Nebraska", "New Hampshire", "New Jersey", "New Mexico", "Nevada", "New York", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Puerto Rico", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Virginia", "Vermont", "Washington", "Wisconsin", "West Virginia", "Wyoming",
-  "Alberta", "British Columbia", "Manitoba", "New Brunswick", "Newfoundland", "Nova Scotia", "Northwest Territory", "Ontario", "Prince Edward Island", "Quebec", "Saskatchewan", "Yukon"
-].sort();
+import { ALL_LOCATIONS, CITIES_BY_STATE, slugify } from '@/lib/location-data';
 
 export default function LocationsPage() {
   const [search, setSearch] = useState('');
 
-  const filteredLocations = ALL_LOCATIONS.filter(loc => 
-    loc.toLowerCase().includes(search.toLowerCase())
-  );
+  // Sarter search that checks states AND cities
+  const filteredLocations = useMemo(() => {
+    const query = search.toLowerCase().trim();
+    if (!query) return ALL_LOCATIONS;
 
-  const slugify = (text: string) => {
-    return text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
-  };
+    // Check if query matches a state directly
+    const matchingStates = ALL_LOCATIONS.filter(loc => 
+      loc.toLowerCase().includes(query)
+    );
+
+    // Also check if query matches any city, if so, include its state
+    const statesWithMatchingCities = Object.keys(CITIES_BY_STATE).filter(stateKey => {
+      const cities = CITIES_BY_STATE[stateKey];
+      return cities.some(city => city.toLowerCase().includes(query));
+    }).map(key => {
+      // Map slug key back to display name
+      return ALL_LOCATIONS.find(loc => slugify(loc) === key) || key;
+    });
+
+    // Combine and remove duplicates
+    return Array.from(new Set([...matchingStates, ...statesWithMatchingCities])).sort();
+  }, [search]);
 
   return (
     <PublicLayout>
@@ -29,11 +39,11 @@ export default function LocationsPage() {
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto space-y-12">
             <div className="text-center space-y-6">
-              <h1 className="text-5xl md:text-7xl font-black text-primary uppercase tracking-tighter">
+              <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-primary uppercase tracking-tighter leading-[0.9]">
                 SERVICE <span className="text-accent">LOCATIONS</span>
               </h1>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                We're expanding rapidly. Search by city, state, zip, or landmark to find professional movers in your area.
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                We're expanding rapidly. Search by city or state to find professional movers in your area.
               </p>
             </div>
 
@@ -43,7 +53,7 @@ export default function LocationsPage() {
               </div>
               <Input 
                 type="text"
-                placeholder="Search city, state, zip, or landmark..."
+                placeholder="Search city or state..."
                 className="h-16 pl-14 pr-6 rounded-full border-none shadow-2xl text-lg bg-white focus:ring-2 focus:ring-accent"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
