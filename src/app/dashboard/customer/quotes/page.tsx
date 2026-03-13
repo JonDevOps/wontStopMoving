@@ -1,3 +1,4 @@
+
 "use client";
 
 import { CustomerLayout } from "@/components/layout/customer-layout";
@@ -34,9 +35,14 @@ export default function MyQuotesPage() {
             <h1 className="text-3xl font-black text-primary uppercase">My <span className="text-accent">Quotes</span></h1>
             <p className="text-muted-foreground">History of your moving estimates and service requests</p>
           </div>
-          <Button asChild className="bg-accent hover:bg-accent/90 rounded-full font-bold">
-            <Link href="/quote">Request New Quote</Link>
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild className="bg-accent hover:bg-accent/90 rounded-full font-bold px-8 h-12 shadow-lg shadow-accent/20">
+              <Link href="/book">Book a Move</Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full border-accent text-accent hover:bg-accent hover:text-white font-bold px-8 h-12">
+              <Link href="/quote">Request New Quote</Link>
+            </Button>
+          </div>
         </header>
 
         <div className="grid gap-6">
@@ -129,7 +135,7 @@ export default function MyQuotesPage() {
               <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
                 You haven't requested any moving estimates yet. Get an instant professional quote in just a few minutes.
               </p>
-              <Button asChild className="bg-accent hover:bg-accent/90 rounded-full px-8">
+              <Button asChild className="bg-accent hover:bg-accent/90 rounded-full px-8 h-12 font-bold">
                 <Link href="/quote">Request a Quote</Link>
               </Button>
             </div>

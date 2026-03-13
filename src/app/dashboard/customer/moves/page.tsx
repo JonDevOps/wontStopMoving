@@ -30,9 +30,14 @@ export default function MyMovesPage() {
   return (
     <CustomerLayout>
       <div className="space-y-8 animate-fade-in">
-        <header>
-          <h1 className="text-3xl font-black text-primary uppercase">My <span className="text-accent">Moves</span></h1>
-          <p className="text-muted-foreground">Track and manage your scheduled relocations</p>
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-primary uppercase">My <span className="text-accent">Moves</span></h1>
+            <p className="text-muted-foreground">Track and manage your scheduled relocations</p>
+          </div>
+          <Button asChild className="bg-accent hover:bg-accent/90 rounded-full font-bold px-8 h-12">
+            <Link href="/book">Book a Move</Link>
+          </Button>
         </header>
 
         <div className="grid gap-6">
@@ -106,8 +111,8 @@ export default function MyMovesPage() {
               <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
                 You haven't booked any moves with us yet. Start your journey by requesting a free quote.
               </p>
-              <Button asChild className="bg-accent hover:bg-accent/90 rounded-full px-8">
-                <Link href="/quote">Request a Quote</Link>
+              <Button asChild className="bg-accent hover:bg-accent/90 rounded-full px-8 h-12 font-bold">
+                <Link href="/book">Book a Move Now</Link>
               </Button>
             </div>
           )}
