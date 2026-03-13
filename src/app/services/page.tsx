@@ -89,71 +89,71 @@ export default function ServicesPage() {
       title: "Warehousing & Logistics",
       desc: "A complete supply chain partner. We handle the heavy lifting of your backend operations with a focus on speed and accuracy.",
       icon: Boxes,
-      features: ["Procurement & Sourcing", "Advanced Inventory Management", "Custom Packaging & Distribution", "Real-time supply chain tracking"],
-      href: "/services"
+      features: ["Procurement & Sourcing", "Advanced Inventory Management", "Custom Packaging & Distribution"],
+      href: "/services/warehousing-logistics"
     },
     {
       title: "Military Relocation",
       desc: "Specialized PCS support for our service members. We understand the unique requirements and timelines of military relocations.",
       icon: Shield,
       features: ["PCS compliant documentation", "Base access approved teams", "Flexible scheduling for orders"],
-      href: "/services"
+      href: "/services/military-relocation"
     },
     {
       title: "Student Moves",
       desc: "Affordable and flexible moving solutions for college students. Perfect for dorm relocations or moving into your first apartment.",
       icon: GraduationCap,
       features: ["Dorm-friendly logistics", "Small load specialists", "Budget-conscious pricing"],
-      href: "/services"
+      href: "/services/student-moves"
     },
     {
       title: "White-Glove Packing",
       desc: "The ultimate convenience. We handle everything from wrapping fragile china to professional unpacking and organization in your new home.",
       icon: Package,
       features: ["All materials included", "Systematic labeling", "Room-by-room unpacking"],
-      href: "/services"
+      href: "/services/white-glove-packing"
     },
     {
       title: "Specialty Crating",
       desc: "Custom-built wooden crates for high-value items like fine art, antiques, and large electronics, ensuring maximum protection during transit.",
       icon: Hammer,
       features: ["On-site crate building", "Fine art handling experts", "Secure bracing for electronics"],
-      href: "/services"
+      href: "/services/specialty-crating"
     },
     {
       title: "Cleaning Services",
       desc: "Step into a fresh start. We provide deep move-in and move-out cleaning services, handling the scrubbing so you don't have to.",
       icon: Sparkles,
       features: ["Deep kitchen & bath cleaning", "Security deposit guarantee", "Eco-friendly products"],
-      href: "/services"
+      href: "/services/cleaning-services"
     },
     {
       title: "Junk Removal",
       desc: "Declutter your life before or after the move. We'll haul away unwanted items and ensure they're donated or recycled responsibly.",
       icon: Trash2,
       features: ["Same-day haul away", "Donation receipt provided", "Responsible disposal"],
-      href: "/services"
+      href: "/services/junk-removal"
     },
     {
       title: "Handyman & Assembly",
       desc: "From assembling complex IKEA furniture to mounting TVs and hanging mirrors, our team ensures your new house feels like home on day one.",
       icon: Wrench,
       features: ["TV wall mounting", "Shelving installation", "Expert furniture assembly"],
-      href: "/services"
+      href: "/services/handyman-assembly"
     },
     {
       title: "Vaulted Storage",
       desc: "Climate-controlled, secure storage in individual wooden vaults. Your belongings stay protected, clean, and safe for as long as you need.",
       icon: Warehouse,
       features: ["24/7 security monitoring", "Climate & humidity control", "Inventory tracking"],
-      href: "/services"
+      href: "/services/vaulted-storage"
     },
     {
       title: "Express Moving",
       desc: "For when time is of the essence. Priority scheduling and dedicated transport for urgent relocation needs nationwide.",
       icon: Clock,
       features: ["Guaranteed delivery dates", "Direct non-stop transit", "Last-minute availability"],
-      href: "/services"
+      href: "/services/express-moving"
     }
   ];
 
@@ -235,8 +235,8 @@ export default function ServicesPage() {
                   <p className="text-white/70 leading-relaxed">
                     We offer comprehensive valuation protection for every move. From standard liability to full-value replacement coverage, your peace of mind is our top priority. Our teams are fully licensed, bonded, and insured in all 51 service regions.
                   </p>
-                  <Button className="bg-white text-black hover:bg-white/90 rounded-full px-8 font-bold">
-                    Review Protection Plans
+                  <Button asChild className="bg-white text-black hover:bg-white/90 rounded-full px-8 font-bold">
+                    <Link href="/faq">Review Protection Plans</Link>
                   </Button>
                 </div>
               </div>
