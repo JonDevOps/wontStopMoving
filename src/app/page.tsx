@@ -112,6 +112,12 @@ export default function Home() {
                 </Card>
               ))}
             </div>
+
+            <div className="text-center mt-16">
+              <Button asChild variant="outline" className="rounded-full border-primary text-primary hover:bg-primary hover:text-white px-10 h-14 font-black uppercase tracking-widest text-xs transition-all">
+                <Link href="/services">View All Services</Link>
+              </Button>
+            </div>
           </div>
         </section>
 
