@@ -23,6 +23,7 @@ export default function ApplicationReviewPage({ params }: { params: Promise<{ id
     if (!application) return;
     setIsSummarizing(true);
     try {
+      // In a real app, you would fetch the actual base64 data of the resume PDF
       const result = await aiApplicationSummarizer({
         applicationText: JSON.stringify(application),
         resumeDataUri: "data:application/pdf;base64,JVBERi0xLjQKJ..." // Placeholder
