@@ -16,7 +16,11 @@ import {
   Hammer,
   Sparkles,
   Trash2,
-  Wrench
+  Wrench,
+  Hotel,
+  Server,
+  Building2,
+  Dolly
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -40,6 +44,30 @@ export default function ServicesPage() {
       desc: "Specialized solutions for businesses of all sizes. We minimize downtime and ensure your workspace is set up exactly as needed.",
       icon: Briefcase,
       features: ["IT & equipment handling", "After-hours moving options", "Cubicle installation"]
+    },
+    {
+      title: "Hospitality Services",
+      desc: "Comprehensive FF&E logistics for hotels, resorts, and restaurants. We manage the delicate transition of your hospitality assets with precision.",
+      icon: Hotel,
+      features: ["FF&E installation specialists", "Model room setup", "Liquidation management"]
+    },
+    {
+      title: "Data Center Moving",
+      desc: "High-security transport for mission-critical infrastructure. Specialized handling for servers, rack systems, and sensitive electronic components.",
+      icon: Server,
+      features: ["Climate-controlled transport", "Anti-static packaging", "Secure chain of custody"]
+    },
+    {
+      title: "Workplace Solutions",
+      desc: "End-to-end management for modern workspaces. From decommissioning old offices to configuring new collaborative environments.",
+      icon: Building2,
+      features: ["Asset decommissioning", "Space planning & design", "Furniture reconfiguration"]
+    },
+    {
+      title: "Warehousing & Logistics",
+      desc: "A complete supply chain partner. We handle the heavy lifting of your backend operations with a focus on speed and accuracy.",
+      icon: Dolly,
+      features: ["Procurement & Sourcing", "Advanced Inventory Management", "Custom Packaging & Distribution", "Real-time supply chain tracking"]
     },
     {
       title: "Military Relocation",
@@ -107,7 +135,7 @@ export default function ServicesPage() {
               OUR <span className="text-accent">SERVICES</span>
             </h1>
             <p className="text-xl opacity-80 max-w-2xl mx-auto leading-relaxed">
-              From premium packing to nationwide logistics, we provide a full suite of relocation solutions tailored to your lifestyle and timeline.
+              From premium residential packing to complex nationwide enterprise logistics, we provide a full suite of relocation solutions tailored to your scale.
             </p>
             <div className="mt-10">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-12 h-16 text-xl font-bold">
@@ -139,7 +167,7 @@ export default function ServicesPage() {
                     <CardTitle className="text-2xl font-black text-primary uppercase">{service.title}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <p className="text-muted-foreground leading-relaxed">
+                    <p className="text-muted-foreground leading-relaxed text-sm h-20 overflow-hidden">
                       {service.desc}
                     </p>
                     <ul className="space-y-2">
