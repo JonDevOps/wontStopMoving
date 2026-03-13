@@ -20,7 +20,7 @@ export default function LongDistanceMovingPage() {
   const features = [
     {
       title: "Nationwide Fleet",
-      desc: "Our 26-foot national fleet is optimized for long-haul stability with air-ride suspension systems.",
+      desc: "Our national fleet is optimized for long-haul stability with air-ride suspension systems.",
       icon: Truck
     },
     {
