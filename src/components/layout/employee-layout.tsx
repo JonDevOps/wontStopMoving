@@ -49,9 +49,13 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
       router.replace("/login");
     }
     if (!isProfileLoading && profile) {
+      // Logic for Phase 5: Kick users out of unauthorized dashboards
       if (isAdmin && profile.role !== 'admin') {
-        router.replace("/dashboard/customer");
+        // Kick non-admins out of admin portal
+        if (profile.role === 'employee') router.replace("/dashboard/employee");
+        else router.replace("/dashboard/customer");
       } else if (!isAdmin && profile.role !== 'employee' && profile.role !== 'admin') {
+        // Kick non-employees out of employee portal
         router.replace("/dashboard/customer");
       }
     }
@@ -79,10 +83,18 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
 
   const currentNav = isAdmin ? adminNav : employeeNav;
 
-  if (isUserLoading || isProfileLoading) {
+  // Security Gate: Ensure role is verified before showing any content
+  const isAuthorized = !isProfileLoading && (
+    (isAdmin && profile?.role === 'admin') || 
+    (!isAdmin && (profile?.role === 'employee' || profile?.role === 'admin'))
+  );
+
+  if (isUserLoading || isProfileLoading || !isAuthorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse font-black text-primary uppercase tracking-tighter">Initializing Session...</div>
+        <div className="animate-pulse font-black text-primary uppercase tracking-tighter">
+          {isProfileLoading ? "Verifying Credentials..." : "Access Denied. Redirecting..."}
+        </div>
       </div>
     );
   }
@@ -96,7 +108,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
             <div className="bg-accent text-white p-2 rounded-lg">
               <Truck className="h-5 w-5" />
             </div>
-            <span className="text-lg font-headline font-black uppercase tracking-tighter">
+            <span className="text-lg font-headline font-black uppercase tracking-tighter text-white">
               Wont Stop <span className="text-accent">Moving</span>
             </span>
           </Link>
@@ -174,7 +186,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
             <div className="p-8 flex items-center justify-between">
               <Link href="/" className="flex items-center gap-2">
                 <Truck className="h-6 w-6 text-accent" />
-                <span className="text-xl font-headline font-black tracking-tighter">WONT STOP</span>
+                <span className="text-xl font-headline font-black tracking-tighter text-white">WONT STOP</span>
               </Link>
               <button onClick={() => setMobileOpen(false)}><X className="h-6 w-6" /></button>
             </div>

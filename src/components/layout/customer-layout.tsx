@@ -45,8 +45,13 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
     if (!isUserLoading && !user) {
       router.replace("/login");
     }
-    if (!isProfileLoading && profile && profile.role !== 'customer' && profile.role !== 'admin') {
-      router.replace("/dashboard/employee");
+    if (!isProfileLoading && profile) {
+      // If employee/admin tries to see customer dashboard, it's allowed,
+      // but if a user has NO profile or an invalid role, we should be careful.
+      // For now, we kick employees to their own dashboard to maintain "lanes".
+      if (profile.role === 'employee') {
+        router.replace("/dashboard/employee");
+      }
     }
   }, [user, isUserLoading, profile, isProfileLoading, router]);
 
@@ -62,10 +67,15 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
     { label: "Profile", href: "/dashboard/customer/profile", icon: User },
   ];
 
-  if (isUserLoading || isProfileLoading) {
+  // Prevent flash of content during role check
+  const isAuthorized = !isProfileLoading && (profile?.role === 'customer' || profile?.role === 'admin');
+
+  if (isUserLoading || isProfileLoading || !isAuthorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse font-black text-primary uppercase tracking-tighter">Initializing Session...</div>
+        <div className="animate-pulse font-black text-primary uppercase tracking-tighter">
+          {isProfileLoading ? "Verifying Profile..." : "Checking Permissions..."}
+        </div>
       </div>
     );
   }
