@@ -32,6 +32,12 @@ const generateMonthPosts = (year: number, monthName: string, monthIndex: number)
   });
 };
 
+const posts2026: BlogPost[] = [
+  ...generateMonthPosts(2026, "March", 2),
+  ...generateMonthPosts(2026, "February", 1),
+  ...generateMonthPosts(2026, "January", 0),
+];
+
 const posts2025: BlogPost[] = [
   ...generateMonthPosts(2025, "December", 11),
   ...generateMonthPosts(2025, "November", 10),
@@ -62,4 +68,4 @@ const posts2024: BlogPost[] = [
   ...generateMonthPosts(2024, "January", 0),
 ];
 
-export const BLOG_POSTS: BlogPost[] = [...posts2025, ...posts2024];
+export const BLOG_POSTS: BlogPost[] = [...posts2026, ...posts2025, ...posts2024];
