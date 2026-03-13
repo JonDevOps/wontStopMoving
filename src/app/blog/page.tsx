@@ -52,6 +52,18 @@ export default function BlogListingPage() {
     setCurrentPage(1); // Reset to first page on filter change
   };
 
+  // Logic for limiting visible page numbers to a window of 10
+  const maxVisiblePages = 10;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  let endPage = startPage + maxVisiblePages - 1;
+
+  if (endPage > totalPages) {
+    endPage = totalPages;
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  const visiblePages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+
   return (
     <PublicLayout>
       <div className="flex flex-col min-h-screen">
@@ -170,17 +182,17 @@ export default function BlogListingPage() {
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
                 <div className="flex gap-2">
-                  {Array.from({ length: totalPages }).map((_, i) => (
+                  {visiblePages.map((pageNum) => (
                     <Button 
-                      key={i}
-                      variant={currentPage === i + 1 ? "default" : "outline"}
-                      onClick={() => setCurrentPage(i + 1)}
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      onClick={() => setCurrentPage(pageNum)}
                       className={cn(
                         "rounded-full h-12 w-12 font-black border-gray-200",
-                        currentPage === i + 1 ? "bg-primary text-white" : "text-primary hover:border-accent hover:text-accent"
+                        currentPage === pageNum ? "bg-primary text-white" : "text-primary hover:border-accent hover:text-accent"
                       )}
                     >
-                      {i + 1}
+                      {pageNum}
                     </Button>
                   ))}
                 </div>
