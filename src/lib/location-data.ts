@@ -11,9 +11,14 @@ export const ALASKA_CITIES = [
   "Anchor Point", "Anchorage", "Chugiak", "Cordova", "Craig", "Delta Junction", "Eagle River", "Fairbanks", "Glennallen", "Haines", "Homer", "Juneau", "Kenai", "Ketchikan", "Kodiak", "Nenana", "North Pole", "Palmer", "Petersburg", "Seward", "Sitka", "Soldotna", "Tok", "Wasilla", "Willow", "Wrangell"
 ].sort();
 
+export const ALBERTA_CITIES = [
+  "Acheson", "Airdrie", "Alberta", "Alberta Beach", "Alix", "Andrew", "Ardrossan", "Balzac", "Barrhead", "Bashaw", "Bassano", "Beaumont", "Black Diamond", "Blackfalds", "Bonnyville", "Boyle", "Brooks", "Calgary", "Camrose", "Cardston", "Carseland", "Castor", "Chestermere", "Chipman", "Cochrane", "Cold Lake", "Coleman", "Crossfield", "Darwell", "Daysland", "Dead Mans Flats", "Devon", "Didsbury", "Drayton Valley", "Drumheller", "Edmonton", "Edson", "Fairview", "Foothills", "Fort Mcmurray", "Fort Saskatchewan", "Fort Vermilion", "Gainford", "Gibbons", "Grande Cache", "Grande Prairie", "Hanna", "High Level", "High Prairie", "High River", "Hinton", "Hythe", "Innisfail", "Irricana", "La Crete", "Lac La Biche", "Lacombe", "Lacombe County", "Lamont County", "Lancaster Park", "Langdon", "Leduc", "Leduc County", "Legal", "Lethbridge", "Linden", "Lloydminster", "Longview", "Mayerthorpe", "Medicine Hat", "Millet", "Morrin", "Nanton", "Nisku", "Okotoks", "Olds", "Parkland County", "Peace River", "Ponoka", "Provost", "Raymond", "Red Deer", "Redcliff", "Redwater", "Rocky Mountain House", "Saint Paul", "Sangudo", "Sedgewick", "Sexsmith", "Sherwood Park", "Slave Lake", "Smoky Lake", "Spruce Grove", "St Albert", "Stettler", "Stony Plain", "Strathmore", "Sturgeon County", "Sundre", "Sylvan Lake", "Taber", "Torrington", "Trochu", "Two Hills", "Valleyview", "Vegreville", "Veteran", "Viking", "Vilna", "Wabamun", "Wainwright", "Westlock", "Wetaskiwin", "Whitecourt"
+].sort();
+
 export const CITIES_BY_STATE: Record<string, string[]> = {
   alabama: ALABAMA_CITIES,
   alaska: ALASKA_CITIES,
+  alberta: ALBERTA_CITIES,
 };
 
 export const slugify = (text: string) => {
