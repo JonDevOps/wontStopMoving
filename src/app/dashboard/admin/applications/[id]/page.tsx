@@ -2,28 +2,61 @@
 "use client";
 
 import { useDoc, useFirestore } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Sparkles, Mail, Phone, MapPin, Briefcase, FileText } from "lucide-react";
+import { ArrowLeft, Sparkles, Mail, Phone, MapPin, Briefcase, FileText, CheckCircle, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useState, use } from "react";
 import { aiApplicationSummarizer, type ApplicationSummarizerOutput } from "@/ai/flows/ai-application-summarizer";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ApplicationReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { toast } = useToast();
   const firestore = useFirestore();
   const { data: application, isLoading } = useDoc(doc(firestore, "applications", id));
+  
   const [aiSummary, setAiSummary] = useState<ApplicationSummarizerOutput | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleUpdateStatus = async (newStatus: 'active' | 'rejected' | 'new') => {
+    if (!application || !application.userId) return;
+    setIsProcessing(true);
+    try {
+      // 1. Update the Application record
+      await updateDoc(doc(firestore, "applications", id), {
+        status: newStatus === 'active' ? 'approved' : newStatus
+      });
+
+      // 2. Update the Employee Profile status
+      await updateDoc(doc(firestore, "employees", application.userId), {
+        status: newStatus
+      });
+
+      toast({
+        title: "Status Updated",
+        description: `Candidate status has been set to ${newStatus}.`,
+      });
+    } catch (error: any) {
+      console.error("Status Update Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update candidate status.",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleSummarize = async () => {
     if (!application) return;
     setIsSummarizing(true);
     try {
-      // In a real app, you would fetch the actual base64 data of the resume PDF
       const result = await aiApplicationSummarizer({
         applicationText: JSON.stringify(application),
         resumeDataUri: "data:application/pdf;base64,JVBERi0xLjQKJ..." // Placeholder
@@ -53,10 +86,18 @@ export default function ApplicationReviewPage({ params }: { params: Promise<{ id
             </div>
             <div>
               <h1 className="text-3xl font-black text-primary uppercase">{application.name}</h1>
-              <p className="text-muted-foreground flex items-center gap-2">
-                <Badge variant="outline" className="uppercase">{application.status}</Badge>
-                {application.state} • {application.experience} Years Experience
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge 
+                  className={
+                    application.status === 'approved' ? "bg-green-500 hover:bg-green-500" : 
+                    application.status === 'rejected' ? "bg-red-500 hover:bg-red-500" : 
+                    "bg-orange-500 hover:bg-orange-500"
+                  }
+                >
+                  {application.status}
+                </Badge>
+                <span className="text-sm text-muted-foreground">{application.state} • {application.experience} Years Experience</span>
+              </div>
             </div>
           </div>
           <div className="flex gap-3">
@@ -68,7 +109,7 @@ export default function ApplicationReviewPage({ params }: { params: Promise<{ id
               <Sparkles className="h-4 w-4" />
               {isSummarizing ? "Analyzing..." : "AI Review"}
             </Button>
-            <Button className="bg-primary rounded-full px-6 font-bold">Contact Candidate</Button>
+            <Button variant="outline" className="rounded-full px-6 font-bold border-primary text-primary">Contact Candidate</Button>
           </div>
         </header>
 
@@ -175,9 +216,35 @@ export default function ApplicationReviewPage({ params }: { params: Promise<{ id
                 <CardTitle className="text-xs font-black tracking-widest uppercase text-primary">ADMIN ACTIONS</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button className="w-full bg-green-500 hover:bg-green-600 rounded-xl font-bold h-12 uppercase text-xs">Approve for Interview</Button>
-                <Button variant="outline" className="w-full rounded-xl font-bold h-12 uppercase text-xs">Request More Info</Button>
-                <Button variant="ghost" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xl font-bold h-12 uppercase text-xs">Reject Application</Button>
+                <Button 
+                  onClick={() => handleUpdateStatus('active')}
+                  disabled={isProcessing || application.status === 'approved'}
+                  className="w-full bg-green-500 hover:bg-green-600 rounded-xl font-bold h-12 uppercase text-xs flex items-center gap-2"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  {isProcessing ? "Processing..." : "Approve & Activate"}
+                </Button>
+                
+                <Button 
+                  onClick={() => handleUpdateStatus('rejected')}
+                  disabled={isProcessing || application.status === 'rejected'}
+                  variant="ghost" 
+                  className="w-full text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl font-bold h-12 uppercase text-xs flex items-center gap-2"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Reject Application
+                </Button>
+
+                {application.status !== 'new' && (
+                  <Button 
+                    onClick={() => handleUpdateStatus('new')}
+                    disabled={isProcessing}
+                    variant="link" 
+                    className="w-full text-muted-foreground text-[10px] uppercase font-bold"
+                  >
+                    Reset to Pending
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
