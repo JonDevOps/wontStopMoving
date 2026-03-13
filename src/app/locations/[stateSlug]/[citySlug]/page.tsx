@@ -1,4 +1,3 @@
-
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
 import { MapPin, ArrowLeft, Truck, ShieldCheck, Clock } from 'lucide-react';
@@ -34,7 +33,7 @@ export default async function CityPage({ params }: { params: Promise<{ stateSlug
                 <MapPin className="h-3 w-3 fill-current" />
                 Local Service Center
               </div>
-              <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-primary uppercase tracking-tighter leading-[0.9] break-words">
+              <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-primary uppercase tracking-tighter leading-[0.9] break-words">
                 {cityName}, <br className="sm:hidden" /> <span className="text-accent">{stateName}</span>
               </h1>
               <p className="text-xl md:text-2xl font-bold text-primary/80 max-w-2xl mx-auto leading-relaxed">

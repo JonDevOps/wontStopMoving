@@ -1,4 +1,3 @@
-
 "use client";
 
 import { PublicLayout } from '@/components/layout/public-layout';
@@ -11,6 +10,15 @@ import { useState, use } from 'react';
 const ALABAMA_CITIES = [
   "Abbeville", "Adamsville", "Alabaster", "Albertville", "Alexander City", "Alexandria", "Alpine", "Altoona", "Andalusia", "Anniston", "Arab", "Ardmore", "Ariton", "Arley", "Ashford", "Ashland", "Athens", "Atmore", "Attalla", "Auburn", "Bay Minette", "Beatrice", "Berry", "Bessemer", "Birmingham", "Blountsville", "Boaz", "Brantley", "Bremen", "Brent", "Brewton", "Bridgeport", "Brookwood", "Brownsboro", "Brundidge", "Calera", "Carrollton", "Cedar Bluff", "Centre", "Chelsea", "Cherokee", "Chickasaw", "Childersburg", "Citronelle", "Clanton", "Clayton", "Cleveland", "Coffeeville", "Cottondale", "Cottonwood", "Cowarts", "Cropwell", "Crossville", "Cuba", "Cullman", "Cusseta", "Dadeville", "Daleville", "Daphne", "Dawson", "Decatur", "Demopolis", "Dothan", "Douglas", "Eastaboga", "Eclectic", "Eight Mile", "Elba", "Elberta", "Elmore", "Enterprise", "Eufaula", "Eutaw", "Eva", "Evergreen", "Fairhope", "Falkville", "Fayette", "Flomaton", "Florala", "Florence", "Foley", "Forestdale", "Fort Deposit", "Fort Mitchell", "Fort Payne", "Fultondale", "Fyffe", "Gadsden", "Gardendale", "Geneva", "Georgiana", "Gordo", "Grand Bay", "Grant", "Graysville", "Greensboro", "Greenville", "Grove Hill", "Gulf Shores", "Guntersville", "Haleyville", "Hamilton", "Hanceville", "Harpersville", "Hartford", "Hartselle", "Harvest", "Hatchechubbee", "Hazel Green", "Headland", "Heflin", "Helena", "Henagar", "Highland Home", "Holly Pond", "Hollywood", "Hoover", "Hueytown", "Huntsville", "Irondale", "Irvington", "Jacksons Gap", "Jacksonville", "Jasper", "Jemison", "Killen", "Laceys Spring", "Lafayette", "Lanett", "Leeds", "Leesburg", "Leroy", "Lexington", "Lillian", "Lineville", "Livingston", "Louisville", "Loxley", "Madison", "Marion", "Maylene", "Mc Calla", "Mc Kenzie", "Meridianville", "Midfield", "Midland City", "Millbrook", "Mobile", "Monroeville", "Montevallo", "Montgomery", "Moody", "Moulton", "Mount Olive", "Mount Vernon", "Munford", "Muscle Shoals", "Nauvoo", "New Hope", "New Market", "Newton", "Newville", "Northport", "Oak Grove", "Odenville", "Oneonta", "Opelika", "Opp", "Orange Beach", "Owens Cross Roads", "Owens Crossroads", "Oxford", "Ozark", "Pansey", "Pelham", "Pell City", "Peterman", "Phenix", "Phenix City", "Phil Campbell", "Piedmont", "Pinson", "Prattville", "Rainbow City", "Remlap", "Roanoke", "Robertsdale", "Rogersville", "Russellville", "Rutledge", "Salem", "Samson", "Sand Rock", "Saraland", "Satsuma", "Scottsboro", "Selma", "Semmes", "Sheffield", "Shelby", "Slocomb", "Smiths Station", "Snead", "Somerville", "Southside", "Spanish Fort", "Springville", "Steele", "Sterrett", "Sumiton", "Sweet Water", "Sylacauga", "Sylvan Springs", "Talladega", "Tallassee", "Tanner", "Theodore", "Toney", "Town Creek", "Trafford", "Trinity", "Troy", "Trussville", "Tuscaloosa", "Tuscumbia", "Tuskegee", "Union Springs", "Valley", "Vernon", "Vestavia Hills", "Vinemont", "Wadley", "Warrior", "Weaver", "Wedowee", "West Blocton", "Wetumpka", "Wilmer", "Winfield", "Woodstock", "York"
 ].sort();
+
+const ALASKA_CITIES = [
+  "Anchor Point", "Anchorage", "Chugiak", "Cordova", "Craig", "Delta Junction", "Eagle River", "Fairbanks", "Glennallen", "Haines", "Homer", "Juneau", "Kenai", "Ketchikan", "Kodiak", "Nenana", "North Pole", "Palmer", "Petersburg", "Seward", "Sitka", "Soldotna", "Tok", "Wasilla", "Willow", "Wrangell"
+].sort();
+
+const CITIES_BY_STATE: Record<string, string[]> = {
+  alabama: ALABAMA_CITIES,
+  alaska: ALASKA_CITIES,
+};
 
 export default function StatePage({ params }: { params: Promise<{ stateSlug: string }> }) {
   const { stateSlug } = use(params);
@@ -28,11 +36,8 @@ export default function StatePage({ params }: { params: Promise<{ stateSlug: str
   };
 
   const stateName = formatTitle(stateSlug);
-  const isAlabama = stateSlug.toLowerCase() === 'alabama';
-
-  const filteredCities = isAlabama 
-    ? ALABAMA_CITIES.filter(city => city.toLowerCase().includes(search.toLowerCase()))
-    : [];
+  const cities = CITIES_BY_STATE[stateSlug.toLowerCase()] || [];
+  const filteredCities = cities.filter(city => city.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <PublicLayout>
@@ -73,7 +78,7 @@ export default function StatePage({ params }: { params: Promise<{ stateSlug: str
                 />
               </div>
 
-              {isAlabama && (
+              {cities.length > 0 ? (
                 <div className="space-y-8">
                   <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
                     <Globe className="h-6 w-6 text-accent" />
@@ -101,9 +106,7 @@ export default function StatePage({ params }: { params: Promise<{ stateSlug: str
                     </div>
                   )}
                 </div>
-              )}
-              
-              {!isAlabama && !search && (
+              ) : (
                 <div className="pt-4 flex flex-col sm:flex-row gap-4 justify-center">
                   <Button asChild size="lg" className="rounded-full bg-primary hover:bg-primary/90 px-8 h-14 text-white font-bold uppercase tracking-wider">
                     <Link href="/quote">Request Quote</Link>
