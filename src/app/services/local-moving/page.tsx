@@ -49,7 +49,7 @@ export default function LocalMovingPage() {
                 Expert Local Logistics
               </div>
               <h1 className="text-5xl md:text-7xl font-black mb-6 uppercase tracking-tighter">
-                MOVING YOUR <span className="text-accent">NEIGHBORHOOD</span>
+                YOUR LOCAL <span className="text-accent">MOVERS</span>
               </h1>
               <p className="text-xl opacity-80 mb-10 leading-relaxed">
                 Stress-free relocation within your city or state. Wont Stop Moving provides the precision of a national logistics powerhouse with the care of a local neighbor.
