@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Truck, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PublicLayout } from "@/components/layout/public-layout";
@@ -18,6 +18,7 @@ import { useAuth, useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { ALL_LOCATIONS } from "@/lib/location-data";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name required"),
@@ -100,17 +101,17 @@ export default function SignupPage() {
                 {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
+                <Label htmlFor="state">State / Province</Label>
                 <Select onValueChange={(val) => setValue("state", val)}>
                   <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Select your state" />
+                    <SelectValue placeholder="Select your region" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="TX">Texas</SelectItem>
-                    <SelectItem value="NY">New York</SelectItem>
-                    <SelectItem value="CA">California</SelectItem>
-                    <SelectItem value="FL">Florida</SelectItem>
-                    <SelectItem value="PR">Puerto Rico</SelectItem>
+                    {ALL_LOCATIONS.map((location) => (
+                      <SelectItem key={location} value={location}>
+                        {location}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 {errors.state && <p className="text-xs text-destructive">{errors.state.message}</p>}
