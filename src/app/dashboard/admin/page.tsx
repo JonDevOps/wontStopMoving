@@ -13,7 +13,7 @@ import { format } from "date-fns";
 export default function AdminDashboard() {
   const firestore = useFirestore();
 
-  // Fetch real applications from Firestore
+  // Fetch real applications from Firestore for the overview
   const appsQuery = useMemoFirebase(() => {
     return query(collection(firestore, "applications"), orderBy("createdAt", "desc"), limit(5));
   }, [firestore]);
@@ -57,30 +57,30 @@ export default function AdminDashboard() {
         <div className="grid lg:grid-cols-3 gap-8">
           <Card className="lg:col-span-2 border-none shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>RECENT APPLICATIONS</CardTitle>
+              <CardTitle className="text-sm font-black tracking-widest uppercase">RECENT APPLICATIONS</CardTitle>
               <Link href="/dashboard/admin/careers" className="text-xs font-bold text-accent hover:underline">View All</Link>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {isLoading ? (
-                  <div className="p-8 text-center text-muted-foreground">Loading applications...</div>
+                  <div className="p-8 text-center text-muted-foreground animate-pulse">Scanning database...</div>
                 ) : applications && applications.length > 0 ? (
                   applications.map((app) => (
                     <Link key={app.id} href={`/dashboard/admin/applications/${app.id}`}>
-                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group mb-4">
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group mb-2 border border-transparent hover:border-accent/20">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold">
                             {app.name?.[0] || "?"}
                           </div>
                           <div>
                             <p className="font-bold text-primary">{app.name}</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">
                               {app.state} • {app.experience} Years Exp • {app.createdAt ? format(app.createdAt.toDate(), "MMM d") : "Just now"}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-orange-100 text-orange-600`}>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${app.status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
                             {app.status}
                           </span>
                           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-accent transition-colors" />
@@ -89,8 +89,10 @@ export default function AdminDashboard() {
                     </Link>
                   ))
                 ) : (
-                  <div className="p-8 text-center text-muted-foreground border-2 border-dashed rounded-xl">
-                    No applications received yet.
+                  <div className="p-12 text-center border-2 border-dashed rounded-2xl">
+                    <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm font-bold text-primary">No applications received yet.</p>
+                    <p className="text-xs text-muted-foreground">New applicant profiles will appear here.</p>
                   </div>
                 )}
               </div>
@@ -99,7 +101,7 @@ export default function AdminDashboard() {
 
           <Card className="border-none shadow-sm">
             <CardHeader>
-              <CardTitle>REGIONAL QUOTAS</CardTitle>
+              <CardTitle className="text-sm font-black tracking-widest uppercase">REGIONAL CAPACITY</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {[
@@ -109,11 +111,11 @@ export default function AdminDashboard() {
                 { state: "Puerto Rico", capacity: 25 },
               ].map((region, i) => (
                 <div key={i} className="space-y-2">
-                  <div className="flex justify-between text-xs font-bold uppercase">
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
                     <span>{region.state}</span>
                     <span className="text-accent">{region.capacity}%</span>
                   </div>
-                  <Progress value={region.capacity} className="h-2" />
+                  <Progress value={region.capacity} className="h-1.5" />
                 </div>
               ))}
             </CardContent>

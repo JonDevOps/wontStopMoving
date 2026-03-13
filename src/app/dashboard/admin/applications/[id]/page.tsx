@@ -24,7 +24,15 @@ export default function ApplicationReviewPage({ params }: { params: Promise<{ id
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleUpdateStatus = async (newStatus: 'active' | 'rejected' | 'new') => {
-    if (!application || !application.userId) return;
+    if (!application || !application.userId) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Candidate account link not found.",
+      });
+      return;
+    }
+    
     setIsProcessing(true);
     try {
       // 1. Update the Application record
@@ -32,21 +40,21 @@ export default function ApplicationReviewPage({ params }: { params: Promise<{ id
         status: newStatus === 'active' ? 'approved' : newStatus
       });
 
-      // 2. Update the Employee Profile status
+      // 2. Update the Employee Profile status (The "Switch")
       await updateDoc(doc(firestore, "employees", application.userId), {
         status: newStatus
       });
 
       toast({
         title: "Status Updated",
-        description: `Candidate status has been set to ${newStatus}.`,
+        description: `Candidate status has been set to ${newStatus}. Their dashboard has been updated.`,
       });
     } catch (error: any) {
       console.error("Status Update Error:", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to update candidate status.",
+        title: "Update Failed",
+        description: "You may not have permission to perform this action.",
       });
     } finally {
       setIsProcessing(false);
@@ -69,8 +77,8 @@ export default function ApplicationReviewPage({ params }: { params: Promise<{ id
     }
   };
 
-  if (isLoading) return <EmployeeLayout isAdmin><div className="p-20 text-center">Loading Application...</div></EmployeeLayout>;
-  if (!application) return <EmployeeLayout isAdmin><div className="p-20 text-center">Application not found.</div></EmployeeLayout>;
+  if (isLoading) return <EmployeeLayout isAdmin><div className="p-20 text-center font-bold text-primary animate-pulse uppercase tracking-widest">Loading Application...</div></EmployeeLayout>;
+  if (!application) return <EmployeeLayout isAdmin><div className="p-20 text-center font-bold text-red-500 uppercase tracking-widest">Application not found.</div></EmployeeLayout>;
 
   return (
     <EmployeeLayout isAdmin>
@@ -146,7 +154,7 @@ export default function ApplicationReviewPage({ params }: { params: Promise<{ id
 
             <Card className="border-none shadow-sm">
               <CardHeader>
-                <CardTitle className="text-sm font-black tracking-widest uppercase">Contact Information</CardTitle>
+                <CardTitle className="text-sm font-black tracking-widest uppercase text-muted-foreground">Candidate Data</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-6">
                 <div className="flex items-center gap-3">
@@ -182,7 +190,7 @@ export default function ApplicationReviewPage({ params }: { params: Promise<{ id
 
             <Card className="border-none shadow-sm">
               <CardHeader>
-                <CardTitle className="text-sm font-black tracking-widest uppercase">Experience Details</CardTitle>
+                <CardTitle className="text-sm font-black tracking-widest uppercase text-muted-foreground">Experience Details</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-primary leading-relaxed whitespace-pre-wrap bg-gray-50 p-6 rounded-2xl border border-gray-100 italic">
@@ -211,7 +219,7 @@ export default function ApplicationReviewPage({ params }: { params: Promise<{ id
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-sm">
+            <Card className="border-none shadow-sm border-t-4 border-accent">
               <CardHeader>
                 <CardTitle className="text-xs font-black tracking-widest uppercase text-primary">ADMIN ACTIONS</CardTitle>
               </CardHeader>
