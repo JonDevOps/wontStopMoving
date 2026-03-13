@@ -1,0 +1,146 @@
+import { PublicLayout } from '@/components/layout/public-layout';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+  Truck, 
+  MapPin, 
+  Warehouse, 
+  Package, 
+  ShieldCheck, 
+  Clock,
+  Briefcase,
+  ChevronRight,
+  ArrowRight
+} from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
+
+export default function ServicesPage() {
+  const mainServices = [
+    {
+      title: "Local Moving",
+      desc: "Stress-free relocation within your city or state. Our local teams know your neighborhood inside and out, ensuring a quick and efficient move.",
+      icon: Truck,
+      features: ["Same-day service available", "Expert packing & unpacking", "Furniture disassembly & assembly"]
+    },
+    {
+      title: "Long Distance",
+      desc: "Crossing state lines or moving across the country? Our nationwide network handles the logistics of your long-haul journey with precision.",
+      icon: MapPin,
+      features: ["Dedicated moving coordinators", "GPS tracking on all trucks", "Full valuation protection"]
+    },
+    {
+      title: "Commercial & Office",
+      desc: "Specialized solutions for businesses of all sizes. We minimize downtime and ensure your workspace is set up exactly as needed.",
+      icon: Briefcase,
+      features: ["IT & equipment handling", "After-hours moving options", "Cubicle installation"]
+    },
+    {
+      title: "Professional Packing",
+      desc: "Let the experts handle the boxes. We use premium materials to protect your most fragile items, from glassware to electronics.",
+      icon: Package,
+      features: ["Custom crating for fine art", "Inventory management", "Eco-friendly materials"]
+    },
+    {
+      title: "Secure Storage",
+      desc: "Short-term or long-term storage in our climate-controlled facilities. Safe, clean, and accessible when you need it.",
+      icon: Warehouse,
+      features: ["24/7 security monitoring", "Climate control", "Flexible monthly terms"]
+    },
+    {
+      title: "Express Moving",
+      desc: "For when time is of the essence. Priority scheduling and dedicated transport for urgent relocation needs.",
+      icon: Clock,
+      features: ["Guaranteed delivery dates", "Direct non-stop transit", "Last-minute availability"]
+    }
+  ];
+
+  return (
+    <PublicLayout>
+      <div className="flex flex-col min-h-screen">
+        {/* Hero Section */}
+        <section className="bg-primary pt-40 pb-24 text-white">
+          <div className="container mx-auto px-4 text-center">
+            <h1 className="text-5xl md:text-7xl font-black mb-6 uppercase tracking-tighter">
+              OUR <span className="text-accent">SERVICES</span>
+            </h1>
+            <p className="text-xl opacity-80 max-w-2xl mx-auto leading-relaxed">
+              From local apartments to nationwide corporate headquarters, we provide a full suite of relocation solutions tailored to your needs.
+            </p>
+            <div className="mt-10">
+              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-12 h-16 text-xl font-bold">
+                <Link href="/quote">Get Your Free Quote</Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* Detailed Services Grid */}
+        <section className="py-24 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {mainServices.map((service, i) => (
+                <Card key={i} className="border-none shadow-sm hover:shadow-xl transition-all group overflow-hidden">
+                  <div className="h-48 relative overflow-hidden">
+                    <Image 
+                      src={`https://picsum.photos/seed/service${i}/800/400`}
+                      alt={service.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-primary/40 group-hover:bg-primary/20 transition-colors" />
+                    <div className="absolute top-6 left-6 bg-white p-3 rounded-xl text-primary shadow-lg">
+                      <service.icon className="h-6 w-6" />
+                    </div>
+                  </div>
+                  <CardHeader>
+                    <CardTitle className="text-2xl font-black text-primary uppercase">{service.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <p className="text-muted-foreground leading-relaxed">
+                      {service.desc}
+                    </p>
+                    <ul className="space-y-2">
+                      {service.features.map((feature, j) => (
+                        <li key={j} className="flex items-center gap-2 text-sm font-bold text-primary">
+                          <ChevronRight className="h-4 w-4 text-accent" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    <Button variant="ghost" className="p-0 h-auto text-accent font-black hover:bg-transparent hover:text-accent/80 group">
+                      Learn More <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-2 transition-transform" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Protection Section */}
+        <section className="py-24 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto bg-primary text-white p-12 rounded-3xl relative overflow-hidden">
+              <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                <div className="bg-accent p-6 rounded-full h-fit">
+                  <ShieldCheck className="h-12 w-12" />
+                </div>
+                <div className="space-y-4">
+                  <h2 className="text-3xl font-black uppercase">Your Assets, Protected</h2>
+                  <p className="text-white/70 leading-relaxed">
+                    We offer comprehensive valuation protection for every move. From standard liability to full-value replacement coverage, your peace of mind is our top priority. Our teams are fully licensed, bonded, and insured in all 51 service regions.
+                  </p>
+                  <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 rounded-full px-8">
+                    Review Protection Plans
+                  </Button>
+                </div>
+              </div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-accent/10 rounded-full blur-3xl -mr-32 -mt-32" />
+            </div>
+          </div>
+        </section>
+      </div>
+    </PublicLayout>
+  );
+}
