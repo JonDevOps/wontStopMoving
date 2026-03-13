@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -125,7 +126,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 <Link href="/login">Log In</Link>
               </Button>
               <Button asChild className="bg-primary hover:bg-primary/90 rounded-full px-6 font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
-                <Link href="/book">Book Now</Link>
+                <Link href="/signup">Sign Up</Link>
               </Button>
             </div>
 
@@ -195,7 +196,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                             <Link href="/login" onClick={() => setOpen(false)}>Log In to Portal</Link>
                           </Button>
                           <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest text-xs shadow-lg shadow-accent/20">
-                            <Link href="/book" onClick={() => setOpen(false)}>Book Now</Link>
+                            <Link href="/signup" onClick={() => setOpen(false)}>Create Account</Link>
                           </Button>
                         </div>
                       </nav>
