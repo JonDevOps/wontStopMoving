@@ -95,7 +95,7 @@ service cloud.firestore {
      */
     match /inquiries/{inquiryId} {
       allow get, list: if isAdmin();
-      allow create: if true;
+      allow create: if true; 
       allow update, delete: if isAdmin();
     }
 

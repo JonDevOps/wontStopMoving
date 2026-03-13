@@ -53,10 +53,10 @@ export default function CustomerDashboard() {
             <p className="text-muted-foreground">Manage your upcoming relocations and service requests</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button asChild variant="outline" className="rounded-full border-accent text-accent hover:bg-accent hover:text-white px-8 h-12 font-bold uppercase tracking-wider transition-all">
+            <Button asChild className="rounded-full bg-accent hover:bg-accent/90 px-8 h-12 font-bold uppercase tracking-wider shadow-lg shadow-accent/20 transition-all">
               <Link href="/book">Book a Move</Link>
             </Button>
-            <Button asChild className="rounded-full bg-accent hover:bg-accent/90 px-8 h-12 font-bold uppercase tracking-wider shadow-lg shadow-accent/20 transition-all">
+            <Button asChild variant="outline" className="rounded-full border-accent text-accent hover:bg-accent hover:text-white px-8 h-12 font-bold uppercase tracking-wider transition-all">
               <Link href="/quote">Request New Quote</Link>
             </Button>
           </div>
