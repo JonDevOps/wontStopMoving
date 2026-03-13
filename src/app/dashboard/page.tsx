@@ -8,8 +8,8 @@ export default function DashboardRootRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    // Phase 1: Simple redirect to login. 
-    // Phase 2: This will become the role-based router after session check.
+    // Standard landing page for authenticated users who hit /dashboard directly.
+    // They should be sent to login which will resolve their role.
     router.replace("/login");
   }, [router]);
 

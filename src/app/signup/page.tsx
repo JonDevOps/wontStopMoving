@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Truck, UserPlus, ArrowRight } from "lucide-react";
+import { Truck, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PublicLayout } from "@/components/layout/public-layout";
@@ -46,10 +46,8 @@ export default function SignupPage() {
       const user = userCredential.user;
 
       // Create User Profile in Firestore
-      // Using setDoc here - non-blocking not strictly required for auth-dependent initialization
-      // but we follow the pattern by proceeding to redirect immediately after starting the write
       const userRef = doc(firestore, "users", user.uid);
-      setDoc(userRef, {
+      await setDoc(userRef, {
         id: user.uid,
         email: data.email,
         name: data.name,

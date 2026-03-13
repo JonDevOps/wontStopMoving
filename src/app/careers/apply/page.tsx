@@ -55,7 +55,7 @@ export default function ApplicationPage() {
 
       // 2. Create User Profile
       const userRef = doc(firestore, "users", user.uid);
-      setDoc(userRef, {
+      await setDoc(userRef, {
         id: user.uid,
         email: data.email,
         name: data.fullName,
@@ -66,7 +66,7 @@ export default function ApplicationPage() {
 
       // 3. Create Employee Profile (Training/Applicant Status)
       const employeeRef = doc(firestore, "employees", user.uid);
-      setDoc(employeeRef, {
+      await setDoc(employeeRef, {
         id: user.uid,
         userId: user.uid,
         employeeId: `EMP-${Math.floor(Math.random() * 90000) + 10000}`,
@@ -79,7 +79,7 @@ export default function ApplicationPage() {
 
       // 4. Create Application Document
       const applicationRef = doc(collection(firestore, "applications"));
-      setDoc(applicationRef, {
+      await setDoc(applicationRef, {
         id: applicationRef.id,
         userId: user.uid,
         name: data.fullName,
@@ -93,7 +93,6 @@ export default function ApplicationPage() {
       });
 
       setSubmitted(true);
-      // Automatically redirect to the applicant version of the dashboard
       setTimeout(() => {
         router.push('/dashboard/employee');
       }, 3000);
