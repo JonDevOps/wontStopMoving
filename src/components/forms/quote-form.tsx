@@ -10,7 +10,22 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Truck, MapPin, Package, User, ChevronRight, ChevronLeft, Check } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  Truck, 
+  MapPin, 
+  Package, 
+  User, 
+  ChevronRight, 
+  ChevronLeft, 
+  Check, 
+  Sparkles,
+  ShieldCheck,
+  Trash2,
+  Wrench,
+  Warehouse,
+  Zap
+} from "lucide-react";
 import { useFirestore, addDocumentNonBlocking } from "@/firebase";
 import { collection, serverTimestamp } from "firebase/firestore";
 
@@ -20,6 +35,15 @@ const formSchema = z.object({
   moveDate: z.string().min(1, "Select a date"),
   moveSize: z.string().min(1, "Select move size"),
   specialItems: z.string().optional(),
+  // Add-ons
+  packingService: z.boolean().default(false),
+  cratingService: z.boolean().default(false),
+  cleaningService: z.boolean().default(false),
+  junkRemoval: z.boolean().default(false),
+  assemblyService: z.boolean().default(false),
+  storageService: z.boolean().default(false),
+  expressMoving: z.boolean().default(false),
+  // Contact
   name: z.string().min(2, "Name required"),
   email: z.string().email("Invalid email"),
   phone: z.string().min(10, "Invalid phone"),
@@ -29,13 +53,20 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function QuoteForm() {
   const [step, setStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 5;
   const firestore = useFirestore();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       moveSize: "1br",
+      packingService: false,
+      cratingService: false,
+      cleaningService: false,
+      junkRemoval: false,
+      assemblyService: false,
+      storageService: false,
+      expressMoving: false,
     }
   });
 
@@ -50,10 +81,19 @@ export function QuoteForm() {
         dropoffZip: data.dropoffZip,
         moveDate: data.moveDate,
         moveSize: data.moveSize,
-        specialItems: data.specialItems
+        specialItems: data.specialItems,
+        addOns: {
+          packing: data.packingService,
+          crating: data.cratingService,
+          cleaning: data.cleaningService,
+          junkRemoval: data.junkRemoval,
+          assembly: data.assemblyService,
+          storage: data.storageService,
+          express: data.expressMoving
+        }
       })
     });
-    setStep(5); // Success step
+    setStep(6); // Success step
   };
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, totalSteps));
@@ -61,14 +101,24 @@ export function QuoteForm() {
 
   const progress = (step / totalSteps) * 100;
 
-  if (step === 5) {
+  const addOns = [
+    { id: "packingService", label: "White-Glove Packing", icon: Package, desc: "We wrap and box everything for you." },
+    { id: "cratingService", label: "Specialty Crating", icon: ShieldCheck, desc: "Custom wood crates for high-value items." },
+    { id: "cleaningService", label: "Move-In/Out Cleaning", icon: Sparkles, desc: "Deep cleaning for old or new home." },
+    { id: "junkRemoval", label: "Junk Removal", icon: Trash2, desc: "Dispose of unwanted items before moving." },
+    { id: "assemblyService", label: "Furniture Assembly", icon: Wrench, desc: "TV mounting & furniture setup." },
+    { id: "storageService", label: "Vaulted Storage", icon: Warehouse, desc: "Secure, climate-controlled storage." },
+    { id: "expressMoving", label: "Express Moving", icon: Zap, desc: "Guaranteed fast delivery dates." },
+  ];
+
+  if (step === 6) {
     return (
       <Card className="border-none shadow-2xl bg-white p-12 text-center animate-fade-in">
         <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
           <Check className="h-10 w-10" />
         </div>
         <h2 className="text-3xl font-black text-primary mb-4 uppercase tracking-tighter">Quote Requested!</h2>
-        <p className="text-muted-foreground mb-8">Thank you, {watch("name")}! We've sent a confirmation to {watch("email")}. A moving specialist will contact you shortly.</p>
+        <p className="text-muted-foreground mb-8">Thank you, {watch("name")}! We've sent a confirmation to {watch("email")}. A moving specialist will contact you shortly to finalize your premium moving plan.</p>
         <Button asChild className="bg-primary rounded-full px-8">
           <a href="/">Back to Home</a>
         </Button>
@@ -145,8 +195,44 @@ export function QuoteForm() {
             </div>
           )}
 
-          {/* Step 3: Contact */}
+          {/* Step 3: Add-ons (NEW) */}
           {step === 3 && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-accent/10 p-2 rounded-lg text-accent"><Sparkles className="h-5 w-5" /></div>
+                <h3 className="text-xl font-bold">Premium Add-ons</h3>
+              </div>
+              <p className="text-sm text-muted-foreground mb-6">Select additional services to make your move completely stress-free.</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {addOns.map((addon) => (
+                  <div 
+                    key={addon.id} 
+                    className={`flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${watch(addon.id as any) ? 'bg-accent/5 border-accent shadow-sm' : 'bg-white border-gray-100 hover:border-gray-200'}`}
+                    onClick={() => setValue(addon.id as any, !watch(addon.id as any))}
+                  >
+                    <div className="pt-0.5">
+                      <Checkbox 
+                        id={addon.id} 
+                        checked={watch(addon.id as any)} 
+                        onCheckedChange={(val) => setValue(addon.id as any, val === true)} 
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <addon.icon className={`h-4 w-4 ${watch(addon.id as any) ? 'text-accent' : 'text-muted-foreground'}`} />
+                        <Label htmlFor={addon.id} className="font-bold cursor-pointer text-sm">{addon.label}</Label>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground leading-tight">{addon.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Contact */}
+          {step === 4 && (
             <div className="space-y-6 animate-fade-in">
               <div className="flex items-center gap-3 mb-8">
                 <div className="bg-primary/10 p-2 rounded-lg text-primary"><User className="h-5 w-5" /></div>
@@ -170,8 +256,8 @@ export function QuoteForm() {
             </div>
           )}
 
-          {/* Step 4: Review */}
-          {step === 4 && (
+          {/* Step 5: Review */}
+          {step === 5 && (
             <div className="space-y-6 animate-fade-in">
               <div className="flex items-center gap-3 mb-8">
                 <div className="bg-primary/10 p-2 rounded-lg text-primary"><Package className="h-5 w-5" /></div>
@@ -193,6 +279,18 @@ export function QuoteForm() {
                 <div className="space-y-1">
                   <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Size</p>
                   <p className="font-bold text-primary capitalize">{watch("moveSize")}</p>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Premium Services Selected</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {addOns.filter(a => watch(a.id as any)).length > 0 ? (
+                      addOns.filter(a => watch(a.id as any)).map(a => (
+                        <span key={a.id} className="px-2 py-1 bg-accent/10 text-accent rounded-lg text-[10px] font-bold uppercase">{a.label}</span>
+                      ))
+                    ) : (
+                      <span className="text-xs italic text-muted-foreground">No premium add-ons selected.</span>
+                    )}
+                  </div>
                 </div>
                 <div className="col-span-2 space-y-1">
                   <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Contact</p>
