@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   Truck, 
   LayoutDashboard, 
@@ -15,8 +15,12 @@ import {
   ShieldCheck,
   FileText
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
+import { doc } from "firebase/firestore";
+import { signOut } from "firebase/auth";
+import { useAuth } from "@/firebase";
 
 interface NavItem {
   label: string;
@@ -26,7 +30,37 @@ interface NavItem {
 
 export function EmployeeLayout({ children, isAdmin = false }: { children: React.ReactNode, isAdmin?: boolean }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Role Guarding Logic
+  const userRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user]);
+
+  const { data: profile, isLoading: isProfileLoading } = useDoc(userRef);
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.replace("/login");
+    }
+    if (!isProfileLoading && profile) {
+      if (isAdmin && profile.role !== 'admin') {
+        router.replace("/dashboard/customer");
+      } else if (!isAdmin && profile.role !== 'employee' && profile.role !== 'admin') {
+        router.replace("/dashboard/customer");
+      }
+    }
+  }, [user, isUserLoading, profile, isProfileLoading, isAdmin, router]);
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+    router.push("/login");
+  };
 
   const employeeNav: NavItem[] = [
     { label: "Dashboard", href: "/dashboard/employee", icon: LayoutDashboard },
@@ -44,6 +78,14 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
   ];
 
   const currentNav = isAdmin ? adminNav : employeeNav;
+
+  if (isUserLoading || isProfileLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-pulse font-black text-primary uppercase tracking-tighter">Initializing Session...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -80,7 +122,11 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
         </nav>
 
         <div className="p-6 border-t border-white/10">
-          <Button variant="ghost" className="w-full justify-start text-white/60 hover:text-white hover:bg-white/5 gap-4">
+          <Button 
+            variant="ghost" 
+            onClick={handleSignOut}
+            className="w-full justify-start text-white/60 hover:text-white hover:bg-white/5 gap-4"
+          >
             <LogOut className="h-5 w-5" />
             Sign Out
           </Button>
@@ -98,9 +144,9 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
             >
               <Menu className="h-6 w-6" />
             </button>
-            <div className="hidden sm:block">
-              <span className="text-sm font-bold text-muted-foreground">Current Route / </span>
-              <span className="text-sm font-black text-primary capitalize">{pathname.split('/').pop() || 'Dashboard'}</span>
+            <div className="hidden sm:block text-xs">
+              <span className="font-bold text-muted-foreground">Current Route / </span>
+              <span className="font-black text-primary uppercase">{pathname.split('/').pop() || 'Dashboard'}</span>
             </div>
           </div>
 
@@ -110,7 +156,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
               <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-accent rounded-full border-2 border-white" />
             </Button>
             <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-black">
-              M
+              {profile?.name?.[0] || 'M'}
             </div>
           </div>
         </header>
@@ -146,7 +192,12 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
               ))}
             </nav>
             <div className="p-8">
-              <Button className="w-full bg-white/10 hover:bg-white/20 text-white rounded-xl h-12">Log Out</Button>
+              <Button 
+                onClick={handleSignOut}
+                className="w-full bg-white/10 hover:bg-white/20 text-white rounded-xl h-12"
+              >
+                Log Out
+              </Button>
             </div>
           </aside>
         </div>

@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   Truck, 
   LayoutDashboard, 
@@ -13,8 +13,11 @@ import {
   Menu,
   X
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from "@/firebase";
+import { doc } from "firebase/firestore";
+import { signOut } from "firebase/auth";
 
 interface NavItem {
   label: string;
@@ -24,7 +27,33 @@ interface NavItem {
 
 export function CustomerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Role Guarding Logic
+  const userRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user]);
+
+  const { data: profile, isLoading: isProfileLoading } = useDoc(userRef);
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.replace("/login");
+    }
+    if (!isProfileLoading && profile && profile.role !== 'customer' && profile.role !== 'admin') {
+      router.replace("/dashboard/employee");
+    }
+  }, [user, isUserLoading, profile, isProfileLoading, router]);
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+    router.push("/login");
+  };
 
   const customerNav: NavItem[] = [
     { label: "Overview", href: "/dashboard/customer", icon: LayoutDashboard },
@@ -32,6 +61,14 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
     { label: "My Quotes", href: "/dashboard/customer/quotes", icon: FileText },
     { label: "Profile", href: "/dashboard/customer/profile", icon: User },
   ];
+
+  if (isUserLoading || isProfileLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-pulse font-black text-primary uppercase tracking-tighter">Initializing Session...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -68,7 +105,11 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-6 border-t">
-          <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-primary hover:bg-gray-100 gap-4">
+          <Button 
+            variant="ghost" 
+            onClick={handleSignOut}
+            className="w-full justify-start text-muted-foreground hover:text-primary hover:bg-gray-100 gap-4"
+          >
             <LogOut className="h-5 w-5" />
             Sign Out
           </Button>
@@ -88,7 +129,7 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
             </button>
             <div className="hidden sm:block">
               <span className="text-sm font-bold text-muted-foreground">Welcome back, </span>
-              <span className="text-sm font-black text-primary uppercase">Customer</span>
+              <span className="text-sm font-black text-primary uppercase">{profile?.name || 'Customer'}</span>
             </div>
           </div>
 
@@ -98,7 +139,7 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
               <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-accent rounded-full border-2 border-white" />
             </Button>
             <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-black">
-              C
+              {profile?.name?.[0] || 'C'}
             </div>
           </div>
         </header>
@@ -134,7 +175,7 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
               ))}
             </nav>
             <div className="p-8">
-              <Button className="w-full bg-primary text-white rounded-xl h-12">Log Out</Button>
+              <Button onClick={handleSignOut} className="w-full bg-primary text-white rounded-xl h-12">Log Out</Button>
             </div>
           </aside>
         </div>
