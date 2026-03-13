@@ -135,8 +135,8 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       {/* Footer */}
       <footer className="bg-primary pt-20 pb-10 text-white/60 border-t border-white/10">
         <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-12 mb-16">
-            <div className="col-span-1 md:col-span-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-16">
+            <div className="col-span-1 lg:col-span-1">
               <Link href="/" className="flex items-center gap-2 mb-6 text-white">
                 <Truck className="h-6 w-6 text-accent" />
                 <span className="text-xl font-headline font-black uppercase tracking-tighter">
@@ -147,33 +147,41 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 Redefining the moving experience with technology and transparency. Serving all 50 states and Puerto Rico with unparalleled reliability.
               </p>
             </div>
+            
             <div>
-              <h4 className="text-white font-bold mb-6">Company</h4>
+              <h4 className="text-white font-bold mb-6 text-sm">Quick Links</h4>
               <ul className="space-y-4 text-sm">
-                <li><Link href="/about" className="hover:text-accent transition-colors">About Us</Link></li>
-                <li><Link href="/careers" className="hover:text-accent transition-colors">Careers</Link></li>
-                <li><Link href="/services" className="hover:text-accent transition-colors">Our Services</Link></li>
-                <li><Link href="/press" className="hover:text-accent transition-colors">Press & Media</Link></li>
+                <li><Link href="/services" className="hover:text-accent transition-colors font-bold text-white/90">Services</Link></li>
+                <li><Link href="/services" className="hover:text-accent transition-colors font-bold text-white/90">Types of Moves</Link></li>
+                <li><Link href="/services" className="hover:text-accent transition-colors font-bold text-white/90">Local Moving</Link></li>
               </ul>
             </div>
+
             <div>
-              <h4 className="text-white font-bold mb-6">Support</h4>
+              <h4 className="text-white font-bold mb-6 text-sm">Resources</h4>
               <ul className="space-y-4 text-sm">
-                <li><Link href="/contact" className="hover:text-accent transition-colors">Contact Us</Link></li>
-                <li><Link href="/faq" className="hover:text-accent transition-colors">FAQ</Link></li>
-                <li><Link href="/track" className="hover:text-accent transition-colors">Track Move</Link></li>
-                <li><Link href="/insurance" className="hover:text-accent transition-colors">Insurance Info</Link></li>
+                <li><Link href="#" className="hover:text-accent transition-colors font-bold text-white/90">Blog</Link></li>
+                <li><Link href="/faq" className="hover:text-accent transition-colors font-bold text-white/90">FAQs</Link></li>
+                <li><Link href="/contact" className="hover:text-accent transition-colors font-bold text-white/90">Customer Support</Link></li>
               </ul>
             </div>
+
             <div>
-              <h4 className="text-white font-bold mb-6">Regional Offices</h4>
-              <p className="text-sm leading-relaxed mb-4">
-                Headquarters: 855 Maude Ave, Mountain View CA 94043
-              </p>
-              <p className="text-sm font-bold text-white mb-2">1-800-MOVE-NOW</p>
-              <p className="text-sm">support@wontstopmoving.com</p>
+              <h4 className="text-white font-bold mb-6 text-sm">Connect</h4>
+              <ul className="space-y-4 text-sm">
+                <li><Link href="/careers" className="hover:text-accent transition-colors font-bold text-white/90">Become a Provider</Link></li>
+                <li><Link href="/careers" className="hover:text-accent transition-colors font-bold text-white/90">Refer a Moving Helper</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-white font-bold mb-6 text-sm">Customer Support</h4>
+              <ul className="space-y-4 text-sm">
+                <li><Link href="/contact" className="hover:text-accent transition-colors font-bold text-white/90">Contact Us</Link></li>
+              </ul>
             </div>
           </div>
+          
           <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
             <p>© 2024 Wont Stop Moving Inc. Licensed & Insured DOT #1234567</p>
             <div className="flex gap-6">
