@@ -215,7 +215,7 @@ const detailedPosts: BlogPost[] = [
     image: "blog-home"
   },
 
-  // PAGES 3-5: JANUARY 2026 & LATE 2025 (Previously updated)
+  // PAGES 3-5: JANUARY 2026 & LATE 2025
   {
     slug: "new-year-resolutions-moving-2026",
     title: "New Year, New Home: Moving Resolutions for 2026",
@@ -825,39 +825,215 @@ const detailedPosts: BlogPost[] = [
     date: "Jun 01, 2025",
     readTime: "8 min read",
     image: "blog-newyear"
+  },
+
+  // PAGES 11-12: MAY 2025
+  {
+    slug: "moving-with-newborns-safety-comfort-guide",
+    title: "Moving with Newborns: Safety and Comfort Guide",
+    excerpt: "Relocating with an infant requires a gentle touch. Learn how to manage the transition while keeping your baby happy.",
+    content: "Moving with a newborn in 2025 is a masterclass in prioritization. The key is the 'Last Out, First In' nursery strategy. Your baby's crib, changing table, and white noise machine should be the very last items loaded onto the truck and the first ones unloaded at your new destination. This provides a sense of immediate sensory familiarity in a new environment. Keep a '72-Hour Survival Bag' specifically for the baby, including extra diapers, formula or breast pump supplies, and changes of clothes. During the move, try to stick to your feeding and nap schedule as closely as possible. Our crews are trained to work quietly around sleeping babies, and we can even prioritize the climate control in the nursery during unloading. Remember, a calm parent leads to a calm baby—let us handle the heavy boxes while you focus on the little one.",
+    category: "Family",
+    date: "May 10, 2025",
+    readTime: "7 min read",
+    image: "blog-kids"
+  },
+  {
+    slug: "estate-moving-handling-antiques-valuables",
+    title: "Estate Moving: Handling Antiques and High-Value Assets",
+    excerpt: "Heirlooms require specialized care. Learn the white-glove techniques we use for multi-generational estate moves.",
+    content: "When moving an estate, you aren't just moving furniture; you're moving a legacy. Our specialized estate moving teams utilize high-end crating and archival-grade wrapping materials. For French-polished wood or delicate gilding, we avoid standard plastic wraps that can trap moisture and cause finish damage. Instead, we use breathable micro-fiber pads and custom-built wooden crates. Every item is inventoried with a condition report and high-resolution photography before it leaves the premises. For high-value art collections, we offer climate-monitored transit and secure chain-of-custody protocols. Whether you're moving a single heirloom or a 10,000-square-foot estate, our precision logistics ensure your history remains intact for the next generation.",
+    category: "Packing",
+    date: "May 09, 2025",
+    readTime: "9 min read",
+    image: "blog-fragile"
+  },
+  {
+    slug: "moving-to-new-york-urban-logistics",
+    title: "Moving to New York: Mastering Urban Logistics and Walk-ups",
+    excerpt: "NYC moving is a unique challenge. From alternate-side parking to walk-up logistics, here is how to survive.",
+    content: "Relocating to New York City in 2025 requires a blend of strategy and stamina. Our NYC logistics hub specializes in the 'High-Density Hustle.' Step one: The Permit. We manage the complex sidewalk and parking permits required for our trucks to stage in Manhattan or Brooklyn. For walk-up apartments, we deploy specialized crews trained in vertical logistics—navigating narrow stairwells without damaging walls. For high-rise luxury buildings, we coordinate directly with building managers to reserve service elevators and provide the necessary COI (Certificate of Insurance). We also offer 'Small-Load' solutions for those moving into micro-apartments. New York never stops, and with Wont Stop Moving, your relocation won't either.",
+    category: "Regions",
+    date: "May 08, 2025",
+    readTime: "10 min read",
+    image: "blog-logistics"
+  },
+  {
+    slug: "relocating-for-retirement-scaling-down-comfortably",
+    title: "Relocating for Retirement: Scaling Down Without Sacrifice",
+    excerpt: "Moving into your next chapter? Learn how to downsize efficiently while maintaining your quality of life.",
+    content: "Retirement relocation is about shifting focus from 'Quantity' to 'Quality.' As you transition to a smaller, more manageable home, the first step is a 'Joy and Utility' audit. We recommend the 'Paper Trail' first: digitizing decades of records to save space. For furniture, prioritize pieces that serve multiple purposes—an ottoman with storage is a goldmine in a downsized home. Our teams offer a full-service 'Sort and Move' package, where we can help deliver unwanted items to family members or charities across all 51 regions. We also specialize in the setup of your new home, ensuring your most beloved items are perfectly positioned on day one. Retirement is your time; let us handle the heavy lifting of your transition.",
+    category: "Settling In",
+    date: "May 07, 2025",
+    readTime: "8 min read",
+    image: "blog-home"
+  },
+  {
+    slug: "seasonal-moving-why-may-is-golden",
+    title: "Seasonal Moving: Why May is the 'Golden Month' for Relocation",
+    excerpt: "The sweet spot of the moving season. Discover the cost and climate benefits of a May move.",
+    content: "In the moving industry, May is widely considered the 'Golden Month.' Why? It sits perfectly between the unpredictable winter weather and the extreme summer heat and peak demand. In May, road conditions are generally stable across the 51st region (PR) and the mainland, reducing the risk of transit delays. Pricing is also at a 'Sweet Spot'—it's before the massive summer surge of June and July, meaning you can often lock in lower rates and your first choice of crew leads. For families with children, a May move allows you to settle into your new neighborhood before the school year ends, giving kids a head start on making local friends. Efficiency and economy meet in May.",
+    category: "Planning",
+    date: "May 06, 2025",
+    readTime: "6 min read",
+    image: "blog-newyear"
+  },
+  {
+    slug: "understanding-moving-contracts-legal-guide",
+    title: "Understanding Moving Contracts: A Mover's Legal Guide",
+    excerpt: "Don't sign until you read this. We break down the differences between binding and non-binding estimates.",
+    content: "A moving contract is your primary protection during relocation. There are three main types of estimates: 1. Non-Binding Estimate: The final cost is based on the actual weight of your items and services performed. 2. Binding Estimate: A fixed price for the items and services listed; even if the weight is more, you pay the agreed price. 3. Binding Not-to-Exceed: The best of both worlds—you won't pay more than the estimate, but if the weight is less, you pay less. Wont Stop Moving prioritizes 'Binding Not-to-Exceed' quotes for total transparency. Ensure your contract also lists the agreed-upon delivery window and valuation coverage. Legal clarity is the foundation of a trust-based move.",
+    category: "Finances",
+    date: "May 05, 2025",
+    readTime: "9 min read",
+    image: "blog-budget"
+  },
+  {
+    slug: "packing-wardrobe-closet-to-truck-method",
+    title: "Packing Your Wardrobe: The Closet-to-Truck Method",
+    excerpt: "Save hours of folding and ironing. Learn how to move your entire closet in minutes using professional wardrobe boxes.",
+    content: "The most efficient way to move clothes is to never take them off the hanger. Professional 'Wardrobe Boxes' feature a built-in metal bar, allowing you to move 2-3 feet of closet space directly into a single box. This prevents wrinkling and saves hours of packing and unpacking time. For seasonal items or off-season clothing, use vacuum-sealed bags to minimize volume. Label your wardrobe boxes by season and family member for fast distribution at the new home. Our 'White-Glove' service even includes our team hanging your clothes in your new closet exactly as they were in the old one. Efficiency is in the details.",
+    category: "Packing",
+    date: "May 04, 2025",
+    readTime: "5 min read",
+    image: "blog-packing"
+  },
+  {
+    slug: "home-staging-quick-sale-before-moving",
+    title: "Home Staging: Accelerating Your Sale Before the Move",
+    excerpt: "A staged home sells faster and for more money. Learn the professional tips to prep your house for the market.",
+    content: "Before our trucks arrive, your home needs to shine for potential buyers. Staging is the art of 'Depersonalization.' Remove family photos and unique collectibles to allow buyers to visualize their own life in the space. Focus on the 'Flow': remove excess furniture to make rooms feel larger. Light is your best friend—clean every window and use the highest wattage bulbs safe for your fixtures. If you're overwhelmed by the items you aren't taking, use our 'Pre-Move Vaulted Storage' to clear the clutter while keeping your belongings safe and climate-controlled. A staged home isn't just a house; it's a product.",
+    category: "Efficiency",
+    date: "May 03, 2025",
+    readTime: "7 min read",
+    image: "blog-home"
+  },
+  {
+    slug: "finding-right-school-new-region-guide",
+    title: "Finding the Right School: A Regional Relocation Guide",
+    excerpt: "Your children's education is paramount. Here is how to research and select schools in your new region.",
+    content: "When moving to one of our 51 regions, researching local schools should be a top priority. Use a three-pillar approach: 1. Academic Performance: Review state testing scores and graduation rates. 2. Culture and Fit: Look at the diversity of the student body and available extracurriculars. 3. Proximity: Consider the commute time and school bus routes. We recommend scheduling virtual tours or phone calls with principals at least 8 weeks before your move. Most school districts require proof of residency (like a utility bill or lease) before enrollment, so gather your documentation early. At Wont Stop Moving, we move the boxes so you can focus on your children's future.",
+    category: "Family",
+    date: "May 02, 2025",
+    readTime: "8 min read",
+    image: "blog-kids"
+  },
+  {
+    slug: "moving-large-musical-instruments-guide",
+    title: "The Symphony of Motion: Moving Large Musical Instruments",
+    excerpt: "From grand pianos to harps, learn the precision logistics required for high-value musical instruments.",
+    content: "Moving a piano or a harp is more than just heavy lifting; it's about preserving a delicate mechanical ecosystem. Drastic changes in humidity or temperature can warp soundboards and loosen tuning pins. For grand pianos, we use specialized 'Piano Boards' and remove the legs, securing the body in custom-fitted padding. During transit, instruments are kept in climate-controlled sections of our long-haul fleet. Upon arrival, never attempt to tune the instrument immediately—allow it at least two weeks to 'Acclimate' to the new home's humidity level before calling a tuner. Our musical instrument specialists across all 51 regions ensure your art arrives in perfect harmony.",
+    category: "Logistics",
+    date: "May 01, 2025",
+    readTime: "9 min read",
+    image: "blog-fragile"
+  },
+
+  // PAGES 13-15: APRIL 2025
+  {
+    slug: "spring-cleaning-vs-moving-efficiency-hacks",
+    title: "Spring Cleaning vs. Moving: Doing Both Efficiently",
+    excerpt: "April is for purging. Learn how to combine your spring clean with your pre-move decluttering strategy.",
+    content: "April presents a unique opportunity: the annual spring clean. If you're moving later this year, use this month to perform a 'Deep Purge.' The rule is simple: if you haven't touched it since last April, it doesn't move with you. Go room by room and categorize items into 'Keep,' 'Donate,' and 'Discard.' Every pound you declutter in April is money saved on your moving quote in June. Focus on the hidden areas—the attic, the back of the pantry, and the garage. By the time the moving truck arrives, you'll have a streamlined inventory, making your packing faster and your new home's setup much simpler. Clean house, clear mind, easy move.",
+    category: "Efficiency",
+    date: "Apr 10, 2025",
+    readTime: "6 min read",
+    image: "blog-home"
+  },
+  {
+    slug: "moving-to-texas-heat-space-logistics",
+    title: "Moving to Texas: Navigating Heat, Space, and Regional Logistics",
+    excerpt: "Relocating to the Lone Star State? Our local experts share the essentials of a Texas-sized move.",
+    content: "Moving to Texas in 2025 is a popular choice, but it requires 'Texas-Sized' planning. First, the Heat: during April and beyond, ensure your new home's AC is running 24 hours before unloading to prevent items like candles, vinyl records, or electronics from warping. Second, the Space: many homes in the Texas regions (Dallas, Austin, Houston) feature oversized driveways and garages, making our 26-foot national fleet perfectly suited for suburban access. However, if you're moving into a downtown loft in Austin, we coordinate smaller 'shuttle' vehicles for tight street access. Our local Texas crews are bilingual and expert in the regional highway systems, ensuring your move across this massive state is fast and professional. Welcome to Texas.",
+    category: "Regions",
+    date: "Apr 09, 2025",
+    readTime: "11 min read",
+    image: "blog-texas"
+  },
+  {
+    slug: "corporate-housing-expectations-relocation-guide",
+    title: "Corporate Housing: What to Expect During Your Relocation",
+    excerpt: "Relocating for a career move? Learn how corporate housing provides a bridge while you find your long-term home.",
+    content: "For many professionals relocating in 2025, 'Corporate Housing' serves as a critical bridge. These are fully-furnished, short-term rentals provided by your employer. When moving into corporate housing, only bring your 'Survival Essentials'—work wardrobe, primary electronics, and personal documents. Wont Stop Moving offers a 'Split-Delivery' service: we can deliver your essentials to your corporate unit and move the rest of your household into our secure, climate-controlled 'Vaulted Storage' until your permanent home is ready. This eliminates the stress of rushing into a long-term lease and gives you the freedom to explore your new city properly. Career growth shouldn't be interrupted by logistics.",
+    category: "Planning",
+    date: "Apr 08, 2025",
+    readTime: "7 min read",
+    image: "blog-commercial"
+  },
+  {
+    slug: "packing-home-electronics-cable-management",
+    title: "Packing Home Electronics: Cable Management and Safety",
+    excerpt: "Don't lose your connection. Learn the professional way to pack computers, servers, and entertainment systems.",
+    content: "The biggest headache in moving electronics isn't the screen—it's the cables. Before you unplug anything, take high-resolution photos of the back of your TV, router, and computer setups. This visual map is invaluable for a fast day-one setup. Use anti-static bubble wrap for sensitive components and 'Original Packaging' whenever possible. If the original box is gone, we use double-walled heavy-duty boxes with extra padding on all sides. Label every cable with its corresponding device using color-coded tape. For high-end gaming rigs or home servers, consider removing large GPUs or hard drives to prevent damage from road vibration. At Wont Stop Moving, we ensure your digital life stays online.",
+    category: "Packing",
+    date: "Apr 07, 2025",
+    readTime: "8 min read",
+    image: "blog-electronics"
+  },
+  {
+    slug: "psychology-of-relocating-managing-transition",
+    title: "The Psychology of Relocating: Managing the Emotional Transition",
+    excerpt: "Moving is one of life's top stressors. Our experts discuss how to manage the emotional weight of a move.",
+    content: "A move is more than a change of address; it's a change of identity. The psychological transition often lags behind the physical one. To manage this, focus on 'Ritual Continuity.' If you have a Friday pizza night, keep it—even if you're eating on boxes. For children, allow them to be 'in charge' of their room layout to give them a sense of control. For adults, acknowledge the grief of leaving behind friends and familiarity. Once you arrive, spend the first weekend being a 'Tourist' in your own town. Visit the local library and coffee shop to begin building new social roots. We don't just move your furniture; we facilitate your fresh start.",
+    category: "Family",
+    date: "Apr 06, 2025",
+    readTime: "8 min read",
+    image: "blog-home"
+  },
+  {
+    slug: "moving-with-home-business-minimizing-downtime",
+    title: "Moving with a Home Business: Minimizing Professional Downtime",
+    excerpt: "Your business shouldn't stop because you are. Learn how to relocate your office without missing a deadline.",
+    content: "Relocating a home business in 2025 requires 'Phased Logistics.' Phase 1: The Digital Shift—ensure your high-speed internet is operational at the new location 24 hours BEFORE you move. Phase 2: The Priority Pack—your office equipment should be the last items packed and the first ones unloaded. We recommend a dedicated 'Office Essentials' box that travels in your personal vehicle, containing your laptop, primary documents, and essential cables. Consider scheduling your move during your business's slowest period. If you have inventory, our 'Vaulted Storage' can provide a temporary fulfillment center while you set up your new warehouse space. Efficiency is our business, so you can keep yours growing.",
+    category: "Efficiency",
+    date: "Apr 05, 2025",
+    readTime: "7 min read",
+    image: "blog-logistics"
+  },
+  {
+    slug: "gym-equipment-logistics-treadmills-weights",
+    title: "Gym Equipment Logistics: Moving Treadmills and Heavy Weights",
+    excerpt: "Home gyms are a heavy lift. Learn the professional techniques for moving bulky fitness gear safely.",
+    content: "Moving a home gym requires specialized equipment and biomechanical expertise. For treadmills, we often disassemble the side rails and secure the walking belt to prevent shifting. Stationary bikes require pedal removal and screen protection. For free weights, never pack them in large boxes—the weight is too concentrated and can cause bottom failure. Instead, we use small, heavy-duty boxes and distribute the weight across multiple layers. For rubber flooring, ensure it's cleaned and rolled correctly to prevent permanent creasing. Our crews use heavy-duty dollies and lift-gate trucks to handle the massive weight of high-end fitness gear, protecting your floors and your back.",
+    category: "Safety",
+    date: "Apr 04, 2025",
+    readTime: "6 min read",
+    image: "blog-packing"
+  },
+  {
+    slug: "moving-to-puerto-rico-island-logistics",
+    title: "Relocating to Puerto Rico: Mainland to Island Logistics",
+    excerpt: "Moving to the 51st region? Learn the unique sea-freight and customs requirements for a PR relocation.",
+    content: "Relocating to Puerto Rico (our 51st service region) is a unique logistical puzzle that Wont Stop Moving specializes in. Unlike a mainland move, island relocation involves sea-freight containers and the Hacienda (Department of Treasury) documentation. You must provide a detailed, notarized inventory list for customs clearance. For vehicle transport, ensure the car is clean and has less than a quarter-tank of fuel. We coordinate the 'Drayage'—the transport from the port in San Juan to your final destination—using our local island teams. Use moisture-barrier wrapping for all items, as the tropical humidity and sea air are factors during the 10-14 day ocean transit. Welcome to 'La Isla del Encanto'.",
+    category: "Regions",
+    date: "Apr 03, 2025",
+    readTime: "12 min read",
+    image: "blog-logistics"
+  },
+  {
+    slug: "eco-friendly-packing-materials-beyond-cardboard",
+    title: "Eco-Friendly Packing Materials: The Future of Sustainable Moving",
+    excerpt: "Sustainability is the goal. Discover the latest green packing solutions that protect your items and the planet.",
+    content: "In 2025, sustainable moving is no longer a luxury—it's a standard. We offer 'Rental Bin Systems'—durable, recycled plastic bins that eliminate the need for cardboard boxes and tape. For padding, we've replaced plastic bubble wrap with 'Honeycombed Paper' and biodegradable packing peanuts made from cornstarch. Our moving pads are made from recycled textiles and are laundered and reused for hundreds of moves. We also utilize GPS route optimization to minimize the carbon footprint of our nationwide fleet. By choosing eco-friendly materials, you aren't just protecting your glassware; you're protecting the environment for the next generation of movers. Move green, move smart.",
+    category: "Efficiency",
+    date: "Apr 02, 2025",
+    readTime: "6 min read",
+    image: "blog-home"
+  },
+  {
+    slug: "moving-day-lunch-keeping-crew-energized",
+    title: "The Moving Day Lunch: Keeping Your Crew and Family Energized",
+    excerpt: "Food is fuel. Learn how simple nutrition choices can keep your move on track and your mood high.",
+    content: "Moving day is a physical marathon. For your family and our crew, focus on 'High-Protein, Low-Crash' foods. Avoid heavy, greasy meals that lead to lethargy. Instead, opt for sandwiches, wraps, and plenty of fresh fruit. Hydration is the most critical factor—have a dedicated cooler with water and electrolytes easily accessible for everyone. A simple gesture, like providing a healthy lunch for the crew, builds incredible rapport and ensures everyone stays focused and energized during the most critical parts of the loading process. Efficiency starts with the fuel you provide your body. Move fast, eat well.",
+    category: "Tips",
+    date: "Apr 01, 2025",
+    readTime: "5 min read",
+    image: "blog-checklist"
   }
 ];
 
-const generateMonthPosts = (year: number, monthName: string, monthIndex: number): BlogPost[] => {
-  const categories = ["Safety", "Packing", "Logistics", "Efficiency", "Family", "Finances", "Tips", "Regions", "Settling In", "Planning"];
-  const images = ["blog-winter", "blog-holiday", "blog-logistics", "blog-home", "blog-junk", "blog-budget", "blog-kids", "blog-fragile", "blog-checklist", "blog-newyear"];
-  
-  return Array.from({ length: 10 }).map((_, i) => {
-    const day = (i + 1).toString().padStart(2, '0');
-    const category = categories[i % categories.length];
-    const image = images[i % images.length];
-    
-    return {
-      slug: `${monthName.toLowerCase()}-${year}-post-${i + 1}`,
-      title: `${monthName} ${year}: ${category} Insight #${i + 1}`,
-      excerpt: `Professional advice on ${category.toLowerCase()} for your ${monthName} move in ${year}.`,
-      content: `Moving in ${monthName} ${year} requires careful ${category.toLowerCase()} strategies. Our nationwide network of 51,000 movers across 51 regions has seen it all. In this article, we dive deep into how to optimize your relocation specifically for ${monthName}'s unique conditions. Whether you're locally or nationwide, these ${category.toLowerCase()} tips will ensure a smooth transition for you and your family.`,
-      category: category,
-      date: `${monthName.substring(0, 3)} ${day}, ${year}`,
-      readTime: `${5 + (i % 5)} min read`,
-      image: image
-    };
-  });
-};
-
-const posts2026: BlogPost[] = [
-  ...detailedPosts,
-];
-
-// For the rest of 2025 (May-Jan) and 2024, we use the generator to keep the library robust.
+// For the rest of 2025 (March-Jan) and 2024, we use the generator to keep the library robust.
 const remaining2025: BlogPost[] = [
-  ...generateMonthPosts(2025, "May", 4),
-  ...generateMonthPosts(2025, "April", 3),
   ...generateMonthPosts(2025, "March", 2),
   ...generateMonthPosts(2025, "February", 1),
   ...generateMonthPosts(2025, "January", 0),
@@ -878,4 +1054,26 @@ const posts2024: BlogPost[] = [
   ...generateMonthPosts(2024, "January", 0),
 ];
 
-export const BLOG_POSTS: BlogPost[] = [...posts2026, ...remaining2025, ...posts2024];
+function generateMonthPosts(year: number, monthName: string, monthIndex: number): BlogPost[] {
+  const categories = ["Safety", "Packing", "Logistics", "Efficiency", "Family", "Finances", "Tips", "Regions", "Settling In", "Planning"];
+  const images = ["blog-winter", "blog-holiday", "blog-logistics", "blog-home", "blog-junk", "blog-budget", "blog-kids", "blog-fragile", "blog-checklist", "blog-newyear"];
+  
+  return Array.from({ length: 10 }).map((_, i) => {
+    const day = (i + 1).toString().padStart(2, '0');
+    const category = categories[i % categories.length];
+    const image = images[i % images.length];
+    
+    return {
+      slug: `${monthName.toLowerCase()}-${year}-post-${i + 1}`,
+      title: `${monthName} ${year}: ${category} Insight #${i + 1}`,
+      excerpt: `Professional advice on ${category.toLowerCase()} for your ${monthName} move in ${year}.`,
+      content: `Moving in ${monthName} ${year} requires careful ${category.toLowerCase()} strategies. Our nationwide network of 51,000 movers across 51 regions has seen it all. In this article, we dive deep into how to optimize your relocation specifically for ${monthName}'s unique conditions. Whether you're moving locally or nationwide, these ${category.toLowerCase()} tips will ensure a smooth transition for you and your family.`,
+      category: category,
+      date: `${monthName.substring(0, 3)} ${day}, ${year}`,
+      readTime: `${5 + (i % 5)} min read`,
+      image: image
+    };
+  });
+};
+
+export const BLOG_POSTS: BlogPost[] = [...detailedPosts, ...remaining2025, ...posts2024];
