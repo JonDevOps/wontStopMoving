@@ -20,7 +20,9 @@ import {
   Hotel,
   Server,
   Building2,
-  Boxes
+  Boxes,
+  Lock,
+  Music
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -44,6 +46,18 @@ export default function ServicesPage() {
       desc: "Specialized solutions for businesses of all sizes. We minimize downtime and ensure your workspace is set up exactly as needed.",
       icon: Briefcase,
       features: ["IT & equipment handling", "After-hours moving options", "Cubicle installation"]
+    },
+    {
+      title: "Gun Safe Moving",
+      desc: "Heavy-duty logistics for your most secure assets. We use specialized equipment to move safes of all sizes without damaging your floors or the safe itself.",
+      icon: Lock,
+      features: ["Motorized stair-climbing dollies", "Industrial floor protection", "Secure & discreet transit"]
+    },
+    {
+      title: "Piano Moving",
+      desc: "Precision moving for delicate instruments. From uprights to concert grands, we handle the complex acoustics and weight distribution of every piano.",
+      icon: Music,
+      features: ["Custom piano boards & padding", "Humidity-controlled transit", "Tuning coordination available"]
     },
     {
       title: "Hospitality Services",
@@ -201,7 +215,7 @@ export default function ServicesPage() {
                   <p className="text-white/70 leading-relaxed">
                     We offer comprehensive valuation protection for every move. From standard liability to full-value replacement coverage, your peace of mind is our top priority. Our teams are fully licensed, bonded, and insured in all 51 service regions.
                   </p>
-                  <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 rounded-full px-8">
+                  <Button className="bg-white text-black hover:bg-white/90 rounded-full px-8 font-bold">
                     Review Protection Plans
                   </Button>
                 </div>
