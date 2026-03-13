@@ -1,0 +1,141 @@
+"use client";
+
+import { CustomerLayout } from "@/components/layout/customer-layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCollection, useMemoFirebase, useUser, useFirestore } from "@/firebase";
+import { collection, query, where, orderBy } from "firebase/firestore";
+import { FileText, Calendar, Clock, ChevronRight, Sparkles, MapPin } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
+import Link from "next/link";
+
+export default function MyQuotesPage() {
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  // Query for all quotes requested by the current user
+  const quotesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(
+      collection(firestore, "quotes"),
+      where("customerId", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+  }, [firestore, user]);
+
+  const { data: quotes, isLoading } = useCollection(quotesQuery);
+
+  return (
+    <CustomerLayout>
+      <div className="space-y-8 animate-fade-in">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-primary uppercase">My <span className="text-accent">Quotes</span></h1>
+            <p className="text-muted-foreground">History of your moving estimates and service requests</p>
+          </div>
+          <Button asChild className="bg-accent hover:bg-accent/90 rounded-full font-bold">
+            <Link href="/quote">Request New Quote</Link>
+          </Button>
+        </header>
+
+        <div className="grid gap-6">
+          {isLoading ? (
+            <div className="p-20 text-center animate-pulse font-bold text-muted-foreground uppercase tracking-widest text-xs">
+              Retrieving estimate history...
+            </div>
+          ) : quotes && quotes.length > 0 ? (
+            quotes.map((quote) => {
+              // Safely parse details if it's stored as a string
+              let details: any = {};
+              try {
+                details = typeof quote.details === 'string' ? JSON.parse(quote.details) : quote.details;
+              } catch (e) {
+                console.error("Error parsing quote details", e);
+              }
+
+              return (
+                <Card key={quote.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="flex flex-col md:flex-row">
+                      <div className="p-6 flex-1 space-y-4">
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[10px] font-black border-accent text-accent uppercase tracking-widest">
+                                Estimate #{quote.id.slice(0, 8)}
+                              </Badge>
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                {quote.createdAt ? format(quote.createdAt.toDate(), "MMM d, yyyy") : "Date TBD"}
+                              </span>
+                            </div>
+                            <h3 className="text-xl font-bold text-primary capitalize">
+                              {quote.moveSize || details?.moveSize || "Residential"} Move
+                            </h3>
+                          </div>
+                          <Badge 
+                            className={
+                              quote.status === 'processed' ? "bg-green-500 hover:bg-green-500" :
+                              quote.status === 'expired' ? "bg-gray-400 hover:bg-gray-400" :
+                              "bg-accent hover:bg-accent text-white"
+                            }
+                          >
+                            {quote.status || 'pending'}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-gray-50 rounded-lg text-primary"><MapPin className="h-4 w-4" /></div>
+                            <div>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase">Route</p>
+                              <p className="text-sm font-bold">
+                                {details?.pickupZip || "N/A"} → {details?.dropoffZip || "N/A"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-gray-50 rounded-lg text-primary"><Calendar className="h-4 w-4" /></div>
+                            <div>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase">Target Date</p>
+                              <p className="text-sm font-bold">{details?.moveDate || "Flexible"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-gray-50 rounded-lg text-primary"><Sparkles className="h-4 w-4" /></div>
+                            <div>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase">Add-ons</p>
+                              <p className="text-sm font-bold">
+                                {Object.values(details?.addOns || {}).filter(Boolean).length} Selected
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 p-6 flex flex-col justify-center border-t md:border-t-0 md:border-l">
+                        <Button variant="ghost" className="rounded-full font-bold text-primary hover:text-accent transition-all gap-2 group-hover:translate-x-1">
+                          Review Details <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          ) : (
+            <div className="p-20 text-center border-2 border-dashed rounded-3xl bg-white">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
+              <h3 className="text-xl font-bold text-primary uppercase">No Quotes Found</h3>
+              <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
+                You haven't requested any moving estimates yet. Get an instant professional quote in just a few minutes.
+              </p>
+              <Button asChild className="bg-accent hover:bg-accent/90 rounded-full px-8">
+                <Link href="/quote">Request a Quote</Link>
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </CustomerLayout>
+  );
+}
