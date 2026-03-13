@@ -236,7 +236,7 @@ export default function ServicesPage() {
                     We offer comprehensive valuation protection for every move. From standard liability to full-value replacement coverage, your peace of mind is our top priority. Our teams are fully licensed, bonded, and insured in all 51 service regions.
                   </p>
                   <Button asChild className="bg-white text-black hover:bg-white/90 rounded-full px-8 font-bold">
-                    <Link href="/faq">Review Protection Plans</Link>
+                    <Link href="/services/protection-plans">Review Protection Plans</Link>
                   </Button>
                 </div>
               </div>
