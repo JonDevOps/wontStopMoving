@@ -12,7 +12,11 @@ import {
   ChevronRight,
   ArrowRight,
   Shield,
-  GraduationCap
+  GraduationCap,
+  Hammer,
+  Sparkles,
+  Trash2,
+  Wrench
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -50,20 +54,44 @@ export default function ServicesPage() {
       features: ["Dorm-friendly logistics", "Small load specialists", "Budget-conscious pricing"]
     },
     {
-      title: "Professional Packing",
-      desc: "Let the experts handle the boxes. We use premium materials to protect your most fragile items, from glassware to electronics.",
+      title: "White-Glove Packing",
+      desc: "The ultimate convenience. We handle everything from wrapping fragile china to professional unpacking and organization in your new home.",
       icon: Package,
-      features: ["Custom crating for fine art", "Inventory management", "Eco-friendly materials"]
+      features: ["All materials included", "Systematic labeling", "Room-by-room unpacking"]
     },
     {
-      title: "Secure Storage",
-      desc: "Short-term or long-term storage in our climate-controlled facilities. Safe, clean, and accessible when you need it.",
+      title: "Specialty Crating",
+      desc: "Custom-built wooden crates for high-value items like fine art, antiques, and large electronics, ensuring maximum protection during transit.",
+      icon: Hammer,
+      features: ["On-site crate building", "Fine art handling experts", "Secure bracing for electronics"]
+    },
+    {
+      title: "Cleaning Services",
+      desc: "Step into a fresh start. We provide deep move-in and move-out cleaning services, handling the scrubbing so you don't have to.",
+      icon: Sparkles,
+      features: ["Deep kitchen & bath cleaning", "Security deposit guarantee", "Eco-friendly products"]
+    },
+    {
+      title: "Junk Removal",
+      desc: "Declutter your life before or after the move. We'll haul away unwanted items and ensure they're donated or recycled responsibly.",
+      icon: Trash2,
+      features: ["Same-day haul away", "Donation receipt provided", "Responsible disposal"]
+    },
+    {
+      title: "Handyman & Assembly",
+      desc: "From assembling complex IKEA furniture to mounting TVs and hanging mirrors, our team ensures your new house feels like home on day one.",
+      icon: Wrench,
+      features: ["TV wall mounting", "Shelving installation", "Expert furniture assembly"]
+    },
+    {
+      title: "Vaulted Storage",
+      desc: "Climate-controlled, secure storage in individual wooden vaults. Your belongings stay protected, clean, and safe for as long as you need.",
       icon: Warehouse,
-      features: ["24/7 security monitoring", "Climate control", "Flexible monthly terms"]
+      features: ["24/7 security monitoring", "Climate & humidity control", "Inventory tracking"]
     },
     {
       title: "Express Moving",
-      desc: "For when time is of the essence. Priority scheduling and dedicated transport for urgent relocation needs.",
+      desc: "For when time is of the essence. Priority scheduling and dedicated transport for urgent relocation needs nationwide.",
       icon: Clock,
       features: ["Guaranteed delivery dates", "Direct non-stop transit", "Last-minute availability"]
     }
@@ -79,7 +107,7 @@ export default function ServicesPage() {
               OUR <span className="text-accent">SERVICES</span>
             </h1>
             <p className="text-xl opacity-80 max-w-2xl mx-auto leading-relaxed">
-              From local apartments to nationwide corporate headquarters, we provide a full suite of relocation solutions tailored to your needs.
+              From premium packing to nationwide logistics, we provide a full suite of relocation solutions tailored to your lifestyle and timeline.
             </p>
             <div className="mt-10">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-12 h-16 text-xl font-bold">
