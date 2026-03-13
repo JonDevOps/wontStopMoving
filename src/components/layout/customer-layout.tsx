@@ -27,10 +27,10 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const customerNav: NavItem[] = [
-    { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { label: "My Moves", href: "/dashboard/moves", icon: Truck },
-    { label: "My Quotes", href: "/dashboard/quotes", icon: FileText },
-    { label: "Profile", href: "/dashboard/profile", icon: User },
+    { label: "Overview", href: "/dashboard/customer", icon: LayoutDashboard },
+    { label: "My Moves", href: "/dashboard/customer/moves", icon: Truck },
+    { label: "My Quotes", href: "/dashboard/customer/quotes", icon: FileText },
+    { label: "Profile", href: "/dashboard/customer/profile", icon: User },
   ];
 
   return (

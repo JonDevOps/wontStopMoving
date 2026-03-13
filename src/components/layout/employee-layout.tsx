@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -28,18 +29,18 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const employeeNav: NavItem[] = [
-    { label: "Dashboard", href: "/employee", icon: LayoutDashboard },
-    { label: "My Jobs", href: "/employee/jobs", icon: Truck },
-    { label: "Calendar", href: "/employee/calendar", icon: Calendar },
-    { label: "Profile", href: "/employee/profile", icon: User },
+    { label: "Dashboard", href: "/dashboard/employee", icon: LayoutDashboard },
+    { label: "My Jobs", href: "/dashboard/employee/jobs", icon: Truck },
+    { label: "Calendar", href: "/dashboard/employee/calendar", icon: Calendar },
+    { label: "Profile", href: "/dashboard/employee/profile", icon: User },
   ];
 
   const adminNav: NavItem[] = [
-    { label: "Overview", href: "/admin", icon: LayoutDashboard },
-    { label: "Jobs", href: "/admin/jobs", icon: Truck },
-    { label: "Employees", href: "/admin/employees", icon: ShieldCheck },
-    { label: "Applications", href: "/admin/careers", icon: FileText },
-    { label: "Customers", href: "/admin/customers", icon: User },
+    { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Jobs", href: "/dashboard/admin/jobs", icon: Truck },
+    { label: "Employees", href: "/dashboard/admin/employees", icon: ShieldCheck },
+    { label: "Applications", href: "/dashboard/admin/careers", icon: FileText },
+    { label: "Customers", href: "/dashboard/admin/customers", icon: User },
   ];
 
   const currentNav = isAdmin ? adminNav : employeeNav;

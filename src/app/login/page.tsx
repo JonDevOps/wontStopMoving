@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -16,10 +17,11 @@ export default function LoginPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simple mock logic for demonstration based on email prefix
-    if (email.startsWith('admin')) router.push('/admin');
-    else if (email.startsWith('emp')) router.push('/employee');
-    else router.push('/dashboard');
+    // Phase 1 Mock logic: Simple redirect based on email prefix
+    // Phase 2 will implement real Firebase Auth and Firestore role checking
+    if (email.startsWith('admin')) router.push('/dashboard/admin');
+    else if (email.startsWith('emp')) router.push('/dashboard/employee');
+    else router.push('/dashboard/customer');
   };
 
   return (
@@ -83,7 +85,7 @@ export default function LoginPage() {
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">
-              Don't have an account? <Link href="/quote" className="text-accent font-bold hover:underline">Get a Quote</Link>
+              Don't have an account? <Link href="/signup" className="text-accent font-bold hover:underline">Create Account</Link>
             </p>
           </CardContent>
         </Card>
