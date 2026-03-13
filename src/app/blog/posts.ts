@@ -503,7 +503,7 @@ const detailedPosts: BlogPost[] = [
     image: "blog-budget"
   },
   {
-    slug: "managing-seasonal-allergies-during-move",
+    slug: "managing-moving-stress-during-move",
     title: "Breathe Easy: Managing Seasonal Allergies During Your Move",
     excerpt: "Dust and pollen shouldn't ruin your transition.",
     content: "Moving involves a lot of dust. We utilize HEPA filtration in our climate-controlled units and encourage wearing masks during high-activity phases. A fresh start should be a healthy one for your family.",
@@ -1550,7 +1550,7 @@ const detailedPosts: BlogPost[] = [
   {
     slug: "june-graduation-relocation-logistics",
     title: "Graduation Relocation: Logistics for New Professionals",
-    excerpt: "Starting your career in a new city? Learn how we handle small-load professional moves.",
+    excerpt: "Starting your career in a new city this June? Learn how we handle small-load professional moves.",
     content: "We offer tailored 'Express Professional' packages specifically for small-load, high-speed relocations for recent graduates. We coordinate smaller 'shuttle' vehicles for urban access in dense cities. Temporary Vaulted Storage is available if your lease isn't finalized before your start date.",
     category: "Logistics",
     date: "Jun 25, 2024",
@@ -1675,169 +1675,4 @@ const detailedPosts: BlogPost[] = [
   }
 ];
 
-const phase1Posts: BlogPost[] = [
-  // AUGUST 2023
-  {
-    slug: "southern-us-high-heat-moving-safety",
-    title: "Southern Comfort: Moving Safety in Extreme August Heat",
-    excerpt: "Relocating in the South during August requires medical-grade safety protocols. Learn how we keep you safe.",
-    content: "Moving in 100-degree heat isn't just uncomfortable; it's a physiological challenge. In August 2023, we implemented new 'Thermal Buffer' protocols for all Southern US regions. This includes mandatory air-conditioned breaks for our crews and the use of high-reflectivity thermal blankets for your electronics and sensitive wooden furniture. We recommend having your new home's AC running for at least 24 hours prior to arrival to prevent heat-soak during the unloading process.",
-    category: "Safety",
-    date: "Aug 28, 2023",
-    readTime: "8 min read",
-    image: "blog-winter"
-  },
-  {
-    slug: "dorm-room-logistics-2023-guide",
-    title: "The Dorm Dash: 2023 College Relocation Logistics",
-    excerpt: "Moving your student into a university dorm? Navigate campus move-in week like a pro.",
-    content: "Campus move-in week is one of the most concentrated logistical events of the year. In August 2023, universities have shortened unloading windows to just 20 minutes in some regions. We recommend using clear, stackable plastic bins instead of cardboard—they are waterproof, durable, and allow campus security to inspect contents quickly. Our 'Student Squad' teams specialize in high-speed, small-load delivery to get your student settled before orientation begins.",
-    category: "Logistics",
-    date: "Aug 15, 2023",
-    readTime: "6 min read",
-    image: "blog-kids"
-  },
-  {
-    slug: "pool-table-relocation-expert-techniques",
-    title: "The heavy Game: Professional Pool Table Relocation",
-    excerpt: "A pool table is more than just furniture; it's a precision instrument. Learn the 2023 standards for safe moving.",
-    content: "Relocating a slate pool table is a masterclass in disassembly and reassembly. In August 2023, our specialized technicians refined the 'Three-Slate Leveling' process. We never move a pool table in one piece—doing so risks cracking the frame or shattering the slate. We carefully remove the rails, felt, and slate, crating them individually. At your new location, we use industrial-grade shims and digital levels to ensure your table is tournament-ready on day one.",
-    category: "Packing",
-    date: "Aug 05, 2023",
-    readTime: "9 min read",
-    image: "blog-fragile"
-  },
-  // JULY 2023
-  {
-    slug: "independence-day-moving-traffic-survival",
-    title: "July 4th Relocation: Navigating Holiday Traffic and Closures",
-    excerpt: "Moving during a holiday weekend? Learn how our national fleet manages major road surges.",
-    content: "Relocating over the Independence Day weekend in 2023 required precision timing. Our national GPS-telematics system monitors parade routes and local block party closures in real-time. For July moves, we often recommend a 'Sunrise Loading' strategy—starting as early as 5:00 AM to ensure we are off the road before the peak holiday travel surge begins. We coordinate with local municipalities to ensure our 26-foot vehicles have authorized parking despite holiday restrictions.",
-    category: "Logistics",
-    date: "Jul 25, 2023",
-    readTime: "7 min read",
-    image: "blog-logistics"
-  },
-  {
-    slug: "moisture-defense-tropical-climate-packing",
-    title: "Moisture Defense: Packing for High-Humidity Transitions",
-    excerpt: "Relocating to a tropical region in July? Learn the 2023 'Barrier-Wrap' technique.",
-    content: "High humidity is the hidden enemy of wood and upholstery. In July 2023, we introduced the 'Triple-Barrier Wrap' for all moves into coastal and tropical regions. This involves a first layer of breathable micro-fiber, a second layer of desiccated paper, and a final layer of industrial-grade shrink wrap. This system prevents moisture from being trapped against the furniture's surface, which can lead to warping or mildew during long-haul transit.",
-    category: "Packing",
-    date: "Jul 10, 2023",
-    readTime: "8 min read",
-    image: "blog-packing"
-  },
-  {
-    slug: "budgeting-for-inflation-relocation-2023",
-    title: "Relocation Economics: Budgeting for Your 2023 Move",
-    excerpt: "With fluctuating fuel and labor costs, learn how to secure a stable moving quote in July.",
-    content: "Economic factors in mid-2023 have made traditional moving quotes volatile. At Wont Stop Moving, we've countered this with our 'Binding Price Guarantee.' This means your quote remains fixed regardless of fuel surges or road delays. We recommend a July 'Mid-Month' booking to take advantage of off-peak capacity within our 51 regions. Documentation is critical—maintain a digital ledger of all relocation-related services for potential year-end tax benefits.",
-    category: "Finances",
-    date: "Jul 05, 2023",
-    readTime: "10 min read",
-    image: "blog-budget"
-  },
-  // JUNE 2023
-  {
-    slug: "graduation-moves-professional-entry-logistics",
-    title: "The Next Chapter: Logistics for New Professionals",
-    excerpt: "Starting your career in a new city this June? Learn our 'Express Entry' moving solutions.",
-    content: "June is the month of transitions for recent graduates. In 2023, we've seen a surge in 'Small-Load' professional moves. Our 'Express Entry' service is designed for the one-bedroom or studio inventory, utilizing smaller, high-agility vehicles that can navigate the dense urban centers where many new careers begin. We prioritize the setup of your home office on day one, ensuring you are 100% connected and operational for your first day at the new job.",
-    category: "Logistics",
-    date: "Jun 20, 2023",
-    readTime: "6 min read",
-    image: "blog-home"
-  },
-  {
-    slug: "garage-sale-mastery-june-purge",
-    title: "Garage Sale Mastery: Funding Your Summer Relocation",
-    excerpt: "The less you move, the less you pay. Master the art of the pre-move purge this June.",
-    content: "The physical act of moving starts with subtraction. In June 2023, we recommend the 'Systematic Sorting' method: categorize every item into 'Keep, Sell, or Donate.' A successful garage sale can generate thousands of dollars in moving credits while significantly lowering your quote by reducing total inventory weight. For items that don't sell, our integrated 'Charity Connect' service can handle the transport to local non-profits, ensuring nothing usable ends up in a landfill.",
-    category: "Efficiency",
-    date: "Jun 10, 2023",
-    readTime: "7 min read",
-    image: "blog-junk"
-  },
-  {
-    slug: "floor-protection-june-construction-season",
-    title: "Pristine Paths: Professional Floor Protection Techniques",
-    excerpt: "Don't let your move ruin your home's infrastructure. Learn the 2023 standards for surface safety.",
-    content: "Property damage is the #1 fear during a move. In June 2023, we upgraded our standard protection kits to include 'Neo-Shield' neoprene runners. Unlike traditional plastic film, these are shock-absorbent and non-slip, providing a safe path for our heavy lifters while protecting high-end hardwood and tile from scratches or impact. We also utilize specialized door-jamb protectors to prevent corner dings when navigating tight turns with oversized furniture.",
-    category: "Safety",
-    date: "Jun 01, 2023",
-    readTime: "6 min read",
-    image: "blog-home"
-  }
-];
-
-function generateMonthPosts(year: number, monthName: string, monthIndex: number): BlogPost[] {
-  const categories = ["Safety", "Packing", "Logistics", "Efficiency", "Family", "Finances", "Tips", "Regions", "Settling In", "Planning"];
-  const images = ["blog-winter", "blog-holiday", "blog-logistics", "blog-home", "blog-junk", "blog-budget", "blog-kids", "blog-fragile", "blog-checklist", "blog-newyear"];
-  
-  return Array.from({ length: 10 }).map((_, i) => {
-    const day = (i + 1).toString().padStart(2, '0');
-    const category = categories[i % categories.length];
-    const image = images[i % images.length];
-    const slug = `${monthName.toLowerCase()}-${year}-${category.toLowerCase()}-insight-${i + 1}`;
-    
-    return {
-      slug: slug,
-      title: `${monthName} ${year}: Professional ${category} Insight #${i + 1}`,
-      excerpt: `Detailed professional advice on ${category.toLowerCase()} for your ${monthName} relocation in ${year}.`,
-      content: `Relocating in ${monthName} ${year} requires specific ${category.toLowerCase()} strategies tailored to the season and region. Our nationwide network of 51,000 movers has perfected the logistics for this time of year. In this comprehensive guide, we explore how to optimize your move, from specialized packing for winter conditions to financial planning for career-driven relocations. Whether you're moving to Puerto Rico or across town, these expert tips ensure a seamless transition for your family. Success is in the details of your ${category.toLowerCase()} plan.`,
-      category: category,
-      date: `${monthName.substring(0, 3)} ${day}, ${year}`,
-      readTime: `${5 + (i % 5)} min read`,
-      image: image
-    };
-  });
-};
-
-const generatedDetailedPosts: BlogPost[] = [
-  ...generateMonthPosts(2024, "February", 1),
-  ...generateMonthPosts(2024, "January", 0),
-  ...generateMonthPosts(2023, "December", 11),
-  ...generateMonthPosts(2023, "November", 10),
-  ...generateMonthPosts(2023, "October", 9),
-  ...generateMonthPosts(2023, "September", 8),
-  ...generateMonthPosts(2023, "August", 7),
-  ...generateMonthPosts(2023, "July", 6),
-  ...generateMonthPosts(2023, "June", 5),
-  ...generateMonthPosts(2023, "May", 4),
-  ...generateMonthPosts(2023, "April", 3),
-  ...generateMonthPosts(2023, "March", 2),
-  ...generateMonthPosts(2023, "February", 1),
-  ...generateMonthPosts(2023, "January", 0),
-  ...generateMonthPosts(2022, "December", 11),
-  ...generateMonthPosts(2022, "November", 10),
-  ...generateMonthPosts(2022, "October", 9),
-  ...generateMonthPosts(2022, "September", 8),
-  ...generateMonthPosts(2022, "August", 7),
-  ...generateMonthPosts(2022, "July", 6),
-  ...generateMonthPosts(2022, "June", 5),
-  ...generateMonthPosts(2022, "May", 4),
-  ...generateMonthPosts(2022, "April", 3),
-  ...generateMonthPosts(2022, "March", 2),
-  ...generateMonthPosts(2022, "February", 1),
-  ...generateMonthPosts(2022, "January", 0),
-];
-
-const allPosts = [...detailedPosts, ...phase1Posts, ...generatedDetailedPosts];
-
-// Phase 0 Fix: Update February 2024 Insight #10 with real content
-const feb2024Idx = allPosts.findIndex(p => p.slug === 'february-2024-planning-insight-10');
-if (feb2024Idx !== -1) {
-  allPosts[feb2024Idx] = {
-    slug: "february-2024-strategic-logistics-plan",
-    title: "February 2024: The Strategic Logistics Master Plan",
-    excerpt: "Navigating the complexities of early-year relocations requires a professional approach to scheduling and inventory.",
-    content: "The beginning of 2024 marks a pivotal moment for nationwide logistics. As we move into the second month, February demands a refined strategy for handling climate-sensitive items and optimizing transport routes through potential winter weather. At Wont Stop Moving, we've developed a master plan that ensures your belongings are tracked, secured, and delivered with surgical precision. This guide breaks down the essential steps for your February relocation, from initial quote to the final box unloaded. With 51,000 movers across 51 regions, our experience is your greatest asset during this transition.",
-    category: "Planning",
-    date: "Feb 10, 2024",
-    readTime: "8 min read",
-    image: "blog-logistics"
-  };
-}
-
-export const BLOG_POSTS: BlogPost[] = allPosts;
+export const BLOG_POSTS: BlogPost[] = detailedPosts;
