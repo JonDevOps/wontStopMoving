@@ -89,6 +89,36 @@
       "description": "Interior of a freshly cleaned new home",
       "imageUrl": "https://picsum.photos/seed/blog-home/800/600",
       "imageHint": "clean home"
+    },
+    {
+      "id": "blog-winter",
+      "description": "Snowy street with moving truck",
+      "imageUrl": "https://picsum.photos/seed/blog-winter/800/600",
+      "imageHint": "snow moving"
+    },
+    {
+      "id": "blog-holiday",
+      "description": "Holiday decorations in a new living room",
+      "imageUrl": "https://picsum.photos/seed/blog-holiday/800/600",
+      "imageHint": "holiday decor"
+    },
+    {
+      "id": "blog-budget",
+      "description": "Person calculating moving costs",
+      "imageUrl": "https://picsum.photos/seed/blog-budget/800/600",
+      "imageHint": "budget math"
+    },
+    {
+      "id": "blog-electronics",
+      "description": "Carefully packed high-end computer setup",
+      "imageUrl": "https://picsum.photos/seed/blog-electronics/800/600",
+      "imageHint": "electronics pack"
+    },
+    {
+      "id": "blog-newyear",
+      "description": "Empty room with sunrise light",
+      "imageUrl": "https://picsum.photos/seed/blog-newyear/800/600",
+      "imageHint": "sunrise room"
     }
   ]
 }
