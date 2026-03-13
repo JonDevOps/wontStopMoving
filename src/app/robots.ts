@@ -6,7 +6,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin/', '/employee/'],
+      // Protect all dashboard routes from search engine indexing
+      disallow: ['/dashboard/'],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   }
