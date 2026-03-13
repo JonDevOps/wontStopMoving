@@ -121,7 +121,7 @@ export default function LocalMovingPage() {
                 </div>
                 <div className="pt-4">
                   <Button asChild className="rounded-full bg-primary px-8 h-14 font-bold">
-                    <Link href="/services">Explore Other Services</Link>
+                    <Link href="/book">Book Now</Link>
                   </Button>
                 </div>
               </div>
