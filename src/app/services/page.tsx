@@ -48,42 +48,42 @@ export default function ServicesPage() {
       desc: "Specialized solutions for businesses of all sizes. We minimize downtime and ensure your workspace is set up exactly as needed.",
       icon: Briefcase,
       features: ["IT & equipment handling", "After-hours moving options", "Cubicle installation"],
-      href: "/services"
+      href: "/services/commercial"
     },
     {
       title: "Gun Safe Moving",
       desc: "Heavy-duty logistics for your most secure assets. We use specialized equipment to move safes of all sizes without damaging your floors or the safe itself.",
       icon: Lock,
       features: ["Motorized stair-climbing dollies", "Industrial floor protection", "Secure & discreet transit"],
-      href: "/services"
+      href: "/services/gun-safe-moving"
     },
     {
       title: "Piano Moving",
       desc: "Precision moving for delicate instruments. From uprights to concert grands, we handle the complex acoustics and weight distribution of every piano.",
       icon: Music,
       features: ["Custom piano boards & padding", "Humidity-controlled transit", "Tuning coordination available"],
-      href: "/services"
+      href: "/services/piano-moving"
     },
     {
       title: "Hospitality Services",
       desc: "Comprehensive FF&E logistics for hotels, resorts, and restaurants. We manage the delicate transition of your hospitality assets with precision.",
       icon: Hotel,
       features: ["FF&E installation specialists", "Model room setup", "Liquidation management"],
-      href: "/services"
+      href: "/services/hospitality"
     },
     {
       title: "Data Center Moving",
       desc: "High-security transport for mission-critical infrastructure. Specialized handling for servers, rack systems, and sensitive electronic components.",
       icon: Server,
       features: ["Climate-controlled transport", "Anti-static packaging", "Secure chain of custody"],
-      href: "/services"
+      href: "/services/data-center"
     },
     {
       title: "Workplace Solutions",
       desc: "End-to-end management for modern workspaces. From decommissioning old offices to configuring new collaborative environments.",
       icon: Building2,
       features: ["Asset decommissioning", "Space planning & design", "Furniture reconfiguration"],
-      href: "/services"
+      href: "/services/workplace-solutions"
     },
     {
       title: "Warehousing & Logistics",
