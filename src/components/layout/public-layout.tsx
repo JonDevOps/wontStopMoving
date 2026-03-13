@@ -5,6 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Truck, Menu, X, ArrowRight } from 'lucide-react';
 import React, { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface PublicLayoutProps {
   children: React.ReactNode;
@@ -18,6 +24,38 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     { href: "/about", label: "About" },
     { href: "/careers", label: "Careers" },
     { href: "/contact", label: "Contact" },
+  ];
+
+  const footerSections = [
+    {
+      title: "Quick Links",
+      links: [
+        { label: "Services", href: "/services" },
+        { label: "Types of Moves", href: "/services" },
+        { label: "Local Moving", href: "/services" },
+      ]
+    },
+    {
+      title: "Resources",
+      links: [
+        { label: "Blog", href: "#" },
+        { label: "FAQs", href: "/faq" },
+        { label: "Customer Support", href: "/contact" },
+      ]
+    },
+    {
+      title: "Connect",
+      links: [
+        { label: "Become a Provider", href: "/careers" },
+        { label: "Refer a Moving Helper", href: "/careers" },
+      ]
+    },
+    {
+      title: "Customer Support",
+      links: [
+        { label: "Contact Us", href: "/contact" },
+      ]
+    }
   ];
 
   return (
@@ -58,7 +96,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               </Button>
             </div>
 
-            {/* Mobile Actions (Quote button only for very small screens if needed, otherwise hidden in menu) */}
+            {/* Mobile Actions */}
             <div className="sm:hidden flex items-center">
                <Button asChild size="sm" className="bg-primary rounded-full px-4 font-bold text-xs h-9">
                 <Link href="/quote">Quote</Link>
@@ -148,37 +186,44 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               </p>
             </div>
             
-            <div>
-              <h4 className="text-white font-bold mb-6 text-sm">Quick Links</h4>
-              <ul className="space-y-4 text-sm">
-                <li><Link href="/services" className="hover:text-accent transition-colors font-bold text-white/90">Services</Link></li>
-                <li><Link href="/services" className="hover:text-accent transition-colors font-bold text-white/90">Types of Moves</Link></li>
-                <li><Link href="/services" className="hover:text-accent transition-colors font-bold text-white/90">Local Moving</Link></li>
-              </ul>
-            </div>
+            {/* Desktop View: Columns */}
+            {footerSections.map((section, idx) => (
+              <div key={idx} className="hidden md:block">
+                <h4 className="text-white font-bold mb-6 text-sm">{section.title}</h4>
+                <ul className="space-y-4 text-sm">
+                  {section.links.map((link, lIdx) => (
+                    <li key={lIdx}>
+                      <Link href={link.href} className="hover:text-accent transition-colors font-bold text-white/90">
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
 
-            <div>
-              <h4 className="text-white font-bold mb-6 text-sm">Resources</h4>
-              <ul className="space-y-4 text-sm">
-                <li><Link href="#" className="hover:text-accent transition-colors font-bold text-white/90">Blog</Link></li>
-                <li><Link href="/faq" className="hover:text-accent transition-colors font-bold text-white/90">FAQs</Link></li>
-                <li><Link href="/contact" className="hover:text-accent transition-colors font-bold text-white/90">Customer Support</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-bold mb-6 text-sm">Connect</h4>
-              <ul className="space-y-4 text-sm">
-                <li><Link href="/careers" className="hover:text-accent transition-colors font-bold text-white/90">Become a Provider</Link></li>
-                <li><Link href="/careers" className="hover:text-accent transition-colors font-bold text-white/90">Refer a Moving Helper</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-bold mb-6 text-sm">Customer Support</h4>
-              <ul className="space-y-4 text-sm">
-                <li><Link href="/contact" className="hover:text-accent transition-colors font-bold text-white/90">Contact Us</Link></li>
-              </ul>
+            {/* Mobile View: Accordion for sections requested */}
+            <div className="md:hidden col-span-1 space-y-4">
+              <Accordion type="single" collapsible className="w-full border-t border-white/10">
+                {footerSections.map((section, idx) => (
+                  <AccordionItem key={idx} value={`item-${idx}`} className="border-white/10">
+                    <AccordionTrigger className="text-white font-bold text-sm hover:no-underline hover:text-accent py-4">
+                      {section.title}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <ul className="space-y-4 pt-2 pb-4">
+                        {section.links.map((link, lIdx) => (
+                          <li key={lIdx}>
+                            <Link href={link.href} className="text-white/70 hover:text-accent transition-colors block text-sm">
+                              {link.label}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
           </div>
           
