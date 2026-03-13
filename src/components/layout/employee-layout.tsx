@@ -49,13 +49,10 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
       router.replace("/login");
     }
     if (!isProfileLoading && profile) {
-      // Logic for Phase 5: Kick users out of unauthorized dashboards
       if (isAdmin && profile.role !== 'admin') {
-        // Kick non-admins out of admin portal
         if (profile.role === 'employee') router.replace("/dashboard/employee");
         else router.replace("/dashboard/customer");
       } else if (!isAdmin && profile.role !== 'employee' && profile.role !== 'admin') {
-        // Kick non-employees out of employee portal
         router.replace("/dashboard/customer");
       }
     }
@@ -119,7 +116,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
             {isAdmin ? "ADMIN CONTROL" : "EMPLOYEE PORTAL"}
           </p>
           {currentNav.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href || (item.href !== '/dashboard/admin' && pathname.startsWith(item.href));
             return (
               <Link 
                 key={item.href} 
@@ -156,9 +153,8 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
             >
               <Menu className="h-6 w-6" />
             </button>
-            <div className="hidden sm:block text-xs">
-              <span className="font-bold text-muted-foreground">Current Route / </span>
-              <span className="font-black text-primary uppercase">{pathname.split('/').pop() || 'Dashboard'}</span>
+            <div className="hidden sm:block text-xs font-bold text-muted-foreground">
+              {isAdmin ? "ADMINISTRATION" : "FIELD OPERATIONS"}
             </div>
           </div>
 
