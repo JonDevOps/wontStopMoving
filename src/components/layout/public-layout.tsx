@@ -34,7 +34,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   const navLinks = [
     { href: "/services", label: "Services" },
     { href: "/services", label: "Types of Moves" },
-    { href: "/services", label: "Local Moves" },
+    { href: "/services/local-moving", label: "Local Moves" },
   ];
 
   const resourceLinks = [
@@ -49,7 +49,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       links: [
         { label: "Services", href: "/services" },
         { label: "Types of Moves", href: "/services" },
-        { label: "Local Moving", href: "/services" },
+        { label: "Local Moving", href: "/services/local-moving" },
       ]
     },
     {

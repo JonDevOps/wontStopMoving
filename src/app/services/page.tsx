@@ -33,109 +33,127 @@ export default function ServicesPage() {
       title: "Local Moving",
       desc: "Stress-free relocation within your city or state. Our local teams know your neighborhood inside and out, ensuring a quick and efficient move.",
       icon: Truck,
-      features: ["Same-day service available", "Expert packing & unpacking", "Furniture disassembly & assembly"]
+      features: ["Same-day service available", "Expert packing & unpacking", "Furniture disassembly & assembly"],
+      href: "/services/local-moving"
     },
     {
       title: "Long Distance",
       desc: "Crossing state lines or moving across the country? Our nationwide network handles the logistics of your long-haul journey with precision.",
       icon: MapPin,
-      features: ["Dedicated moving coordinators", "GPS tracking on all trucks", "Full valuation protection"]
+      features: ["Dedicated moving coordinators", "GPS tracking on all trucks", "Full valuation protection"],
+      href: "/services"
     },
     {
       title: "Commercial & Office",
       desc: "Specialized solutions for businesses of all sizes. We minimize downtime and ensure your workspace is set up exactly as needed.",
       icon: Briefcase,
-      features: ["IT & equipment handling", "After-hours moving options", "Cubicle installation"]
+      features: ["IT & equipment handling", "After-hours moving options", "Cubicle installation"],
+      href: "/services"
     },
     {
       title: "Gun Safe Moving",
       desc: "Heavy-duty logistics for your most secure assets. We use specialized equipment to move safes of all sizes without damaging your floors or the safe itself.",
       icon: Lock,
-      features: ["Motorized stair-climbing dollies", "Industrial floor protection", "Secure & discreet transit"]
+      features: ["Motorized stair-climbing dollies", "Industrial floor protection", "Secure & discreet transit"],
+      href: "/services"
     },
     {
       title: "Piano Moving",
       desc: "Precision moving for delicate instruments. From uprights to concert grands, we handle the complex acoustics and weight distribution of every piano.",
       icon: Music,
-      features: ["Custom piano boards & padding", "Humidity-controlled transit", "Tuning coordination available"]
+      features: ["Custom piano boards & padding", "Humidity-controlled transit", "Tuning coordination available"],
+      href: "/services"
     },
     {
       title: "Hospitality Services",
       desc: "Comprehensive FF&E logistics for hotels, resorts, and restaurants. We manage the delicate transition of your hospitality assets with precision.",
       icon: Hotel,
-      features: ["FF&E installation specialists", "Model room setup", "Liquidation management"]
+      features: ["FF&E installation specialists", "Model room setup", "Liquidation management"],
+      href: "/services"
     },
     {
       title: "Data Center Moving",
       desc: "High-security transport for mission-critical infrastructure. Specialized handling for servers, rack systems, and sensitive electronic components.",
       icon: Server,
-      features: ["Climate-controlled transport", "Anti-static packaging", "Secure chain of custody"]
+      features: ["Climate-controlled transport", "Anti-static packaging", "Secure chain of custody"],
+      href: "/services"
     },
     {
       title: "Workplace Solutions",
       desc: "End-to-end management for modern workspaces. From decommissioning old offices to configuring new collaborative environments.",
       icon: Building2,
-      features: ["Asset decommissioning", "Space planning & design", "Furniture reconfiguration"]
+      features: ["Asset decommissioning", "Space planning & design", "Furniture reconfiguration"],
+      href: "/services"
     },
     {
       title: "Warehousing & Logistics",
       desc: "A complete supply chain partner. We handle the heavy lifting of your backend operations with a focus on speed and accuracy.",
       icon: Boxes,
-      features: ["Procurement & Sourcing", "Advanced Inventory Management", "Custom Packaging & Distribution", "Real-time supply chain tracking"]
+      features: ["Procurement & Sourcing", "Advanced Inventory Management", "Custom Packaging & Distribution", "Real-time supply chain tracking"],
+      href: "/services"
     },
     {
       title: "Military Relocation",
       desc: "Specialized PCS support for our service members. We understand the unique requirements and timelines of military relocations.",
       icon: Shield,
-      features: ["PCS compliant documentation", "Base access approved teams", "Flexible scheduling for orders"]
+      features: ["PCS compliant documentation", "Base access approved teams", "Flexible scheduling for orders"],
+      href: "/services"
     },
     {
       title: "Student Moves",
       desc: "Affordable and flexible moving solutions for college students. Perfect for dorm relocations or moving into your first apartment.",
       icon: GraduationCap,
-      features: ["Dorm-friendly logistics", "Small load specialists", "Budget-conscious pricing"]
+      features: ["Dorm-friendly logistics", "Small load specialists", "Budget-conscious pricing"],
+      href: "/services"
     },
     {
       title: "White-Glove Packing",
       desc: "The ultimate convenience. We handle everything from wrapping fragile china to professional unpacking and organization in your new home.",
       icon: Package,
-      features: ["All materials included", "Systematic labeling", "Room-by-room unpacking"]
+      features: ["All materials included", "Systematic labeling", "Room-by-room unpacking"],
+      href: "/services"
     },
     {
       title: "Specialty Crating",
       desc: "Custom-built wooden crates for high-value items like fine art, antiques, and large electronics, ensuring maximum protection during transit.",
       icon: Hammer,
-      features: ["On-site crate building", "Fine art handling experts", "Secure bracing for electronics"]
+      features: ["On-site crate building", "Fine art handling experts", "Secure bracing for electronics"],
+      href: "/services"
     },
     {
       title: "Cleaning Services",
       desc: "Step into a fresh start. We provide deep move-in and move-out cleaning services, handling the scrubbing so you don't have to.",
       icon: Sparkles,
-      features: ["Deep kitchen & bath cleaning", "Security deposit guarantee", "Eco-friendly products"]
+      features: ["Deep kitchen & bath cleaning", "Security deposit guarantee", "Eco-friendly products"],
+      href: "/services"
     },
     {
       title: "Junk Removal",
       desc: "Declutter your life before or after the move. We'll haul away unwanted items and ensure they're donated or recycled responsibly.",
       icon: Trash2,
-      features: ["Same-day haul away", "Donation receipt provided", "Responsible disposal"]
+      features: ["Same-day haul away", "Donation receipt provided", "Responsible disposal"],
+      href: "/services"
     },
     {
       title: "Handyman & Assembly",
       desc: "From assembling complex IKEA furniture to mounting TVs and hanging mirrors, our team ensures your new house feels like home on day one.",
       icon: Wrench,
-      features: ["TV wall mounting", "Shelving installation", "Expert furniture assembly"]
+      features: ["TV wall mounting", "Shelving installation", "Expert furniture assembly"],
+      href: "/services"
     },
     {
       title: "Vaulted Storage",
       desc: "Climate-controlled, secure storage in individual wooden vaults. Your belongings stay protected, clean, and safe for as long as you need.",
       icon: Warehouse,
-      features: ["24/7 security monitoring", "Climate & humidity control", "Inventory tracking"]
+      features: ["24/7 security monitoring", "Climate & humidity control", "Inventory tracking"],
+      href: "/services"
     },
     {
       title: "Express Moving",
       desc: "For when time is of the essence. Priority scheduling and dedicated transport for urgent relocation needs nationwide.",
       icon: Clock,
-      features: ["Guaranteed delivery dates", "Direct non-stop transit", "Last-minute availability"]
+      features: ["Guaranteed delivery dates", "Direct non-stop transit", "Last-minute availability"],
+      href: "/services"
     }
   ];
 
@@ -192,8 +210,10 @@ export default function ServicesPage() {
                         </li>
                       ))}
                     </ul>
-                    <Button variant="ghost" className="p-0 h-auto text-accent font-black hover:bg-transparent hover:text-accent/80 group">
-                      Learn More <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-2 transition-transform" />
+                    <Button asChild variant="ghost" className="p-0 h-auto text-accent font-black hover:bg-transparent hover:text-accent/80 group">
+                      <Link href={service.href}>
+                        Learn More <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-2 transition-transform" />
+                      </Link>
                     </Button>
                   </CardContent>
                 </Card>

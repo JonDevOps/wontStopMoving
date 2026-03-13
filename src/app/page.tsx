@@ -91,12 +91,12 @@ export default function Home() {
             
             <div className="grid md:grid-cols-3 gap-8">
               {[
-                { title: "Local Moving", icon: Truck, desc: "Quick and efficient relocation within your city or state." },
-                { title: "Long Distance", icon: MapPin, desc: "Nationwide service connecting all 50 states and Puerto Rico." },
-                { title: "Commercial", icon: Warehouse, desc: "Specialized office and business relocation solutions." },
-                { title: "Packing Services", icon: Package, desc: "Professional packing with high-quality materials." },
-                { title: "Secure Storage", icon: ShieldCheck, desc: "Climate-controlled facilities for long or short term." },
-                { title: "Express Delivery", icon: Clock, desc: "Time-sensitive moving for urgent requirements." }
+                { title: "Local Moving", icon: Truck, desc: "Quick and efficient relocation within your city or state.", href: "/services/local-moving" },
+                { title: "Long Distance", icon: MapPin, desc: "Nationwide service connecting all 50 states and Puerto Rico.", href: "/services" },
+                { title: "Commercial", icon: Warehouse, desc: "Specialized office and business relocation solutions.", href: "/services" },
+                { title: "Packing Services", icon: Package, desc: "Professional packing with high-quality materials.", href: "/services" },
+                { title: "Secure Storage", icon: ShieldCheck, desc: "Climate-controlled facilities for long or short term.", href: "/services" },
+                { title: "Express Delivery", icon: Clock, desc: "Time-sensitive moving for urgent requirements.", href: "/services" }
               ].map((service, i) => (
                 <Card key={i} className="group hover:shadow-xl transition-all border-none overflow-hidden bg-white">
                   <CardContent className="p-8">
@@ -105,7 +105,7 @@ export default function Home() {
                     </div>
                     <h3 className="text-2xl font-bold mb-3 text-primary">{service.title}</h3>
                     <p className="text-muted-foreground mb-6 leading-relaxed">{service.desc}</p>
-                    <Link href="/services" className="inline-flex items-center text-accent font-bold group-hover:gap-3 transition-all">
+                    <Link href={service.href} className="inline-flex items-center text-accent font-bold group-hover:gap-3 transition-all">
                       Learn More <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
                   </CardContent>
