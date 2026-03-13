@@ -1,3 +1,5 @@
+"use client";
+
 import { PublicLayout } from '@/components/layout/public-layout';
 import { 
   Accordion, 
@@ -6,13 +8,10 @@ import {
   AccordionTrigger 
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { 
-  HelpCircle, 
   Truck, 
   Package, 
   ShieldCheck, 
-  CreditCard, 
   MapPin, 
   MessageSquare 
 } from 'lucide-react';
