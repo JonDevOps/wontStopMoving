@@ -20,7 +20,7 @@ import {
   Hotel,
   Server,
   Building2,
-  Dolly
+  Boxes
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -66,7 +66,7 @@ export default function ServicesPage() {
     {
       title: "Warehousing & Logistics",
       desc: "A complete supply chain partner. We handle the heavy lifting of your backend operations with a focus on speed and accuracy.",
-      icon: Dolly,
+      icon: Boxes,
       features: ["Procurement & Sourcing", "Advanced Inventory Management", "Custom Packaging & Distribution", "Real-time supply chain tracking"]
     },
     {
