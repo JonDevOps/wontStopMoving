@@ -168,7 +168,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             <div>
               <h4 className="text-white font-bold mb-6">Regional Offices</h4>
               <p className="text-sm leading-relaxed mb-4">
-                Headquarters: 123 Momentum Way, Dallas, TX 75201
+                Headquarters: 855 Maude Ave, Mountain View CA 94043
               </p>
               <p className="text-sm font-bold text-white mb-2">1-800-MOVE-NOW</p>
               <p className="text-sm">support@wontstopmoving.com</p>
