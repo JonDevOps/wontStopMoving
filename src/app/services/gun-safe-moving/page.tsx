@@ -109,8 +109,8 @@ export default function GunSafeMovingPage() {
               Our 51,000 movers include specialized heavy-haul experts trained in safe and vault relocation protocols.
             </p>
             <div className="flex justify-center">
-              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl">
-                <Link href="/quote">GET INSTANT QUOTE</Link>
+              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
+                <Link href="/book">Book Now</Link>
               </Button>
             </div>
           </div>

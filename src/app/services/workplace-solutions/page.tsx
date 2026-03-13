@@ -109,8 +109,8 @@ export default function WorkplaceSolutionsPage() {
               Our 51 regions provide the scale and flexibility needed for global workplace rollouts.
             </p>
             <div className="flex justify-center">
-              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl">
-                <Link href="/quote">GET SOLUTION QUOTE</Link>
+              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
+                <Link href="/book">Book Now</Link>
               </Button>
             </div>
           </div>

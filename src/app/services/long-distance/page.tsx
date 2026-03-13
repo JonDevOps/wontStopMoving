@@ -169,10 +169,10 @@ export default function LongDistanceMovingPage() {
               Get an instant, professional estimate for your long-distance relocation today.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl">
-                <Link href="/quote">GET INSTANT QUOTE</Link>
+              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
+                <Link href="/book">Book Now</Link>
               </Button>
-              <Button asChild size="lg" variant="ghost" className="text-white border-2 border-white/40 hover:border-white hover:bg-white/10 rounded-full px-12 h-16 text-xl font-bold">
+              <Button asChild size="lg" variant="ghost" className="text-white border-2 border-white/40 hover:border-white hover:bg-white/10 rounded-full px-12 h-16 text-xl font-black">
                 <Link href="/contact"><Phone className="mr-2 h-5 w-5" /> TALK TO COORDINATOR</Link>
               </Button>
             </div>

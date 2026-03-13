@@ -109,8 +109,8 @@ export default function HospitalityServicesPage() {
               With 1,000 movers in every state, we have the volume and regional expertise to handle your largest resort rollout.
             </p>
             <div className="flex justify-center">
-              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl">
-                <Link href="/quote">GET PROJECT QUOTE</Link>
+              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
+                <Link href="/book">Book Now</Link>
               </Button>
             </div>
           </div>

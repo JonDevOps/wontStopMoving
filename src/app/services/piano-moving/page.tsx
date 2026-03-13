@@ -107,8 +107,8 @@ export default function PianoMovingPage() {
             <p className="text-xl max-w-2xl mx-auto opacity-90">
               Our 51 regions feature specialized instrument teams trained in museum-quality handling.
             </p>
-            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl">
-              <Link href="/quote">GET INSTANT QUOTE</Link>
+            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
+              <Link href="/book">Book Now</Link>
             </Button>
           </div>
         </section>

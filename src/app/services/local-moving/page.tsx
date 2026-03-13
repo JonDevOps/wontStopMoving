@@ -166,8 +166,8 @@ export default function LocalMovingPage() {
             <p className="text-xl max-w-2xl mx-auto opacity-90">
               Join over 1 million happy customers who have moved across town with Wont Stop Moving.
             </p>
-            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl">
-              <Link href="/quote">GET INSTANT QUOTE</Link>
+            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
+              <Link href="/book">Book Now</Link>
             </Button>
           </div>
         </section>

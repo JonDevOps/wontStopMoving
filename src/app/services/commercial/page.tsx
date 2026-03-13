@@ -108,8 +108,8 @@ export default function CommercialMovingPage() {
             <p className="text-xl max-w-2xl mx-auto opacity-90">
               Our commercial teams are active in all 51 regions, ready to scale with your business growth.
             </p>
-            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl">
-              <Link href="/quote">GET BUSINESS QUOTE</Link>
+            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
+              <Link href="/book">Book Now</Link>
             </Button>
           </div>
         </section>
