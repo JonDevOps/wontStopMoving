@@ -827,7 +827,7 @@ const detailedPosts: BlogPost[] = [
     image: "blog-newyear"
   },
 
-  // PAGES 11-12: MAY 2025
+  // PAGE 11-12: MAY 2025
   {
     slug: "moving-with-newborns-safety-comfort-guide",
     title: "Moving with Newborns: Safety and Comfort Guide",
@@ -1031,7 +1031,7 @@ const detailedPosts: BlogPost[] = [
     image: "blog-checklist"
   },
 
-  // PAGES 17-21: MARCH 2025 - JANUARY 2025
+  // PAGE 17-21: MARCH 2025 - JANUARY 2025
   {
     slug: "spring-relocation-strategy-2025",
     title: "Spring Relocation Strategy: Optimizing Your 2025 Move",
@@ -1263,23 +1263,193 @@ const detailedPosts: BlogPost[] = [
     date: "Sep 05, 2024",
     readTime: "8 min read",
     image: "blog-logistics"
+  },
+
+  // PAGE 19-24: AUGUST 2024 - MARCH 2024 (NEW DETAILED POSTS)
+  {
+    slug: "late-summer-relocation-survival-guide",
+    title: "The Late Summer Relocation Survival Guide: August 2024",
+    excerpt: "August is the peak of the moving season. Learn how to manage the heat and the high demand efficiently.",
+    content: "Moving in August 2024 requires a masterclass in 'Thermal Logistics.' With temperatures peaking across our 51 regions, protecting your items and your health is paramount. Start by ensuring your utilities are active at the new location 48 hours in advance to cool the space before the crew arrives. We use specialized thermal-reflective pads for high-end electronics and musical instruments to prevent warping during transit. For our crews, we implement a mandatory hydration and cooling protocol to maintain peak efficiency. Booking in August means competing for prime slots, so lock in your dates at least 12 weeks out to secure our premium nationwide logistics network.",
+    category: "Logistics",
+    date: "Aug 25, 2024",
+    readTime: "9 min read",
+    image: "blog-logistics"
+  },
+  {
+    slug: "packing-antiques-specialty-crating-august",
+    title: "Preserving History: Packing Antiques and Specialty Items",
+    excerpt: "Your legacy items deserve more than just a box. Learn the industrial standards for antique protection.",
+    content: "In August 2024, as families transition before the school year, we see a surge in multi-generational estate moves. For high-value antiques, we utilize 'White-Glove' packing protocols. This includes the construction of custom wooden crates on-site for items like grandfather clocks, fine art, and delicate marble statuary. We avoid standard plastic wraps that can trap moisture and cause wood blooming; instead, we use archival-grade glassine and breathable microfiber pads. Our 51,000 professionals are trained in these museum-quality techniques to ensure your history arrives in the same condition it left. Trust the experts for your most precious cargo.",
+    category: "Packing",
+    date: "Aug 15, 2024",
+    readTime: "10 min read",
+    image: "blog-fragile"
+  },
+  {
+    slug: "moving-to-the-midwest-climate-readiness",
+    title: "Moving to the Midwest: Climate Readiness and Regional Tips",
+    excerpt: "Relocating to America's Heartland? Our local experts share the essentials of a Midwest transition.",
+    content: "Relocating to the Midwest hub in late 2024 requires preparation for rapid climate shifts. Our local teams in regions like Chicago, Indianapolis, and St. Louis are experts in 'Four-Season Logistics.' When moving in August, humidity control is the primary challenge. We use moisture-barrier wrapping for all upholstered furniture and double-seal every box to prevent dampness from the summer storms. We also recommend performing a 'Winterization Audit' of your new Midwest home immediately upon arrival—check insulation levels and service the furnace before the first frost in October. Welcome to the Heartland; let us handle the heavy lifting.",
+    category: "Regions",
+    date: "Aug 05, 2024",
+    readTime: "8 min read",
+    image: "blog-home"
+  },
+  {
+    slug: "mid-summer-packing-hacks-efficiency",
+    title: "Mid-Summer Packing Hacks: Maximum Efficiency in July 2024",
+    excerpt: "July is for moving. Learn the professional hacks that save hours of labor during the peak season.",
+    content: "July 2024 is the busiest month in our industry. To stay efficient, utilize the 'Closet-to-Truck' method: keep your clothes on hangers and move them directly into our professional-grade wardrobe boxes. This saves hours of folding and ironing at the destination. For the kitchen, use your softest linens—towels and tablecloths—as padding between plates and glassware to reduce paper waste and packing time. Label every box on at least two sides with its priority and destination room. Our crews can then stage your new home with surgical speed, allowing you to settle in and enjoy your new backyard by the July 4th weekend.",
+    category: "Efficiency",
+    date: "Jul 20, 2024",
+    readTime: "7 min read",
+    image: "blog-packing"
+  },
+  {
+    slug: "budgeting-for-peak-season-moves-july",
+    title: "Financial Planning: Budgeting for Peak Season Moves",
+    excerpt: "Peak season demand affects pricing. Learn how to get the best value during the summer surge.",
+    content: "Moving in July 2024 means navigating the peak of industry demand. To secure the best value, aim for a mid-week, mid-month move when demand is slightly lower than holiday weekends. At Wont Stop Moving, we prioritize transparent, all-inclusive pricing, but it's essential to account for the 'Summer Surcharge' common in the industry. We recommend starting a 'Relocation Fund' at least six months out to cover premium services like full packing and vaulted storage. Detailed invoicing and itemized receipts ensure you have everything needed for potential tax deductions if your move is for career advancement.",
+    category: "Finances",
+    date: "Jul 10, 2024",
+    readTime: "9 min read",
+    image: "blog-budget"
+  },
+  {
+    slug: "moving-with-infants-july-safety-guide",
+    title: "Moving with Infants: A July Safety and Comfort Guide",
+    excerpt: "Relocating with a baby requires extra care. Learn how to manage the transition smoothly in the summer heat.",
+    content: "Relocating with an infant in July 2024 requires a 'Last-In, First-Out' strategy for the nursery. Your baby's crib, changing table, and white noise machine should be the very last items loaded and the first ones unloaded at the destination. This provides an immediate sense of sensory continuity in the new environment. Keep a '72-Hour Survival Bag' specifically for the baby, including extra diapers, formula, and cooling towels for the transition. Our crews are trained to work quietly and efficiently, ensuring the home is cooled and the nursery is prioritized during unloading. Family first, always.",
+    category: "Family",
+    date: "Jul 01, 2024",
+    readTime: "8 min read",
+    image: "blog-kids"
+  },
+  {
+    slug: "june-graduation-relocation-logistics",
+    title: "Graduation Relocation: Logistics for New Professionals",
+    excerpt: "Starting your career in a new city? Learn how we handle small-load professional moves in June 2024.",
+    content: "June 2024 marks the start of thousands of new careers across the nation. For recent graduates, we offer 'Express Professional' packages tailored for small-load, high-speed relocations. Whether you're moving into a studio in Seattle or a loft in Austin, our nationwide network provides the same level of care as a full estate move. We coordinate smaller 'Shuttle' vehicles for tight urban access and offer temporary 'Vaulted Storage' while you finalize your new lease. Focus on your new role—let us handle the logistics of getting your life across state lines professionally and affordably.",
+    category: "Logistics",
+    date: "Jun 25, 2024",
+    readTime: "7 min read",
+    image: "blog-logistics"
+  },
+  {
+    slug: "securing-your-new-home-june-safety",
+    title: "Home Security: Securing Your New Residence in June 2024",
+    excerpt: "Peace of mind starts with a safe home. Perform this comprehensive security audit on day one.",
+    content: "When you arrive at your new residence in June 2024, your first act should be a 'Security Reset.' Change every lock on every exterior door immediately—you never know who has a spare key from the previous owners. If the home has an existing alarm system, perform a factory reset and update the codes. Check all motion-sensor lighting and ensure your Wi-Fi network is secured with a strong, new password before connecting any smart devices. A safe home is the foundation of a happy life. Our crews can even help position heavy safes or secure large cabinets as part of your premium setup.",
+    category: "Safety",
+    date: "Jun 15, 2024",
+    readTime: "8 min read",
+    image: "blog-home"
+  },
+  {
+    slug: "decluttering-for-the-summer-surge-june",
+    title: "The Great Summer Purge: Decluttering for a June Move",
+    excerpt: "The less you move, the less you pay. Use our 'Three-Pile Audit' to streamline your June relocation.",
+    content: "Before our trucks arrive in June 2024, perform a 'Systematic Sorting' of every room. Categorize items into: Keep, Donate, and Discard. If you haven't used an item in the last year, it likely shouldn't take up space in your new home or your moving quote. Focus on high-volume areas like the garage, attic, and kitchen pantry. Every pound you declutter directly lowers your final quote and decreases the time our team spends loading. We even offer integrated junk removal services to haul away unwanted items responsibly as part of your premium move. Streamline your life, save on your move.",
+    category: "Efficiency",
+    date: "Jun 05, 2024",
+    readTime: "6 min read",
+    image: "blog-junk"
+  },
+  {
+    slug: "may-real-estate-market-relocation-planning",
+    title: "Market Moves: Navigating the May Real Estate Surge",
+    excerpt: "May is the peak of the housing market. Learn how to sync your move with your closing date.",
+    content: "In May 2024, the housing market is at its peak. To ensure a seamless transition, your moving dates must be perfectly synced with your closing schedule. We recommend a '48-Hour Buffer' between closing and moving day to account for any last-minute paperwork delays. Our logistics coordinators work directly with your real estate agent to identify authorized parking and loading zones, preventing costly delays or fines. If your closing falls through, our 'Vaulted Storage' system provides an immediate fallback, keeping your belongings safe and climate-controlled until your new home is ready. Precision timing is our specialty.",
+    category: "Planning",
+    date: "May 25, 2024",
+    readTime: "9 min read",
+    image: "blog-checklist"
+  },
+  {
+    slug: "white-glove-packing-may-essentials",
+    title: "The White-Glove Standard: Packing for Premium Moves",
+    excerpt: "Experience the ultimate convenience with our full-service packing and organization standard.",
+    content: "For those moving in May 2024 who want to avoid the stress of boxing, our 'White-Glove' service is the gold standard. Our professional packers utilize premium, acid-free materials and double-walled boxes for every item. We don't just pack; we organize. Every box is inventoried with a digital photo record, and we can even prioritize the setup of your kitchen and master suite at the destination. By the time the sun sets on moving day, your new home will be fully functional, with every item positioned exactly where you want it. Relocation should be a celebration, not a chore.",
+    category: "Packing",
+    date: "May 15, 2024",
+    readTime: "8 min read",
+    image: "blog-fragile"
+  },
+  {
+    slug: "moving-to-the-pacific-northwest-may-tips",
+    title: "Pacific Northwest Relocation: Rain, Roads, and Regional Logistics",
+    excerpt: "Relocating to Seattle, Portland, or Boise? Learn the essentials of a PNW transition.",
+    content: "Relocating to our Pacific Northwest hub in May 2024 requires 'Moisture Defense' protocols. While May brings beautiful blooms, it also brings unpredictable rain. Our trucks are equipped with specialized floor runners that absorb moisture at the entry point, protecting your new hardwoods from tracking. We use industrial-grade shrink wrap for all upholstered furniture and double-tape every box seam to prevent water ingress. Our local PNW teams are experts at navigating the region's hilly terrain and narrow urban streets, ensuring your items arrive dry and safe regardless of the forecast. Welcome to the Evergreen State.",
+    category: "Regions",
+    date: "May 05, 2024",
+    readTime: "10 min read",
+    image: "blog-home"
+  },
+  {
+    slug: "tax-season-relocation-deductions-april",
+    title: "Relocation Economics: Maximizing Your April Tax Benefits",
+    excerpt: "Moving for a job? Learn which expenses might be deductible in your 2024 tax filing.",
+    content: "As you finalize your 2024 tax filing in April, understanding the nuances of relocation deductions is critical. For many corporate moves, employers provide 'Tax-Gross-Ups' to cover your moving liabilities. Additionally, if you are a business owner moving your primary warehouse or office, the logistics costs are often fully deductible as a business expense. Maintain a digital folder with every Wont Stop Moving invoice, fuel receipt, and temporary lodging statement. Our specialists provide detailed, itemized receipts to ensure your record-keeping is effortless. Financial intelligence is the foundation of a professional relocation.",
+    category: "Finances",
+    date: "Apr 25, 2024",
+    readTime: "9 min read",
+    image: "blog-budget"
+  },
+  {
+    slug: "packing-electronics-for-nationwide-transit-april",
+    title: "High-Tech Logistics: Packing Electronics for Long-Haul Travel",
+    excerpt: "Protect your digital life. Learn the professional way to pack computers and servers in April.",
+    content: "Relocating your digital infrastructure in April 2024 requires 'Anti-Static' protocols. Before you unplug anything, take high-resolution photos of the back of your server and computer setups for easy day-one reconnection. Use anti-static bubble wrap for sensitive components and 'Original Packaging' whenever possible. If the original box is gone, we utilize double-walled heavy-duty boxes with internal bracing to prevent any shifting during the road vibrations of a nationwide transit. For high-end gaming rigs or home servers, consider removing large GPUs or hard drives to prevent damage. At Wont Stop Moving, we ensure your digital life stays online.",
+    category: "Packing",
+    date: "Apr 15, 2024",
+    readTime: "8 min read",
+    image: "blog-electronics"
+  },
+  {
+    slug: "indoor-air-quality-audit-new-home-april",
+    title: "Fresh Air: Improving Indoor Air Quality in Your New Residence",
+    excerpt: "A fresh start should include fresh air. Perform this air quality audit on day one.",
+    content: "Before you unload the first box in your new April 2024 residence, perform an 'Air Quality Audit.' Replace all HVAC filters with high-efficiency MERV-13 models to trap dust and allergens from previous occupants. If the home was recently painted, utilize 'Cross-Ventilation' by opening windows on opposite sides of the house to flush out VOCs. We also recommend a professional duct cleaning if the home has been vacant for more than 30 days. Our white-glove teams can even assist with the placement of large air purifiers in bedrooms and living areas. Clean air is the foundation of a healthy home.",
+    category: "Safety",
+    date: "Apr 05, 2024",
+    readTime: "7 min read",
+    image: "blog-home"
+  },
+  {
+    slug: "march-planning-the-90-day-relocation-roadmap",
+    title: "Strategic Planning: The 90-Day Relocation Roadmap",
+    excerpt: "Success is built in the planning phase. Start your March 2024 relocation with this strategic timeline.",
+    content: "A successful move in early 2024 is won or lost in the final 90 days. At the three-month mark, focus on 'The Great Purge'—donate or sell items that won't make the cut. Two months out, start researching neighborhoods and schools in your destination region. One month before the move, confirm all utility transfers and notify the post office. By breaking the monumental task of moving into smaller, manageable phases, you maintain control and reduce anxiety. Wont Stop Moving provides this structured guidance to all our clients to ensure a seamless experience. Planning ahead turns a move into an evolution, not an upheaval.",
+    category: "Planning",
+    date: "Mar 25, 2024",
+    readTime: "8 min read",
+    image: "blog-newyear"
+  },
+  {
+    slug: "securing-regional-permits-for-march-moves",
+    title: "Precision Logistics: Securing Regional Permits and Access",
+    excerpt: "Narrow streets and strict parking require professional coordination. Learn our March permit standard.",
+    content: "Moving in dense urban centers in March 2024 requires surgical precision. Our logistics hub manages the complex sidewalk and parking permits required for our trucks to stage in Manhattan, San Francisco, or Chicago. For high-rise luxury buildings, we coordinate directly with building managers to reserve service elevators and provide the necessary COI (Certificate of Insurance). We often use smaller 'Shuttle' trucks to transfer items from the main 26-foot vehicle to your doorstep if street access is limited. Our local teams are trained in the specific nuances of shared-space relocations nationwide. We handle the bureaucracy, you handle the homecoming.",
+    category: "Logistics",
+    date: "Mar 15, 2024",
+    readTime: "9 min read",
+    image: "blog-logistics"
+  },
+  {
+    slug: "landscaping-for-curb-appeal-march-move-in",
+    title: "First Impressions: Landscaping for Curb Appeal in March",
+    excerpt: "Revitalize your new home's exterior during your first weekend. Learn our March landscaping tips.",
+    content: "March 2024 is the ideal time to establish the 'Face' of your new home. Start with a deep cleanup of any winter debris—leaves, broken branches, and dead perennials. Prune any shrubs that bloom on new wood to encourage growth. If you're moving into a region with early spring thaws, wait until the soil is no longer soggy before planting any new annuals. We recommend starting a 'Maintenance Log' for your sprinkler system and identifying any drainage issues before the heavy April rains arrive. A well-maintained exterior doesn't just look good; it increases your property value from day one. Welcome home.",
+    category: "Tips",
+    date: "Mar 05, 2024",
+    readTime: "7 min read",
+    image: "blog-home"
   }
 ];
 
-// For the rest of 2025 (March-Jan) and 2024, we use the generator to keep the library robust.
-// We adjusted the generators to avoid duplicating the detailed posts added above.
-const remaining2025: BlogPost[] = [
-  ...generateMonthPosts(2025, "February", 1),
-  ...generateMonthPosts(2025, "January", 0),
-];
-
+// For the rest of 2024 (February-January), we use the generator to keep the library robust.
 const posts2024: BlogPost[] = [
-  ...generateMonthPosts(2024, "August", 7),
-  ...generateMonthPosts(2024, "July", 6),
-  ...generateMonthPosts(2024, "June", 5),
-  ...generateMonthPosts(2024, "May", 4),
-  ...generateMonthPosts(2024, "April", 3),
-  ...generateMonthPosts(2024, "March", 2),
   ...generateMonthPosts(2024, "February", 1),
   ...generateMonthPosts(2024, "January", 0),
 ];
@@ -1306,4 +1476,4 @@ function generateMonthPosts(year: number, monthName: string, monthIndex: number)
   });
 };
 
-export const BLOG_POSTS: BlogPost[] = [...detailedPosts, ...remaining2025, ...posts2024];
+export const BLOG_POSTS: BlogPost[] = [...detailedPosts, ...posts2024];
