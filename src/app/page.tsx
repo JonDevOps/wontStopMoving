@@ -5,10 +5,10 @@ import {
   Truck, 
   MapPin, 
   ShieldCheck, 
-  ChevronRight,
-  Package,
-  Clock,
-  Warehouse,
+  ChevronRight, 
+  Package, 
+  Clock, 
+  Warehouse, 
   ArrowRight
 } from 'lucide-react';
 import Image from 'next/image';
@@ -50,7 +50,7 @@ export default function Home() {
                   <Link href="/quote">Get a Free Quote</Link>
                 </Button>
                 <Button asChild size="lg" variant="ghost" className="text-white border-2 border-white/40 hover:border-white hover:bg-white/10 rounded-full px-8 h-16 text-lg font-bold">
-                  <Link href="/track">Track My Move</Link>
+                  <Link href="/login">Track My Move</Link>
                 </Button>
               </div>
             </div>
@@ -92,7 +92,7 @@ export default function Home() {
             <div className="grid md:grid-cols-3 gap-8">
               {[
                 { title: "Local Moving", icon: Truck, desc: "Quick and efficient relocation within your city or state.", href: "/services/local-moving" },
-                { title: "Long Distance", icon: MapPin, desc: "Nationwide service connecting all 50 states and Puerto Rico.", href: "/services" },
+                { title: "Long Distance", icon: MapPin, desc: "Nationwide service connecting all 50 states and Puerto Rico.", href: "/services/long-distance" },
                 { title: "Commercial", icon: Warehouse, desc: "Specialized office and business relocation solutions.", href: "/services" },
                 { title: "Packing Services", icon: Package, desc: "Professional packing with high-quality materials.", href: "/services" },
                 { title: "Secure Storage", icon: ShieldCheck, desc: "Climate-controlled facilities for long or short term.", href: "/services" },
@@ -138,8 +138,8 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <Button asChild size="lg" className="rounded-full bg-primary hover:bg-primary/90 px-8">
-                  <Link href="/about">Explore Coverage</Link>
+                <Button asChild size="lg" className="rounded-full bg-primary hover:bg-primary/90 px-8 text-white font-bold">
+                  <Link href="/locations">Explore Coverage</Link>
                 </Button>
               </div>
               <div className="lg:w-1/2 relative bg-gray-100 rounded-3xl p-8 overflow-hidden">
