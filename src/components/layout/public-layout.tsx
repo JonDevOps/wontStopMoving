@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useUser } from '@/firebase';
 
 interface PublicLayoutProps {
   children: React.ReactNode;
@@ -26,6 +27,7 @@ interface PublicLayoutProps {
 export function PublicLayout({ children }: PublicLayoutProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { user, isUserLoading } = useUser();
 
   useEffect(() => {
     setMounted(true);
@@ -122,12 +124,22 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           <div className="flex items-center gap-4">
             {/* Desktop Actions */}
             <div className="hidden sm:flex items-center gap-4">
-              <Button asChild variant="ghost" className="rounded-full text-primary font-black uppercase tracking-widest text-[10px] hover:bg-primary/5">
-                <Link href="/login">Log In</Link>
-              </Button>
-              <Button asChild className="bg-primary hover:bg-primary/90 rounded-full px-6 font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
-                <Link href="/book">Book Now</Link>
-              </Button>
+              {!mounted || isUserLoading ? (
+                <div className="w-24 h-10 bg-gray-100 animate-pulse rounded-full" />
+              ) : user ? (
+                <Button asChild className="bg-primary hover:bg-primary/90 rounded-full px-6 font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
+                  <Link href="/dashboard">My Dashboard</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button asChild variant="ghost" className="rounded-full text-primary font-black uppercase tracking-widest text-[10px] hover:bg-primary/5">
+                    <Link href="/login">Log In</Link>
+                  </Button>
+                  <Button asChild className="bg-primary hover:bg-primary/90 rounded-full px-6 font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
+                    <Link href="/book">Book Now</Link>
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Mobile Menu Trigger */}
@@ -192,12 +204,22 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
                         <div className="pt-8 space-y-4">
                           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Account & Services</p>
-                          <Button asChild variant="outline" className="w-full rounded-xl h-14 font-bold uppercase tracking-widest text-xs border-primary/20 text-primary">
-                            <Link href="/login" onClick={() => setOpen(false)}>Log In to Portal</Link>
-                          </Button>
-                          <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest text-xs shadow-lg shadow-accent/20">
-                            <Link href="/book" onClick={() => setOpen(false)}>Book Now</Link>
-                          </Button>
+                          {isUserLoading ? (
+                            <div className="w-full h-14 bg-gray-100 animate-pulse rounded-xl" />
+                          ) : user ? (
+                            <Button asChild className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest text-xs shadow-lg shadow-primary/20">
+                              <Link href="/dashboard" onClick={() => setOpen(false)}>My Dashboard</Link>
+                            </Button>
+                          ) : (
+                            <>
+                              <Button asChild variant="outline" className="w-full rounded-xl h-14 font-bold uppercase tracking-widest text-xs border-primary/20 text-primary">
+                                <Link href="/login" onClick={() => setOpen(false)}>Log In to Portal</Link>
+                              </Button>
+                              <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest text-xs shadow-lg shadow-accent/20">
+                                <Link href="/book" onClick={() => setOpen(false)}>Book Now</Link>
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </nav>
 
