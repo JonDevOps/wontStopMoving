@@ -10,7 +10,9 @@ import {
   Clock,
   Briefcase,
   ChevronRight,
-  ArrowRight
+  ArrowRight,
+  Shield,
+  GraduationCap
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -34,6 +36,18 @@ export default function ServicesPage() {
       desc: "Specialized solutions for businesses of all sizes. We minimize downtime and ensure your workspace is set up exactly as needed.",
       icon: Briefcase,
       features: ["IT & equipment handling", "After-hours moving options", "Cubicle installation"]
+    },
+    {
+      title: "Military Relocation",
+      desc: "Specialized PCS support for our service members. We understand the unique requirements and timelines of military relocations.",
+      icon: Shield,
+      features: ["PCS compliant documentation", "Base access approved teams", "Flexible scheduling for orders"]
+    },
+    {
+      title: "Student Moves",
+      desc: "Affordable and flexible moving solutions for college students. Perfect for dorm relocations or moving into your first apartment.",
+      icon: GraduationCap,
+      features: ["Dorm-friendly logistics", "Small load specialists", "Budget-conscious pricing"]
     },
     {
       title: "Professional Packing",
