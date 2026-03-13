@@ -29,6 +29,66 @@
       "description": "Professional friendly mover",
       "imageUrl": "https://picsum.photos/seed/mover5/400/400",
       "imageHint": "friendly mover"
+    },
+    {
+      "id": "blog-pets",
+      "description": "Happy dog in a car during a move",
+      "imageUrl": "https://picsum.photos/seed/blog-pets/800/600",
+      "imageHint": "dog car"
+    },
+    {
+      "id": "blog-packing",
+      "description": "Organized moving boxes",
+      "imageUrl": "https://picsum.photos/seed/blog-packing/800/600",
+      "imageHint": "moving boxes"
+    },
+    {
+      "id": "blog-luxury",
+      "description": "High-end furniture being wrapped",
+      "imageUrl": "https://picsum.photos/seed/blog-luxury/800/600",
+      "imageHint": "luxury furniture"
+    },
+    {
+      "id": "blog-texas",
+      "description": "Skyline of a major Texas city",
+      "imageUrl": "https://picsum.photos/seed/blog-texas/800/600",
+      "imageHint": "texas city"
+    },
+    {
+      "id": "blog-kids",
+      "description": "Kids playing with empty moving boxes",
+      "imageUrl": "https://picsum.photos/seed/blog-kids/800/600",
+      "imageHint": "kids boxes"
+    },
+    {
+      "id": "blog-junk",
+      "description": "Recycling and waste disposal",
+      "imageUrl": "https://picsum.photos/seed/blog-junk/800/600",
+      "imageHint": "waste disposal"
+    },
+    {
+      "id": "blog-checklist",
+      "description": "Person checking off items on a clipboard",
+      "imageUrl": "https://picsum.photos/seed/blog-checklist/800/600",
+      "imageHint": "checklist clipboard"
+    },
+    {
+      "id": "blog-fragile",
+      "description": "Carefully wrapped glassware",
+      "imageUrl": "https://picsum.photos/seed/blog-fragile/800/600",
+      "imageHint": "glassware wrap"
+    },
+    {
+      "id": "blog-logistics",
+      "description": "Logistics map with route lines",
+      "imageUrl": "https://picsum.photos/seed/blog-logistics/800/600",
+      "imageHint": "logistics map"
+    },
+    {
+      "id": "blog-home",
+      "description": "Interior of a freshly cleaned new home",
+      "imageUrl": "https://picsum.photos/seed/blog-home/800/600",
+      "imageHint": "clean home"
     }
   ]
 }

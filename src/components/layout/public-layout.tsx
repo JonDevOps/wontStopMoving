@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -37,7 +38,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   ];
 
   const resourceLinks = [
-    { href: "#", label: "Blog" },
+    { href: "/blog", label: "Blog" },
     { href: "/faq", label: "FAQ" },
     { href: "/contact", label: "Customer Support" },
   ];
@@ -54,7 +55,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     {
       title: "Resources",
       links: [
-        { label: "Blog", href: "#" },
+        { label: "Blog", href: "/blog" },
         { label: "FAQs", href: "/faq" },
         { label: "Customer Support", href: "/contact" },
       ]
