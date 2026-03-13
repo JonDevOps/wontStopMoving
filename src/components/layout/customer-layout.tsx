@@ -167,7 +167,9 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
             <div className="p-8 flex items-center justify-between">
               <Link href="/" className="flex items-center gap-2">
                 <Truck className="h-6 w-6 text-accent" />
-                <span className="text-xl font-headline font-black tracking-tighter text-primary">WONT STOP</span>
+                <span className="text-xl font-headline font-black tracking-tighter text-primary">
+                  Wont Stop <span className="text-accent">Moving</span>
+                </span>
               </Link>
               <button onClick={() => setMobileOpen(false)}><X className="h-6 w-6 text-primary" /></button>
             </div>

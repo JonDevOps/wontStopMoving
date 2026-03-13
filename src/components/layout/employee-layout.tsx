@@ -182,7 +182,9 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
             <div className="p-8 flex items-center justify-between">
               <Link href="/" className="flex items-center gap-2">
                 <Truck className="h-6 w-6 text-accent" />
-                <span className="text-xl font-headline font-black tracking-tighter text-white">WONT STOP</span>
+                <span className="text-xl font-headline font-black tracking-tighter text-white">
+                  Wont Stop <span className="text-accent">Moving</span>
+                </span>
               </Link>
               <button onClick={() => setMobileOpen(false)}><X className="h-6 w-6" /></button>
             </div>
