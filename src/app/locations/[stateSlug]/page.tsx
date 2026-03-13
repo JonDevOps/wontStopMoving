@@ -1,10 +1,11 @@
+
 "use client";
 
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
-import { Search, MapPin, ArrowLeft, Globe } from 'lucide-react';
+import { Search, MapPin, ArrowLeft, Globe, Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { useState, use } from 'react';
+import { useState, use, useMemo } from 'react';
 import { ALL_LOCATIONS, CITIES_BY_STATE, slugify } from '@/lib/location-data';
 
 export default function StatePage({ params }: { params: Promise<{ stateSlug: string }> }) {
@@ -20,7 +21,37 @@ export default function StatePage({ params }: { params: Promise<{ stateSlug: str
 
   const stateName = formatTitle(stateSlug);
   const cities = CITIES_BY_STATE[stateSlug.toLowerCase()] || [];
-  const filteredCities = cities.filter(city => city.toLowerCase().includes(search.toLowerCase()));
+  
+  // Local filtered cities for the current state
+  const filteredCities = useMemo(() => {
+    return cities.filter(city => city.toLowerCase().includes(search.toLowerCase()));
+  }, [cities, search]);
+
+  // Global recommendations from other states/regions
+  const globalRecommendations = useMemo(() => {
+    if (search.length < 3) return [];
+    
+    const recommendations: { city: string, state: string, stateSlug: string }[] = [];
+    const query = search.toLowerCase();
+
+    Object.entries(CITIES_BY_STATE).forEach(([sSlug, sCities]) => {
+      // Skip the current state as those results are handled in the main list
+      if (sSlug === stateSlug.toLowerCase()) return;
+
+      const matches = sCities.filter(c => c.toLowerCase().includes(query));
+      matches.forEach(match => {
+        const parentState = ALL_LOCATIONS.find(loc => slugify(loc) === sSlug) || sSlug;
+        recommendations.push({
+          city: match,
+          state: String(parentState),
+          stateSlug: sSlug
+        });
+      });
+    });
+
+    // Limit to 12 recommendations to keep the UI clean
+    return recommendations.slice(0, 12);
+  }, [search, stateSlug]);
 
   return (
     <PublicLayout>
@@ -54,51 +85,75 @@ export default function StatePage({ params }: { params: Promise<{ stateSlug: str
                 </div>
                 <input 
                   type="text"
-                  placeholder="Search city or zip code..."
+                  placeholder="Search city or zip code in this state..."
                   className="w-full h-16 pl-14 pr-6 rounded-full border border-gray-100 shadow-lg text-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-accent outline-none transition-all"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
 
-              {cities.length > 0 ? (
-                <div className="space-y-8">
-                  <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-                    <Globe className="h-6 w-6 text-accent" />
-                    <h2 className="text-2xl font-black text-primary uppercase tracking-tight">Cities Served</h2>
+              <div className="space-y-12">
+                {/* Local Results */}
+                {cities.length > 0 && (
+                  <div className="space-y-8">
+                    <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+                      <Globe className="h-6 w-6 text-accent" />
+                      <h2 className="text-2xl font-black text-primary uppercase tracking-tight">Cities in {stateName}</h2>
+                    </div>
+                    
+                    {filteredCities.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {filteredCities.map((city) => (
+                          <Link 
+                            key={city}
+                            href={`/locations/${stateSlug}/${slugify(city)}`}
+                            className="p-4 rounded-xl border border-gray-50 bg-gray-50/50 text-primary font-bold hover:bg-white hover:border-accent hover:text-accent hover:shadow-md transition-all group overflow-hidden"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate">{city}</span>
+                              <MapPin className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50/50 p-12 rounded-2xl text-center border border-dashed">
+                        <p className="text-muted-foreground text-lg">No matches found within {stateName}.</p>
+                      </div>
+                    )}
                   </div>
-                  
-                  {filteredCities.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {filteredCities.map((city) => (
+                )}
+
+                {/* Global Recommendations Fallback */}
+                {search.length >= 3 && globalRecommendations.length > 0 && (
+                  <div className="space-y-6 pt-8 animate-fade-in">
+                    <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+                      <Sparkles className="h-6 w-6 text-accent" />
+                      <h3 className="text-xl font-black text-primary uppercase tracking-tight">
+                        Not in {stateName}? Found in other regions:
+                      </h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {globalRecommendations.map((rec, i) => (
                         <Link 
-                          key={city}
-                          href={`/locations/${stateSlug}/${slugify(city)}`}
-                          className="p-4 rounded-xl border border-gray-50 bg-gray-50/50 text-primary font-bold hover:bg-white hover:border-accent hover:text-accent hover:shadow-md transition-all group overflow-hidden"
+                          key={`${rec.city}-${rec.state}-${i}`}
+                          href={`/locations/${rec.stateSlug}/${slugify(rec.city)}`}
+                          className="flex flex-col p-5 rounded-2xl border border-accent/10 bg-accent/5 hover:bg-white hover:border-accent hover:shadow-lg transition-all group"
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="truncate">{city}</span>
-                            <MapPin className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-primary text-lg">{rec.city}</span>
+                            <ArrowRight className="h-4 w-4 text-accent opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
                           </div>
+                          <span className="text-xs font-black uppercase tracking-widest text-muted-foreground mt-1">
+                            {rec.state}
+                          </span>
                         </Link>
                       ))}
                     </div>
-                  ) : (
-                    <div className="text-center py-12 text-muted-foreground">
-                      No cities found matching "{search}".
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="pt-4 flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button asChild size="lg" className="rounded-full bg-primary hover:bg-primary/90 px-8 h-14 text-white font-bold uppercase tracking-wider">
-                    <Link href="/quote">Request Quote</Link>
-                  </Button>
-                  <Button asChild size="lg" variant="outline" className="rounded-full border-2 border-primary text-primary hover:bg-primary hover:text-white px-8 h-14 font-bold uppercase tracking-wider">
-                    <Link href="/book">Book Now</Link>
-                  </Button>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="p-8 bg-primary text-white rounded-3xl shadow-xl">
