@@ -51,10 +51,10 @@ export default function StatePage({ params }: { params: Promise<{ stateSlug: str
                 <MapPin className="h-3 w-3 fill-current" />
                 Active Service Area
               </div>
-              <h1 className="text-5xl md:text-7xl font-black text-primary uppercase tracking-tighter">
+              <h1 className="text-4xl sm:text-5xl md:text-7xl font-black text-primary uppercase tracking-tighter break-words leading-tight">
                 MOVERS IN <span className="text-accent">{stateName}</span>
               </h1>
-              <p className="text-xl text-muted-foreground">
+              <p className="text-xl text-muted-foreground leading-relaxed">
                 We're proudly servicing {stateName} with our nationwide fleet of 51,000 professional movers.
               </p>
             </div>
@@ -86,11 +86,11 @@ export default function StatePage({ params }: { params: Promise<{ stateSlug: str
                         <Link 
                           key={city}
                           href={`/locations/${stateSlug}/${slugify(city)}`}
-                          className="p-4 rounded-xl border border-gray-50 bg-gray-50/50 text-primary font-bold hover:bg-white hover:border-accent hover:text-accent hover:shadow-md transition-all group"
+                          className="p-4 rounded-xl border border-gray-50 bg-gray-50/50 text-primary font-bold hover:bg-white hover:border-accent hover:text-accent hover:shadow-md transition-all group overflow-hidden"
                         >
-                          <div className="flex items-center justify-between">
-                            <span>{city}</span>
-                            <MapPin className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate">{city}</span>
+                            <MapPin className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                           </div>
                         </Link>
                       ))}
