@@ -52,9 +52,14 @@ export default function CustomerDashboard() {
             <h1 className="text-3xl font-black text-primary uppercase">Move <span className="text-accent">Summary</span></h1>
             <p className="text-muted-foreground">Manage your upcoming relocations and service requests</p>
           </div>
-          <Button asChild className="rounded-full bg-accent hover:bg-accent/90 px-8 h-12 font-bold uppercase tracking-wider">
-            <Link href="/quote">Request New Quote</Link>
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild variant="outline" className="rounded-full border-accent text-accent hover:bg-accent hover:text-white px-8 h-12 font-bold uppercase tracking-wider transition-all">
+              <Link href="/book">Book a Move</Link>
+            </Button>
+            <Button asChild className="rounded-full bg-accent hover:bg-accent/90 px-8 h-12 font-bold uppercase tracking-wider shadow-lg shadow-accent/20 transition-all">
+              <Link href="/quote">Request New Quote</Link>
+            </Button>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -93,7 +98,7 @@ export default function CustomerDashboard() {
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="text-[10px] font-bold text-accent uppercase mb-1">{job.id}</p>
-                          <p className="font-bold text-primary">{job.pickupAddress.split(',')[0]} to {job.dropoffAddress.split(',')[0]}</p>
+                          <p className="font-bold text-primary">{job.pickupAddress?.split(',')[0]} to {job.dropoffAddress?.split(',')[0]}</p>
                           <p className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
                             <Calendar className="h-3 w-3" /> Scheduled for {job.moveDate}
                           </p>
@@ -133,7 +138,7 @@ export default function CustomerDashboard() {
                         <div className="bg-white p-2 rounded-lg text-primary shadow-sm"><Clock className="h-4 w-4" /></div>
                         <div>
                           <p className="font-bold text-primary">{quote.moveSize} Move</p>
-                          <p className="text-xs text-muted-foreground">Requested {new Date(quote.createdAt?.toDate()).toLocaleDateString()}</p>
+                          <p className="text-xs text-muted-foreground">Requested {quote.createdAt?.toDate ? new Date(quote.createdAt.toDate()).toLocaleDateString() : "Pending"}</p>
                         </div>
                       </div>
                       <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-accent group-hover:translate-x-1 transition-all" />
