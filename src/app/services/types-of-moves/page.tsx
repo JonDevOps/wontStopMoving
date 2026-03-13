@@ -50,10 +50,10 @@ export default function TypesOfMovesPage() {
             <div className="inline-block bg-accent text-white px-4 py-1 rounded-full text-xs font-black mb-6 tracking-widest uppercase">
               Custom Relocation Solutions
             </div>
-            <h1 className="text-5xl md:text-8xl font-black mb-6 uppercase tracking-tighter leading-tight">
-              TYPES OF <span className="text-accent">MOVES</span>
+            <h1 className="text-4xl sm:text-6xl md:text-8xl font-black mb-6 uppercase tracking-tighter leading-[0.9] break-words">
+              TYPES OF <br className="sm:hidden" /> <span className="text-accent">MOVES</span>
             </h1>
-            <p className="text-xl opacity-80 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg md:text-xl opacity-80 max-w-2xl mx-auto leading-relaxed px-4">
               Every relocation is unique. From residential transitions to complex commercial logistics, we tailor our nationwide network to fit your specific needs.
             </p>
           </div>
@@ -63,24 +63,24 @@ export default function TypesOfMovesPage() {
         {/* Categories Grid */}
         <section className="py-24 bg-white">
           <div className="container mx-auto px-4">
-            <div className="grid md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
               {categories.map((cat, i) => (
                 <Card key={i} className="border-none shadow-sm hover:shadow-xl transition-all group overflow-hidden bg-gray-50">
-                  <CardContent className="p-10 flex flex-col h-full">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="bg-primary text-white p-4 rounded-2xl group-hover:bg-accent transition-colors">
-                        <cat.icon className="h-8 w-8" />
+                  <CardContent className="p-6 sm:p-10 flex flex-col h-full">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
+                      <div className="bg-primary text-white p-3 sm:p-4 rounded-2xl group-hover:bg-accent transition-colors shrink-0">
+                        <cat.icon className="h-6 w-6 sm:h-8 sm:w-8" />
                       </div>
-                      <h2 className="text-3xl font-black text-primary uppercase">{cat.title}</h2>
+                      <h2 className="text-2xl sm:text-3xl font-black text-primary uppercase tracking-tight break-words">{cat.title}</h2>
                     </div>
-                    <p className="text-muted-foreground mb-8 leading-relaxed">
+                    <p className="text-sm sm:text-base text-muted-foreground mb-8 leading-relaxed">
                       {cat.desc}
                     </p>
-                    <div className="grid grid-cols-2 gap-4 mt-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
                       {cat.items.map((item, j) => (
-                        <div key={j} className="flex items-center gap-2 text-sm font-bold text-primary">
-                          <ChevronRight className="h-4 w-4 text-accent" />
-                          {item}
+                        <div key={j} className="flex items-center gap-2 text-xs sm:text-sm font-bold text-primary">
+                          <ChevronRight className="h-4 w-4 text-accent shrink-0" />
+                          <span className="truncate">{item}</span>
                         </div>
                       ))}
                     </div>
@@ -94,8 +94,8 @@ export default function TypesOfMovesPage() {
         {/* Detailed Breakdown Section */}
         <section className="py-24 bg-gray-50">
           <div className="container mx-auto px-4">
-            <div className="flex flex-col lg:flex-row items-center gap-16">
-              <div className="lg:w-1/2 relative">
+            <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+              <div className="lg:w-1/2 w-full relative">
                 <div className="aspect-video relative rounded-3xl overflow-hidden shadow-2xl">
                   <Image 
                     src="https://picsum.photos/seed/typesmove/1200/800" 
@@ -106,9 +106,9 @@ export default function TypesOfMovesPage() {
                   />
                 </div>
               </div>
-              <div className="lg:w-1/2 space-y-8">
-                <h2 className="text-4xl font-black text-primary uppercase">NATIONWIDE <span className="text-accent">VERSATILITY</span></h2>
-                <p className="text-lg text-muted-foreground leading-relaxed">
+              <div className="lg:w-1/2 w-full space-y-8">
+                <h2 className="text-3xl sm:text-4xl font-black text-primary uppercase leading-tight">NATIONWIDE <span className="text-accent">VERSATILITY</span></h2>
+                <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
                   With 51,000 movers across all 51 regions, we have the specialized talent required for any scenario. Whether you're moving a single piano across town or relocating an entire corporate headquarters across state lines, our standards remain consistent.
                 </p>
                 <div className="space-y-4">
@@ -118,12 +118,12 @@ export default function TypesOfMovesPage() {
                     { title: "White-Glove Handling", desc: "Premium packing and organization for delicate estates." }
                   ].map((item, i) => (
                     <div key={i} className="flex gap-4">
-                      <div className="bg-accent/10 p-2 rounded-lg h-fit text-accent">
+                      <div className="bg-accent/10 p-2 rounded-lg h-fit text-accent shrink-0">
                         <CheckCircle2 className="h-5 w-5" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-primary">{item.title}</h4>
-                        <p className="text-sm text-muted-foreground">{item.desc}</p>
+                        <h4 className="font-bold text-primary text-sm sm:text-base uppercase tracking-wide">{item.title}</h4>
+                        <p className="text-xs sm:text-sm text-muted-foreground">{item.desc}</p>
                       </div>
                     </div>
                   ))}
@@ -136,12 +136,12 @@ export default function TypesOfMovesPage() {
         {/* CTA Section */}
         <section className="py-24 bg-primary text-white text-center">
           <div className="container mx-auto px-4 space-y-8">
-            <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">WHAT ARE WE MOVING?</h2>
-            <p className="text-xl max-w-2xl mx-auto opacity-80 leading-relaxed">
+            <h2 className="text-3xl sm:text-4xl md:text-6xl font-black uppercase tracking-tighter leading-tight">WHAT ARE WE MOVING?</h2>
+            <p className="text-base sm:text-xl max-w-2xl mx-auto opacity-80 leading-relaxed px-4">
               Our AI-driven quoting system accounts for the specific nuances of your move type to provide the most accurate estimate in the industry.
             </p>
-            <div className="flex justify-center gap-6">
-              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl">
+            <div className="flex justify-center px-4">
+              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-8 sm:px-12 h-14 sm:h-16 text-lg sm:text-xl font-bold shadow-2xl uppercase w-full sm:w-auto">
                 <Link href="/quote">GET INSTANT QUOTE</Link>
               </Button>
             </div>

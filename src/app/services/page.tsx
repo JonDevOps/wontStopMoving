@@ -163,14 +163,14 @@ export default function ServicesPage() {
         {/* Hero Section */}
         <section className="bg-primary pt-40 pb-24 text-white">
           <div className="container mx-auto px-4 text-center">
-            <h1 className="text-5xl md:text-7xl font-black mb-6 uppercase tracking-tighter">
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-black mb-6 uppercase tracking-tighter leading-none break-words">
               OUR <span className="text-accent">SERVICES</span>
             </h1>
-            <p className="text-xl opacity-80 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg sm:text-xl opacity-80 max-w-2xl mx-auto leading-relaxed px-4">
               From premium residential packing to complex nationwide enterprise logistics, we provide a full suite of relocation solutions tailored to your scale.
             </p>
-            <div className="mt-10">
-              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-12 h-16 text-xl font-bold">
+            <div className="mt-10 px-4">
+              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-8 sm:px-12 h-14 sm:h-16 text-lg sm:text-xl font-bold w-full sm:w-auto">
                 <Link href="/quote">Get Your Free Quote</Link>
               </Button>
             </div>
@@ -180,10 +180,10 @@ export default function ServicesPage() {
         {/* Detailed Services Grid */}
         <section className="py-24 bg-white">
           <div className="container mx-auto px-4">
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
               {mainServices.map((service, i) => (
-                <Card key={i} className="border-none shadow-sm hover:shadow-xl transition-all group overflow-hidden">
-                  <div className="h-48 relative overflow-hidden">
+                <Card key={i} className="border-none shadow-sm hover:shadow-xl transition-all group overflow-hidden flex flex-col h-full bg-white">
+                  <div className="h-48 relative overflow-hidden shrink-0">
                     <Image 
                       src={`https://picsum.photos/seed/service${i}/800/400`}
                       alt={service.title}
@@ -191,27 +191,27 @@ export default function ServicesPage() {
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-primary/40 group-hover:bg-primary/20 transition-colors" />
-                    <div className="absolute top-6 left-6 bg-white p-3 rounded-xl text-primary shadow-lg">
-                      <service.icon className="h-6 w-6" />
+                    <div className="absolute top-4 left-4 bg-white p-2 rounded-xl text-primary shadow-lg">
+                      <service.icon className="h-5 w-5" />
                     </div>
                   </div>
-                  <CardHeader>
-                    <CardTitle className="text-2xl font-black text-primary uppercase">{service.title}</CardTitle>
+                  <CardHeader className="p-6">
+                    <CardTitle className="text-xl sm:text-2xl font-black text-primary uppercase leading-tight break-words">{service.title}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-6">
-                    <p className="text-muted-foreground leading-relaxed text-sm h-20 overflow-hidden">
+                  <CardContent className="p-6 pt-0 space-y-6 flex-1 flex flex-col">
+                    <p className="text-muted-foreground leading-relaxed text-sm line-clamp-3">
                       {service.desc}
                     </p>
-                    <ul className="space-y-2">
+                    <ul className="space-y-2 mt-auto">
                       {service.features.map((feature, j) => (
-                        <li key={j} className="flex items-center gap-2 text-sm font-bold text-primary">
-                          <ChevronRight className="h-4 w-4 text-accent" />
-                          {feature}
+                        <li key={j} className="flex items-start gap-2 text-xs sm:text-sm font-bold text-primary">
+                          <ChevronRight className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                          <span className="leading-tight">{feature}</span>
                         </li>
                       ))}
                     </ul>
-                    <Button asChild variant="ghost" className="p-0 h-auto text-accent font-black hover:bg-transparent hover:text-accent/80 group">
-                      <Link href={service.href}>
+                    <Button asChild variant="ghost" className="p-0 h-auto text-accent font-black hover:bg-transparent hover:text-accent/80 group self-start pt-2">
+                      <Link href={service.href} className="inline-flex items-center">
                         Learn More <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-2 transition-transform" />
                       </Link>
                     </Button>
@@ -225,17 +225,17 @@ export default function ServicesPage() {
         {/* Protection Section */}
         <section className="py-24 bg-gray-50">
           <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto bg-primary text-white p-12 rounded-3xl relative overflow-hidden">
-              <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                <div className="bg-accent p-6 rounded-full h-fit">
-                  <ShieldCheck className="h-12 w-12" />
+            <div className="max-w-4xl mx-auto bg-primary text-white p-8 sm:p-12 rounded-3xl relative overflow-hidden shadow-2xl">
+              <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
+                <div className="bg-accent p-5 sm:p-6 rounded-full h-fit shrink-0">
+                  <ShieldCheck className="h-10 w-10 sm:h-12 sm:w-12 text-white" />
                 </div>
                 <div className="space-y-4">
-                  <h2 className="text-3xl font-black uppercase">Your Assets, Protected</h2>
-                  <p className="text-white/70 leading-relaxed">
+                  <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">Your Assets, Protected</h2>
+                  <p className="text-sm sm:text-base text-white/70 leading-relaxed">
                     We offer comprehensive valuation protection for every move. From standard liability to full-value replacement coverage, your peace of mind is our top priority. Our teams are fully licensed, bonded, and insured in all 51 service regions.
                   </p>
-                  <Button asChild className="bg-white text-black hover:bg-white/90 rounded-full px-8 font-bold">
+                  <Button asChild className="bg-white text-primary hover:bg-white/90 rounded-full px-8 font-bold w-full sm:w-auto uppercase tracking-wide text-xs h-12">
                     <Link href="/services/protection-plans">Review Protection Plans</Link>
                   </Button>
                 </div>
