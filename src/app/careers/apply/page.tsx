@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -19,6 +18,7 @@ import { collection, serverTimestamp, doc, setDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { ALL_LOCATIONS } from "@/lib/location-data";
 
 const appSchema = z.object({
   fullName: z.string().min(2, "Name required"),
@@ -131,7 +131,7 @@ export default function ApplicationPage() {
   return (
     <div className="min-h-screen bg-gray-50 pt-32 pb-24">
       <div className="container mx-auto px-4">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl auto">
           <Link href="/careers" className="inline-flex items-center gap-2 text-primary font-bold mb-8 hover:text-accent transition-colors">
             <ArrowLeft className="h-4 w-4" /> Back to Careers
           </Link>
@@ -174,14 +174,14 @@ export default function ApplicationPage() {
                   <Label htmlFor="state">State / Region of Interest</Label>
                   <Select onValueChange={(val) => setValue("state", val)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a state" />
+                      <SelectValue placeholder="Select a region" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="TX">Texas</SelectItem>
-                      <SelectItem value="NY">New York</SelectItem>
-                      <SelectItem value="CA">California</SelectItem>
-                      <SelectItem value="FL">Florida</SelectItem>
-                      <SelectItem value="PR">Puerto Rico</SelectItem>
+                      {ALL_LOCATIONS.map((location) => (
+                        <SelectItem key={location} value={location}>
+                          {location}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {errors.state && <p className="text-xs text-destructive">{errors.state.message}</p>}
