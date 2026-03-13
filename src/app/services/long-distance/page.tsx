@@ -123,7 +123,7 @@ export default function LongDistanceMovingPage() {
                 </div>
                 <div className="pt-4">
                   <Button asChild className="rounded-full bg-primary px-8 h-14 font-bold">
-                    <Link href="/services/types-of-moves">See All Move Types</Link>
+                    <Link href="/book">Book Now</Link>
                   </Button>
                 </div>
               </div>
