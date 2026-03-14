@@ -34,7 +34,7 @@ export default function CareersPage() {
             <div className="inline-block bg-accent text-white px-4 py-1 rounded-full text-[10px] md:text-xs font-black mb-6 tracking-widest uppercase animate-pulse">
               HIRING IN 51 REGIONS
             </div>
-            <h1 className="text-4xl sm:text-5xl md:text-8xl font-black mb-6 uppercase tracking-tighter leading-[0.9] text-balance">
+            <h1 className="text-3xl sm:text-5xl md:text-8xl font-black mb-6 uppercase tracking-tighter leading-[0.9] text-balance break-words">
               JOIN THE <span className="text-accent">MOVEMENT</span>
             </h1>
             <p className="text-lg md:text-xl opacity-80 max-w-2xl mx-auto mb-10 leading-relaxed px-4">
