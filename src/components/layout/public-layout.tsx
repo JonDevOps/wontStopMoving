@@ -95,7 +95,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8 text-primary font-bold">
-            {navLinks.map((link) => (
+            {mounted && navLinks.map((link) => (
               <Link 
                 key={link.label} 
                 href={link.href} 
@@ -105,20 +105,22 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               </Link>
             ))}
             
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 text-sm hover:text-accent transition-colors outline-none">
-                Resources <ChevronDown className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl border-none shadow-xl">
-                {resourceLinks.map((link) => (
-                  <DropdownMenuItem key={link.label} asChild>
-                    <Link href={link.href} className="w-full cursor-pointer font-bold text-primary hover:text-accent transition-colors py-2">
-                      {link.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {mounted && (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-1 text-sm hover:text-accent transition-colors outline-none">
+                  Resources <ChevronDown className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl border-none shadow-xl">
+                  {resourceLinks.map((link) => (
+                    <DropdownMenuItem key={link.label} asChild>
+                      <Link href={link.href} className="w-full cursor-pointer font-bold text-primary hover:text-accent transition-colors py-2">
+                        {link.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </nav>
 
           <div className="flex items-center gap-4">
