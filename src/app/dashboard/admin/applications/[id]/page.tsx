@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useDoc, useFirestore } from "@/firebase";
+import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,13 @@ export default function ApplicationReviewPage({ params }: { params: Promise<{ id
   const { id } = use(params);
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { data: application, isLoading } = useDoc(doc(firestore, "applications", id));
+
+  const applicationRef = useMemoFirebase(() => {
+    if (!firestore || !id) return null;
+    return doc(firestore, "applications", id);
+  }, [firestore, id]);
+
+  const { data: application, isLoading } = useDoc(applicationRef);
   
   const [aiSummary, setAiSummary] = useState<ApplicationSummarizerOutput | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
