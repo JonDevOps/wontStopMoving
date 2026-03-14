@@ -95,31 +95,35 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8 text-primary font-bold">
-            {mounted && navLinks.map((link) => (
-              <Link 
-                key={link.label} 
-                href={link.href} 
-                className="text-sm hover:text-accent transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-            
-            {mounted && (
-              <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center gap-1 text-sm hover:text-accent transition-colors outline-none">
-                  Resources <ChevronDown className="h-4 w-4" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl border-none shadow-xl">
-                  {resourceLinks.map((link) => (
-                    <DropdownMenuItem key={link.label} asChild>
-                      <Link href={link.href} className="w-full cursor-pointer font-bold text-primary hover:text-accent transition-colors py-2">
-                        {link.label}
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+            {mounted ? (
+              <>
+                {navLinks.map((link) => (
+                  <Link 
+                    key={link.label} 
+                    href={link.href} 
+                    className="text-sm hover:text-accent transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="flex items-center gap-1 text-sm hover:text-accent transition-colors outline-none">
+                    Resources <ChevronDown className="h-4 w-4" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl border-none shadow-xl">
+                    {resourceLinks.map((link) => (
+                      <DropdownMenuItem key={link.label} asChild>
+                        <Link href={link.href} className="w-full cursor-pointer font-bold text-primary hover:text-accent transition-colors py-2">
+                          {link.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <div className="w-64 h-4 bg-gray-100 animate-pulse rounded" />
             )}
           </nav>
 
@@ -277,26 +281,28 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
             {/* Mobile View: Accordion for sections */}
             <div className="md:hidden col-span-1 space-y-4">
-              <Accordion type="single" collapsible className="w-full border-t border-white/10">
-                {footerSections.map((section, idx) => (
-                  <AccordionItem key={idx} value={`item-${idx}`} className="border-white/10">
-                    <AccordionTrigger className="text-white font-bold text-sm hover:no-underline hover:text-accent py-4">
-                      {section.title}
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <ul className="space-y-4 pt-2 pb-4">
-                        {section.links.map((link, lIdx) => (
-                          <li key={lIdx}>
-                            <Link href={link.href} className="text-white/70 hover:text-accent transition-colors block text-sm">
-                              {link.label}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+              {mounted && (
+                <Accordion type="single" collapsible className="w-full border-t border-white/10">
+                  {footerSections.map((section, idx) => (
+                    <AccordionItem key={idx} value={`item-${idx}`} className="border-white/10">
+                      <AccordionTrigger className="text-white font-bold text-sm hover:no-underline hover:text-accent py-4">
+                        {section.title}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <ul className="space-y-4 pt-2 pb-4">
+                          {section.links.map((link, lIdx) => (
+                            <li key={lIdx}>
+                              <Link href={link.href} className="text-white/70 hover:text-accent transition-colors block text-sm">
+                                {link.label}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              )}
             </div>
           </div>
           
