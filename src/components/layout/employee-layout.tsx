@@ -72,10 +72,10 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
 
   const adminNav: NavItem[] = [
     { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Customers", href: "/dashboard/admin/customers", icon: User },
     { label: "Jobs", href: "/dashboard/admin/jobs", icon: Truck },
     { label: "Employees", href: "/dashboard/admin/employees", icon: ShieldCheck },
     { label: "Applications", href: "/dashboard/admin/careers", icon: FileText },
-    { label: "Customers", href: "/dashboard/admin/customers", icon: User },
   ];
 
   const currentNav = isAdmin ? adminNav : employeeNav;
