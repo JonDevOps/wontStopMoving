@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -26,7 +27,7 @@ import {
   Warehouse,
   Zap
 } from "lucide-react";
-import { useFirestore, addDocumentNonBlocking } from "@/firebase";
+import { useFirestore, addDocumentNonBlocking, useUser } from "@/firebase";
 import { collection, serverTimestamp } from "firebase/firestore";
 
 const formSchema = z.object({
@@ -55,6 +56,7 @@ export function QuoteForm() {
   const [step, setStep] = useState(1);
   const totalSteps = 5;
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -74,6 +76,7 @@ export function QuoteForm() {
     const quotesRef = collection(firestore, 'quotes');
     addDocumentNonBlocking(quotesRef, {
       ...data,
+      customerId: user?.uid || "anonymous",
       status: 'new',
       createdAt: serverTimestamp(),
       details: JSON.stringify({
@@ -195,7 +198,7 @@ export function QuoteForm() {
             </div>
           )}
 
-          {/* Step 3: Add-ons (NEW) */}
+          {/* Step 3: Add-ons */}
           {step === 3 && (
             <div className="space-y-6 animate-fade-in">
               <div className="flex items-center gap-3 mb-4">

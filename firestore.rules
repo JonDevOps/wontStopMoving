@@ -7,7 +7,7 @@ service cloud.firestore {
      * Core Philosophy: This ruleset implements a robust, independent authorization model for WontStopMoving.com.
      * It prioritizes high performance and security by denormalizing ownership data (like customerId and employeeIds)
      * directly onto documents.
-     * Refresh Timestamp: 2024-05-24T10:00:00Z
+     * Updated: 2024-05-24T14:30:00Z - Finalized Dashboard Permissions
      */
 
     // --- Helper Functions ---
@@ -51,19 +51,18 @@ service cloud.firestore {
     }
 
     /**
-     * @description Rules for EmployeeProfile collection.
+     * @description Rules for EmployeeProfile collection. Candidates can create their profile during application.
      */
     match /employees/{employeeUid} {
       allow get: if isSignedIn();
       allow list: if isAdmin();
-      allow create: if isAdmin();
+      allow create: if isOwner(employeeUid) || isAdmin();
       allow update: if isExistingOwner(employeeUid) || isAdmin();
       allow delete: if isAdmin();
     }
 
     /**
      * @description Rules for Job documents. Access is shared between the customer and assigned employees.
-     * Optimization: Check ownership BEFORE checking admin status to improve performance and reliability for customers.
      */
     match /jobs/{jobId} {
       allow get, list: if (isSignedIn() && (resource.data.customerId == request.auth.uid || request.auth.uid in resource.data.employeeIds)) || isAdmin();
@@ -77,7 +76,7 @@ service cloud.firestore {
      */
     match /quotes/{quoteId} {
       allow get, list: if (isSignedIn() && resource.data.customerId == request.auth.uid) || isAdmin();
-      allow create: if (isSignedIn() && request.resource.data.customerId == request.auth.uid) || isAdmin();
+      allow create: if true; // Allow public/anonymous quote generation
       allow update: if isExistingOwner(resource.data.customerId) || isAdmin();
       allow delete: if isExistingOwner(resource.data.customerId) || isAdmin();
     }
