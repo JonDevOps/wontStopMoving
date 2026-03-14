@@ -20,6 +20,12 @@ export default function ContactPage() {
     { name: "Texas Regional Hub", address: "123 Dallas Logistics Way, Dallas TX 75201", type: "Regional" },
     { name: "New York Operations", address: "456 Manhattan Ave, New York NY 10001", type: "Regional" },
     { name: "Puerto Rico Center", address: "789 San Juan Blvd, San Juan PR 00901", type: "Regional" },
+    { name: "Ohio Logistics Hub", address: "100 E Broad St, Columbus, OH 43215", type: "Regional" },
+    { name: "Ontario Operations", address: "100 Queen St W, Toronto, ON M5H 2N2", type: "Regional" },
+    { name: "British Columbia Hub", address: "453 W 12th Ave, Vancouver, BC V5Y 1V4", type: "Regional" },
+    { name: "Alberta Regional Center", address: "800 Macleod Trail SE, Calgary, AB T2G 2M3", type: "Regional" },
+    { name: "PEI Service Center", address: "165 Queen St, Charlottetown, PE C1A 4B4", type: "Regional" },
+    { name: "Yukon Territory Hub", address: "2121 2nd Ave, Whitehorse, YT Y1A 1C2", type: "Regional" },
   ];
 
   return (
@@ -121,9 +127,9 @@ export default function ContactPage() {
 
                 <div className="space-y-6">
                   <h3 className="text-xl font-black text-primary uppercase">REGIONAL OFFICES</h3>
-                  <div className="grid gap-4">
+                  <div className="grid gap-4 max-h-[600px] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-accent">
                     {offices.map((office, i) => (
-                      <div key={i} className="p-4 bg-gray-50 rounded-2xl flex items-start gap-4 hover:bg-gray-100 transition-colors">
+                      <div key={i} className="p-4 bg-gray-50 rounded-2xl flex items-start gap-4 hover:bg-gray-100 transition-colors border border-transparent hover:border-accent/10">
                         <MapPin className="h-5 w-5 text-accent shrink-0 mt-1" />
                         <div>
                           <div className="flex items-center gap-2 mb-1">

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { EmployeeLayout } from "@/components/layout/employee-layout";
@@ -106,8 +105,10 @@ export default function AdminDashboard() {
             <CardContent className="space-y-6">
               {[
                 { state: "Texas", capacity: 85 },
-                { state: "New York", capacity: 42 },
+                { state: "Ontario", capacity: 74 },
                 { state: "California", capacity: 68 },
+                { state: "British Columbia", capacity: 59 },
+                { state: "Ohio", capacity: 42 },
                 { state: "Puerto Rico", capacity: 25 },
               ].map((region, i) => (
                 <div key={i} className="space-y-2">

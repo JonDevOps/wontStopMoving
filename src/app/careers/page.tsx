@@ -115,6 +115,12 @@ export default function CareersPage() {
                   <option value="NY" className="bg-secondary text-white">New York Operations</option>
                   <option value="CA" className="bg-secondary text-white">California Hub</option>
                   <option value="PR" className="bg-secondary text-white">Puerto Rico Logistics</option>
+                  <option value="OH" className="bg-secondary text-white">Ohio Logistics Hub</option>
+                  <option value="ON" className="bg-secondary text-white">Ontario Operations</option>
+                  <option value="BC" className="bg-secondary text-white">British Columbia Hub</option>
+                  <option value="AB" className="bg-secondary text-white">Alberta Regional Center</option>
+                  <option value="PE" className="bg-secondary text-white">PEI Service Center</option>
+                  <option value="YT" className="bg-secondary text-white">Yukon Territory Hub</option>
                 </select>
               </div>
             </div>
@@ -124,7 +130,7 @@ export default function CareersPage() {
                 { title: "Professional Mover", region: "All 51 Regions", type: "Full Time / Part Time", pay: "$20-28/hr + Tips" },
                 { title: "Moving Crew Lead", region: "TX, NY, CA, FL", type: "Full Time", pay: "$25-35/hr + Tips" },
                 { title: "CDL Logistics Driver", region: "National Fleet", type: "Full Time", pay: "$38-50/hr" },
-                { title: "Regional Operations Manager", region: "Dallas / Mountain View", type: "Full Time", pay: "Salary DOE" }
+                { title: "Regional Operations Manager", region: "Dallas / Toronto / Vancouver", type: "Full Time", pay: "Salary DOE" }
               ].map((job, i) => (
                 <div key={i} className="group bg-white/5 border border-white/10 p-8 rounded-3xl flex flex-col md:flex-row justify-between items-center hover:bg-white/10 hover:border-accent/50 transition-all cursor-pointer">
                   <div className="mb-6 md:mb-0 space-y-3">
