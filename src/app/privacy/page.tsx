@@ -83,7 +83,7 @@ export default function PrivacyPolicyPage() {
 
               <footer className="pt-8 border-t">
                 <p className="text-sm text-primary font-bold">
-                  Questions? Contact us at <span className="text-accent">support@wontstopmoving.com</span> or call 1-800-MOVE-NOW.
+                  Questions? Contact us at <span className="text-accent">support@wontstopmoving.com</span> or call (650) 569-0584.
                 </p>
               </footer>
             </div>

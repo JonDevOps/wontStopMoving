@@ -99,7 +99,7 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">Call Us 24/7</p>
-                        <p className="text-xl font-bold text-primary">1-800-MOVE-NOW</p>
+                        <p className="text-xl font-bold text-primary">(650) 569-0584</p>
                       </div>
                     </div>
                     
