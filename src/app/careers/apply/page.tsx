@@ -16,7 +16,8 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogTrigger,
-  DialogFooter
+  DialogFooter,
+  DialogClose
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, AlertCircle } from "lucide-react";
@@ -225,9 +226,11 @@ export default function EmployeeSignUpPage() {
                               </div>
                             </ScrollArea>
                             <DialogFooter>
-                              <Button type="button" onClick={() => setTermsOpened(true)} className="bg-primary text-white rounded-full px-8">
-                                I have read the terms
-                              </Button>
+                              <DialogClose asChild>
+                                <Button type="button" className="bg-primary text-white rounded-full px-8">
+                                  I have read the terms
+                                </Button>
+                              </DialogClose>
                             </DialogFooter>
                           </DialogContent>
                         </Dialog>
