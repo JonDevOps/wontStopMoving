@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -7,47 +8,71 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Check, Upload, ArrowLeft } from "lucide-react";
-import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Truck, ArrowLeft, AlertCircle, ShieldCheck, Check } from "lucide-react";
+import Link from "next/link";
 import { useFirestore, useAuth } from "@/firebase";
-import { collection, serverTimestamp, doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { ALL_LOCATIONS } from "@/lib/location-data";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-const appSchema = z.object({
-  fullName: z.string().min(2, "Name required"),
-  email: z.string().email("Invalid email"),
-  password: z.string().min(6, "Password required for your account"),
-  phone: z.string().min(10, "Invalid phone"),
-  state: z.string().min(1, "Select state"),
-  experience: z.string().min(1, "Years of experience required"),
-  hasLicense: z.boolean().default(false),
-  hasCDL: z.boolean().default(false),
-  coverLetter: z.string().optional(),
+// Password Regex: 8-30 chars, 1 upper, 1 lower, 1 number, 1 special
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,30}$/;
+
+const signUpSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Invalid email address"),
+  phone: z.string().min(10, "Invalid phone number"),
+  password: z.string().regex(
+    passwordRegex,
+    "Password must be 8-30 characters, contain 1 uppercase, 1 lowercase, 1 number and 1 special character"
+  ),
+  agreeTerms: z.boolean().refine(val => val === true, "You must agree to the terms"),
 });
 
-type AppValues = z.infer<typeof appSchema>;
+type SignUpValues = z.infer<typeof signUpSchema>;
 
-export default function ApplicationPage() {
+export default function EmployeeSignUpPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const firestore = useFirestore();
   const auth = useAuth();
+  const firestore = useFirestore();
+  
+  const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [termsOpened, setTermsOpened] = useState(false);
+  const [termsError, setTermsError] = useState<string | null>(null);
+  const [existingAccountError, setExistingAccountError] = useState(false);
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<AppValues>({
-    resolver: zodResolver(appSchema),
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<SignUpValues>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      agreeTerms: false
+    }
   });
 
-  const onSubmit = async (data: AppValues) => {
+  const onSubmit = async (data: SignUpValues) => {
+    if (!termsOpened) {
+      setTermsError("You must review the terms and conditions prior to agreeing");
+      return;
+    }
+    setTermsError(null);
+    setExistingAccountError(false);
     setIsLoading(true);
+
     try {
       // 1. Create Auth User
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
@@ -58,176 +83,190 @@ export default function ApplicationPage() {
       await setDoc(userRef, {
         id: user.uid,
         email: data.email,
-        name: data.fullName,
+        name: `${data.firstName} ${data.lastName}`,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
         role: 'employee',
-        state: data.state,
+        state: "Pending", // Will be set in Phase 2
         createdAt: serverTimestamp(),
       });
 
-      // 3. Create Employee Profile (Training/Applicant Status)
+      // 3. Create initial Employee Record
       const employeeRef = doc(firestore, "employees", user.uid);
       await setDoc(employeeRef, {
         id: user.uid,
         userId: user.uid,
-        employeeId: `EMP-${Math.floor(Math.random() * 90000) + 10000}`,
-        state: data.state,
-        region: "Pending Assignment",
-        hireDate: serverTimestamp(),
-        status: 'applicant', // Training mode
-        availability: "{}",
-      });
-
-      // 4. Create Application Document
-      const applicationRef = doc(collection(firestore, "applications"));
-      await setDoc(applicationRef, {
-        id: applicationRef.id,
-        userId: user.uid,
-        name: data.fullName,
-        email: data.email,
-        phone: data.phone,
-        state: data.state,
-        experience: data.experience,
-        resume: "https://example.com/resume-placeholder.pdf",
-        status: 'new',
+        status: 'applicant',
+        onboardingStep: 2,
         createdAt: serverTimestamp(),
       });
 
-      setSubmitted(true);
-      setTimeout(() => {
-        router.push('/dashboard/employee');
-      }, 3000);
+      toast({
+        title: "Account Created",
+        description: "Moving to Phase 2: Your Details.",
+      });
+      
+      // For now we redirect to dashboard which will handle steps or we could set local step
+      router.push('/dashboard/employee');
 
     } catch (error: any) {
-      console.error("Application/Auth Error:", error);
-      toast({
-        variant: "destructive",
-        title: "Application Error",
-        description: error.message || "Failed to process application.",
-      });
+      console.error("Signup Error:", error);
+      if (error.code === 'auth/email-already-in-use') {
+        setExistingAccountError(true);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Registration Error",
+          description: error.message || "Failed to create account.",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (submitted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <Card className="max-w-md w-full border-none shadow-2xl p-12 text-center animate-fade-in">
-          <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Check className="h-10 w-10" />
-          </div>
-          <h2 className="text-3xl font-black text-primary mb-4 uppercase tracking-tighter">Application Received</h2>
-          <p className="text-muted-foreground mb-8 leading-relaxed">
-            Account created successfully! We are redirecting you to your employee dashboard where you can begin your training while we review your application.
-          </p>
-          <div className="animate-pulse text-accent font-bold uppercase tracking-widest text-xs">
-            Redirecting to Portal...
-          </div>
-        </Card>
-      </div>
-    );
-  }
+  const handleTermsClick = () => {
+    setTermsOpened(true);
+    setTermsError(null);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-32 pb-24">
+    <div className="min-h-screen bg-gray-50 pt-20 pb-24">
       <div className="container mx-auto px-4">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-2xl mx-auto">
           <Link href="/careers" className="inline-flex items-center gap-2 text-primary font-bold mb-8 hover:text-accent transition-colors">
             <ArrowLeft className="h-4 w-4" /> Back to Careers
           </Link>
-          
+
           <div className="mb-12">
-            <h1 className="text-3xl sm:text-4xl font-black text-primary mb-2 uppercase break-words">JOIN THE <span className="text-accent">MOVEMENT</span></h1>
-            <p className="text-muted-foreground">Apply now to create your account and start your journey.</p>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="bg-accent text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Phase 1</span>
+              <h1 className="text-3xl sm:text-4xl font-black text-primary uppercase">Provider <span className="text-accent">Sign Up</span></h1>
+            </div>
+            <p className="text-muted-foreground font-medium">Create your secure account to join our 51,000+ member network.</p>
           </div>
 
+          {existingAccountError && (
+            <Alert variant="destructive" className="mb-8 border-red-200 bg-red-50 text-red-900 animate-fade-in">
+              <AlertCircle className="h-5 w-5" />
+              <AlertTitle className="font-black uppercase tracking-tight">Existing Account Found</AlertTitle>
+              <AlertDescription className="text-sm font-medium">
+                Our records indicate your information matches an existing Wont Stop Moving account. Please email <span className="font-bold">support@wontstopmoving.com</span> for further instructions.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Card className="border-none shadow-xl overflow-hidden bg-white">
-            <CardContent className="p-6 sm:p-8 md:p-12">
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-                <div className="grid md:grid-cols-2 gap-6">
+            <div className="h-1.5 bg-gray-100">
+              <div className="h-full bg-accent w-1/3 transition-all duration-500" />
+            </div>
+            <CardContent className="p-8 sm:p-12">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div className="grid sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name</Label>
-                    <Input id="fullName" {...register("fullName")} placeholder="Jane Doe" required />
-                    {errors.fullName && <p className="text-xs text-destructive">{errors.fullName.message}</p>}
+                    <Label htmlFor="firstName" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">First Name</Label>
+                    <Input id="firstName" {...register("firstName")} placeholder="Jane" className="h-12 border-gray-200 focus:ring-accent" />
+                    {errors.firstName && <p className="text-xs text-destructive font-bold">{errors.firstName.message}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" {...register("email")} placeholder="jane@example.com" required />
-                    {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Create Account Password</Label>
-                    <Input id="password" type="password" {...register("password")} placeholder="******" required />
-                    {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input id="phone" {...register("phone")} placeholder="(555) 000-0000" required />
-                    {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
+                    <Label htmlFor="lastName" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Last Name</Label>
+                    <Input id="lastName" {...register("lastName")} placeholder="Doe" className="h-12 border-gray-200 focus:ring-accent" />
+                    {errors.lastName && <p className="text-xs text-destructive font-bold">{errors.lastName.message}</p>}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="state">State / Region of Interest</Label>
-                  <Select onValueChange={(val) => setValue("state", val)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a region" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ALL_LOCATIONS.map((location) => (
-                        <SelectItem key={location} value={location}>
-                          {location}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.state && <p className="text-xs text-destructive">{errors.state.message}</p>}
+                  <Label htmlFor="email" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Email Address</Label>
+                  <Input id="email" type="email" {...register("email")} placeholder="jane@example.com" className="h-12 border-gray-200 focus:ring-accent" />
+                  {errors.email && <p className="text-xs text-destructive font-bold">{errors.email.message}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="experience">Years of Experience in Moving/Logistics</Label>
-                  <Input id="experience" type="number" {...register("experience")} placeholder="0" min="0" required />
-                  {errors.experience && <p className="text-xs text-destructive">{errors.experience.message}</p>}
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-8 py-4 px-6 bg-gray-50 rounded-2xl">
-                  <div className="flex items-center space-x-3">
-                    <Checkbox id="hasLicense" onCheckedChange={(val) => setValue("hasLicense", val === true)} />
-                    <Label htmlFor="hasLicense" className="font-bold text-primary">Valid Driver's License</Label>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Checkbox id="hasCDL" onCheckedChange={(val) => setValue("hasCDL", val === true)} />
-                    <Label htmlFor="hasCDL" className="font-bold text-primary">Commercial Driver's License (CDL)</Label>
-                  </div>
+                  <Label htmlFor="phone" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Phone Number</Label>
+                  <Input id="phone" {...register("phone")} placeholder="(555) 000-0000" className="h-12 border-gray-200 focus:ring-accent" />
+                  {errors.phone && <p className="text-xs text-destructive font-bold">{errors.phone.message}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Resume Upload</Label>
-                  <div className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center hover:border-accent transition-colors cursor-pointer bg-gray-50/50">
-                    <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-sm font-bold text-primary mb-1">Click to upload or drag and drop</p>
-                    <p className="text-xs text-muted-foreground">PDF, DOC up to 10MB</p>
-                  </div>
+                  <Label htmlFor="password" title="Password must be between 8 and 30 characters long, contains at least 1 uppercase letter, 1 lowercase letter, 1 number and 1 special character" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Password</Label>
+                  <Input id="password" type="password" {...register("password")} className="h-12 border-gray-200 focus:ring-accent" />
+                  <p className="text-[10px] text-muted-foreground font-medium">Must be 8-30 characters with uppercase, lowercase, number, and special character.</p>
+                  {errors.password && <p className="text-xs text-destructive font-bold leading-tight">{errors.password.message}</p>}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="coverLetter">Cover Letter (Optional)</Label>
-                  <Textarea id="coverLetter" {...register("coverLetter")} placeholder="Tell us why you'd be a great fit for our team..." className="min-h-[150px]" />
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="flex items-start space-x-3">
+                    <Checkbox 
+                      id="agreeTerms" 
+                      onCheckedChange={(val) => setValue("agreeTerms", val === true)} 
+                      className="mt-1"
+                    />
+                    <div className="space-y-1 leading-none">
+                      <Label htmlFor="agreeTerms" className="text-sm font-medium text-primary leading-relaxed">
+                        I agree to Wont Stop Moving®{" "}
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button 
+                              type="button" 
+                              onClick={handleTermsClick}
+                              className="text-accent font-black hover:underline underline-offset-2"
+                            >
+                              Terms of Service
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-3xl max-h-[80vh]">
+                            <DialogHeader>
+                              <DialogTitle className="text-2xl font-black uppercase tracking-tight">Terms of Service</DialogTitle>
+                            </DialogHeader>
+                            <ScrollArea className="h-[50vh] pr-4 mt-4">
+                              <div className="prose prose-sm prose-primary max-w-none space-y-4 text-muted-foreground">
+                                <p className="font-bold text-primary">Last Updated: March 2024</p>
+                                <h3 className="text-primary font-black uppercase">1. Provider Standards</h3>
+                                <p>As a Wont Stop Moving® Service Provider, you agree to maintain professional standards of conduct and quality. All moves must be performed by background-checked individuals.</p>
+                                <h3 className="text-primary font-black uppercase">2. Independent Status</h3>
+                                <p>You understand that applying as a Provider means you are an independent moving labor service. You are not an employee of Wont Stop Moving® Inc. or its affiliates.</p>
+                                <h3 className="text-primary font-black uppercase">3. Data Accuracy</h3>
+                                <p>You verify that all information provided during this application is true and accurate. Misrepresentation of qualifications will result in immediate account termination.</p>
+                                <h3 className="text-primary font-black uppercase">4. Communication</h3>
+                                <p>You consent to receive electronic communications via email and SMS regarding job assignments, system updates, and logistics coordination.</p>
+                                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                              </div>
+                            </ScrollArea>
+                            <DialogFooter>
+                              <Button type="button" onClick={() => setTermsOpened(true)} className="bg-primary text-white rounded-full px-8">
+                                I have read the terms
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </Label>
+                      {errors.agreeTerms && <p className="text-xs text-destructive font-bold">{errors.agreeTerms.message}</p>}
+                      {termsError && !errors.agreeTerms && <p className="text-xs text-destructive font-bold">{termsError}</p>}
+                    </div>
+                  </div>
                 </div>
 
                 <Button 
                   type="submit" 
-                  disabled={isLoading} 
-                  className="w-full bg-accent hover:bg-accent/90 min-h-14 py-3 text-sm sm:text-base md:text-lg font-black rounded-xl uppercase tracking-wider whitespace-normal text-center h-auto"
+                  disabled={isLoading}
+                  className="w-full bg-accent hover:bg-accent/90 h-14 text-lg font-black rounded-xl uppercase tracking-widest shadow-xl shadow-accent/20 mt-4 group"
                 >
-                  {isLoading ? "Processing Application..." : "Submit Application & Create Account"}
+                  {isLoading ? "Processing..." : (
+                    <>
+                      Create Account & Continue <ArrowLeft className="h-5 w-5 ml-2 rotate-180 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
                 </Button>
               </form>
             </CardContent>
           </Card>
+
+          <div className="mt-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              Already have a provider account? <Link href="/login" className="text-primary font-black hover:underline">Sign In</Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

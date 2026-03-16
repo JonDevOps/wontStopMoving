@@ -3,124 +3,61 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * Core Philosophy: This ruleset implements a robust, independent authorization model for WontStopMoving.com.
-     * It prioritizes high performance and security by denormalizing ownership data (like customerId and employeeIds)
-     * directly onto documents.
-     * Updated: 2024-05-24T14:30:00Z - Finalized Dashboard Permissions
-     */
-
-    // --- Helper Functions ---
-
-    /** Checks if the user is authenticated. */
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** Checks if the current user has a specific role in their UserProfile. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
     function hasRole(role) {
       let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
       return isSignedIn() && exists(userPath) && get(userPath).data.role == role;
     }
 
-    /** Checks if the user is an Administrator. */
     function isAdmin() {
       return hasRole('admin');
     }
 
-    /** Checks if the provided ID matches the authenticated user's UID. */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    // Rules
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
     }
 
-    /** Combined check for existence and ownership for updates/deletes. */
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
+    match /employees/{employeeUid} {
+      allow get: if isOwner(employeeUid) || isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == employeeUid;
+      allow update: if isOwner(employeeUid) || isAdmin();
+      allow list: if isAdmin();
     }
 
-    // --- Rules ---
-
-    /**
-     * @description Rules for announcements. Admins create, all signed-in users read.
-     */
-    match /announcements/{announcementId} {
+    match /announcements/{id} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    /**
-     * @description Rules for the UserProfile collection. Users can manage their own profile.
-     */
-    match /users/{userId} {
-      allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if (isOwner(userId) && request.resource.data.id == resource.data.id) || isAdmin();
-      allow delete: if isAdmin();
+    match /applications/{id} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update, delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for EmployeeProfile collection. Candidates can create their profile during application.
-     */
-    match /employees/{employeeUid} {
-      allow get: if isSignedIn();
-      allow list: if isAdmin();
-      allow create: if isOwner(employeeUid) || isAdmin();
-      allow update: if isExistingOwner(employeeUid) || isAdmin();
-      allow delete: if isAdmin();
+    match /quotes/{id} {
+      allow read: if (isSignedIn() && resource.data.customerId == request.auth.uid) || isAdmin();
+      allow create: if true;
+      allow update, delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for Job documents. Access is shared between the customer and assigned employees.
-     */
-    match /jobs/{jobId} {
-      allow get, list: if (isSignedIn() && (resource.data.customerId == request.auth.uid || request.auth.uid in resource.data.employeeIds)) || isAdmin();
+    match /jobs/{id} {
+      allow read: if (isSignedIn() && (resource.data.customerId == request.auth.uid || request.auth.uid in resource.data.employeeIds)) || isAdmin();
       allow create: if (isSignedIn() && request.resource.data.customerId == request.auth.uid) || isAdmin();
-      allow update: if (isExistingOwner(resource.data.customerId) || (isSignedIn() && request.auth.uid in resource.data.employeeIds)) || isAdmin();
+      allow update: if (isSignedIn() && request.auth.uid in resource.data.employeeIds) || isAdmin();
       allow delete: if isAdmin();
-    }
-
-    /**
-     * @description Rules for Quote documents. Customers manage their own requests.
-     */
-    match /quotes/{quoteId} {
-      allow get, list: if (isSignedIn() && resource.data.customerId == request.auth.uid) || isAdmin();
-      allow create: if true; // Allow public/anonymous quote generation
-      allow update: if isExistingOwner(resource.data.customerId) || isAdmin();
-      allow delete: if isExistingOwner(resource.data.customerId) || isAdmin();
-    }
-
-    /**
-     * @description Rules for JobApplication collection.
-     */
-    match /applications/{applicationId} {
-      allow get, list: if isAdmin();
-      allow create: if true; 
-      allow update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Rules for Inquiry collection.
-     */
-    match /inquiries/{inquiryId} {
-      allow get, list: if isAdmin();
-      allow create: if true; 
-      allow update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Rules for JobOpening collection.
-     */
-    match /jobOpenings/{jobOpeningId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Rules for Region collection.
-     */
-    match /regions/{regionId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
     }
   }
 }

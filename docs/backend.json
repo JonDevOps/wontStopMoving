@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -18,6 +19,14 @@
         "name": {
           "type": "string",
           "description": "The full name of the user."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "User's first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "User's last name."
         },
         "phone": {
           "type": "string",
@@ -92,6 +101,10 @@
             "type": "string"
           }
         },
+        "onboardingStep": {
+          "type": "number",
+          "description": "The current step in the onboarding process."
+        },
         "assignedJobIds": {
           "type": "array",
           "description": "An array of IDs for jobs currently assigned to this employee. (Relationship: EmployeeProfile N:N Job)",
@@ -107,10 +120,6 @@
       "required": [
         "id",
         "userId",
-        "employeeId",
-        "state",
-        "region",
-        "hireDate",
         "status"
       ]
     },
@@ -307,141 +316,6 @@
         "status",
         "createdAt"
       ]
-    },
-    "Inquiry": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Inquiry",
-      "type": "object",
-      "description": "Represents a general contact inquiry submitted by a user through the public website.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Inquiry entity. (Primary Key)"
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the person submitting the inquiry."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the person submitting the inquiry.",
-          "format": "email"
-        },
-        "phone": {
-          "type": "string",
-          "description": "The phone number of the person submitting the inquiry."
-        },
-        "message": {
-          "type": "string",
-          "description": "The content of the inquiry message."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the inquiry was submitted.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the inquiry (e.g., 'new', 'resolved').",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "message",
-        "createdAt",
-        "status"
-      ]
-    },
-    "JobOpening": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "JobOpening",
-      "type": "object",
-      "description": "Details about a specific job position currently open for applications.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the JobOpening entity. (Primary Key)"
-        },
-        "title": {
-          "type": "string",
-          "description": "The title of the job opening (e.g., 'Moving Crew Member')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the job role and responsibilities."
-        },
-        "state": {
-          "type": "string",
-          "description": "The state where this job opening is located."
-        },
-        "region": {
-          "type": "string",
-          "description": "The specific region within the state for this job opening."
-        },
-        "requirements": {
-          "type": "string",
-          "description": "Key requirements for the job position."
-        },
-        "responsibilities": {
-          "type": "string",
-          "description": "Key responsibilities of the job position."
-        },
-        "postedDate": {
-          "type": "string",
-          "description": "The date when the job opening was posted.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the job opening (e.g., 'open', 'closed').",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "id",
-        "title",
-        "description",
-        "state",
-        "postedDate",
-        "status"
-      ]
-    },
-    "Region": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Region",
-      "type": "object",
-      "description": "Represents a geographical service region where WontStopMoving.com operates.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Region entity. (Primary Key)"
-        },
-        "name": {
-          "type": "string",
-          "description": "The full name of the region (e.g., 'Texas', 'Puerto Rico')."
-        },
-        "stateCode": {
-          "type": "string",
-          "description": "The two-letter state or territory code for the region (e.g., 'TX', 'PR')."
-        },
-        "availableSlots": {
-          "type": "number",
-          "description": "The number of available job slots or capacity in this region."
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "stateCode",
-        "availableSlots"
-      ]
     }
   },
   "auth": {
@@ -459,11 +333,11 @@
           "schema": {
             "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores user profile information, acting as the central identity for customers, employees, and administrators. The document ID matches the Firebase Auth UID. Includes the 'role' field for internal application logic and security rule checks for the user's own profile.",
+          "description": "Stores user profile information.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique Firebase Authentication User ID (UID) for the user."
+              "description": "The unique Firebase Authentication User ID (UID)."
             }
           ]
         }
@@ -475,112 +349,15 @@
           "schema": {
             "$ref": "#/backend/entities/EmployeeProfile"
           },
-          "description": "Contains details specific to an employee. The document ID matches the Firebase Auth UID of the associated user. Includes 'state' and 'region' for easy querying and access control based on geographical assignment.",
+          "description": "Contains details specific to an employee.",
           "params": [
             {
               "name": "employeeUid",
-              "description": "The unique Firebase Authentication User ID (UID) for the employee, which also serves as the document ID."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/jobs/{jobId}",
-        "definition": {
-          "entityName": "Job",
-          "schema": {
-            "$ref": "#/backend/entities/Job"
-          },
-          "description": "Details of a specific moving job. Includes denormalized 'customerId' and 'employeeIds' array for authorization independence, allowing direct security rule checks and efficient queries for customer-owned or employee-assigned jobs.",
-          "params": [
-            {
-              "name": "jobId",
-              "description": "The unique identifier for the job."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/quotes/{quoteId}",
-        "definition": {
-          "entityName": "Quote",
-          "schema": {
-            "$ref": "#/backend/entities/Quote"
-          },
-          "description": "Represents a moving quote requested by a customer. Includes denormalized 'customerId' for authorization independence, enabling customers to access their own quotes directly.",
-          "params": [
-            {
-              "name": "quoteId",
-              "description": "The unique identifier for the quote."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/applications/{applicationId}",
-        "definition": {
-          "entityName": "JobApplication",
-          "schema": {
-            "$ref": "#/backend/entities/JobApplication"
-          },
-          "description": "Stores job applications submitted through the careers portal. Designed for public write-only access and admin read/write, with no direct user (customer/employee) authorization dependencies.",
-          "params": [
-            {
-              "name": "applicationId",
-              "description": "The unique identifier for the job application."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/inquiries/{inquiryId}",
-        "definition": {
-          "entityName": "Inquiry",
-          "schema": {
-            "$ref": "#/backend/entities/Inquiry"
-          },
-          "description": "Represents general contact inquiries submitted by users. Designed for public write-only access and admin read/write, without requiring user authentication for submission.",
-          "params": [
-            {
-              "name": "inquiryId",
-              "description": "The unique identifier for the inquiry."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/jobOpenings/{jobOpeningId}",
-        "definition": {
-          "entityName": "JobOpening",
-          "schema": {
-            "$ref": "#/backend/entities/JobOpening"
-          },
-          "description": "Details about a specific job position currently open for applications. Designed for public read access to display job listings and admin read/write for management.",
-          "params": [
-            {
-              "name": "jobOpeningId",
-              "description": "The unique identifier for the job opening."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/regions/{regionId}",
-        "definition": {
-          "entityName": "Region",
-          "schema": {
-            "$ref": "#/backend/entities/Region"
-          },
-          "description": "Represents a geographical service region. Designed for public read access (e.g., for showing service areas or job counts) and admin read/write for configuration.",
-          "params": [
-            {
-              "name": "regionId",
-              "description": "The unique identifier for the region (e.g., 'TX', 'PR')."
+              "description": "The unique Firebase Authentication User ID (UID)."
             }
           ]
         }
       }
-    ],
-    "reasoning": "The Firestore data structure for WontStopMoving.com is designed to be secure, scalable, and debuggable, strictly adhering to the core design principles and strategy mandates. \n\n**Authorization Independence (CRITICAL) & Denormalization:**\n\n1.  **User Profiles (`/users/{userId}`):** User profiles are stored in a top-level collection, with the document ID (`userId`) directly corresponding to the Firebase Authentication `request.auth.uid`. The `role` field within this document (customer, employee, admin) is used to determine the user's primary role. While accessing this field for role checking requires a `get()` call within security rules, this is a self-reference (`get('/users/$(request.auth.uid)')`) for the authenticated user's own identity data. This is distinct from hierarchical dependencies that require fetching unrelated or parent documents, thereby maintaining Authorization Independence for other entity accesses.\n2.  **Jobs (`/jobs/{jobId}`):** To ensure Authorization Independence for accessing job documents, the `customerId` (owner of the job) and `employeeIds` (array of assigned employees) are **denormalized** directly onto each `job` document. This eliminates the need for `get()` calls to `users` or `employees` collections within security rules to determine who can access a job. A customer can be authorized by checking `resource.data.customerId == request.auth.uid`, and an employee by `request.auth.uid in resource.data.employeeIds`. This directly supports atomic operations and simplifies rule debugging.\n3.  **Quotes (`/quotes/{quoteId}`):** Similar to jobs, the `customerId` is **denormalized** onto each `quote` document. This allows customers to manage their own quotes without requiring a `get()` call to their `UserProfile` document to determine ownership.\n4.  **Employee Profiles (`/employees/{employeeUid}`):** Employee-specific data is stored in a top-level collection, with the document ID matching the `userId` from `UserProfile`. This maintains direct ownership and ensures that employees can read/write their own profile without needing to fetch other documents for authorization.\n\n**QAPs (Rules are not Filters):**\n\nThe structure facilitates robust `list` operations (Query-Allow Patterns) by incorporating segregation and denormalization:\n\n1.  **Customer-Owned Data:** Customers can easily query and `list` their `jobs` and `quotes` using `where('customerId', '==', request.auth.uid)`. Security rules can then enforce that users can only read/write documents where `resource.data.customerId == request.auth.uid`.\n2.  **Employee-Assigned Data:** Employees can `list` their assigned `jobs` by querying `where('employeeIds', 'array-contains', request.auth.uid)`. Rules can enforce `request.auth.uid in resource.data.employeeIds`.\n3.  **Public Data:** Collections like `/jobOpenings` and `/regions` are designed for public read access, allowing unauthenticated users to `list` available jobs or service regions without any authorization filters in the rules themselves (rules simply allow read for all).\n4.  **Public Write Data:** Collections like `/applications` and `/inquiries` are designed for public write-only access, enabling unauthenticated users to `create` new documents. This allows forms to submit data directly without complex authorization logic.\n5.  **Admin Access:** Administrators, identified by their `role` in their `UserProfile`, have full read/write access to all collections, simplifying rule logic for this privileged role.\n\n**Structural Segregation & Access Modeling:**\n\n*   **Private User Data:** `/users/{userId}` and `/employees/{employeeUid}` use path-based ownership for private, user-specific data.\n*   **Private/Collaborative Entities:** `/jobs/{jobId}` and `/quotes/{quoteId}` are top-level collections, as they involve relationships with multiple users (customers, employees). Denormalization ensures authorization independence.\n*   **Public Read/Write Data:** `/applications`, `/inquiries`, `/jobOpenings`, and `/regions` are top-level collections with homogeneous security postures (e.g., all applications are public-write/admin-read, all job openings are public-read/admin-write). This avoids mixing different access requirements within a single collection and simplifies security rules dramatically.\n\nOverall, this design prioritizes simple, atomic, and predictable security rules by pushing authorization context onto the documents themselves or segregating data based on its access posture. This minimizes reliance on complex `get()` calls in rules, enhancing performance, scalability, and debuggability."
+    ]
   }
 }
