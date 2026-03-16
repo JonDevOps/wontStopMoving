@@ -96,7 +96,7 @@ function EmployeeDashboardContent() {
                 {[
                   { title: "Your Details", duration: "Profile", status: "Required", icon: User, color: "text-accent" },
                   { title: "Verification", duration: "Security", status: "Pending", icon: ShieldAlert, color: "text-blue-500" },
-                  { title: "Safety Protocol 101", duration: "12 min", status: "Completed", icon: ShieldCheck, color: "text-green-500" },
+                  { title: "Safety Protocol 101", duration: "12 min", status: "Locked", icon: PlayCircle, color: "text-muted-foreground" },
                   { title: "Customer Interaction", duration: "8 min", status: "Locked", icon: PlayCircle, color: "text-muted-foreground" },
                   { title: "Heavy Lifting Ergonomics", duration: "15 min", status: "Locked", icon: PlayCircle, color: "text-muted-foreground" },
                   { title: "Logistics App Guide", duration: "10 min", status: "Locked", icon: PlayCircle, color: "text-muted-foreground" },
