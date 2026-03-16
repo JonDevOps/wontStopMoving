@@ -41,6 +41,14 @@ service cloud.firestore {
     // --- Rules ---
 
     /**
+     * @description Rules for announcements. Admins create, all signed-in users read.
+     */
+    match /announcements/{announcementId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    /**
      * @description Rules for the UserProfile collection. Users can manage their own profile.
      */
     match /users/{userId} {

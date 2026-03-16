@@ -13,11 +13,13 @@ import {
   PlayCircle, 
   ShieldCheck, 
   BookOpen,
-  AlertCircle
+  AlertCircle,
+  Megaphone
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from "@/firebase";
+import { collection, query, orderBy, limit, doc } from "firebase/firestore";
+import { formatDistanceToNow } from "date-fns";
 
 export default function EmployeeDashboard() {
   const { user } = useUser();
@@ -28,7 +30,13 @@ export default function EmployeeDashboard() {
     return doc(firestore, "employees", user.uid);
   }, [firestore, user]);
 
+  const announcementsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "announcements"), orderBy("createdAt", "desc"), limit(5));
+  }, [firestore]);
+
   const { data: profile, isLoading } = useDoc(employeeRef);
+  const { data: announcements, isLoading: announcementsLoading } = useCollection(announcementsQuery);
 
   if (isLoading) {
     return (
@@ -180,20 +188,30 @@ export default function EmployeeDashboard() {
               <Card className="border-none shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 uppercase text-sm font-black tracking-widest">
-                    <TrendingUp className="h-5 w-5 text-accent" />
+                    <Megaphone className="h-5 w-5 text-accent" />
                     ANNOUNCEMENTS
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-accent uppercase tracking-widest">Regional Hub</span>
-                        <span className="text-[10px] text-muted-foreground">Just now</span>
-                      </div>
-                      <p className="text-sm font-bold text-primary">System Update Complete</p>
-                      <p className="text-xs text-muted-foreground leading-relaxed">Full logistics tracking is now enabled for all regional moves.</p>
-                    </div>
+                    {announcementsLoading ? (
+                      <div className="p-4 text-center text-xs animate-pulse font-bold text-muted-foreground uppercase">Syncing with Regional Hub...</div>
+                    ) : announcements && announcements.length > 0 ? (
+                      announcements.map((ann) => (
+                        <div key={ann.id} className="space-y-2 border-b border-gray-50 pb-4 last:border-0 last:pb-0 group">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black text-accent uppercase tracking-widest">{ann.authorName || "Regional Hub"}</span>
+                            <span className="text-[10px] text-muted-foreground font-bold uppercase">
+                              {ann.createdAt ? formatDistanceToNow(ann.createdAt.toDate(), { addSuffix: true }) : "Just now"}
+                            </span>
+                          </div>
+                          <p className="text-sm font-black text-primary uppercase group-hover:text-accent transition-colors">{ann.title}</p>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{ann.content}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-8 text-center text-xs text-muted-foreground italic">No active system broadcasts.</div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
