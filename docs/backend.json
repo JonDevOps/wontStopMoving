@@ -35,9 +35,7 @@
         "role": {
           "type": "string",
           "description": "The role of the user within the application.",
-          "items": {
-            "type": "string"
-          }
+          "enum": ["admin", "employee", "customer"]
         },
         "state": {
           "type": "string",
@@ -75,16 +73,22 @@
         },
         "userId": {
           "type": "string",
-          "description": "Reference to the UserProfile entity's ID. (Relationship: UserProfile 1:N EmployeeProfile)"
+          "description": "Reference to the UserProfile entity's ID."
         },
         "employeeId": {
           "type": "string",
           "description": "A unique identifier assigned to the employee."
         },
-        "state": {
-          "type": "string",
-          "description": "The state where the employee primarily works (e.g., 'TX')."
-        },
+        "address": { "type": "string" },
+        "aptSuite": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "zipCode": { "type": "string" },
+        "businessName": { "type": "string" },
+        "businessDescription": { "type": "string" },
+        "hasDotVehicle": { "type": "boolean" },
+        "affiliation": { "type": "string", "enum": ["Independent", "U-Haul Dealer", "U-Haul Employee"] },
+        "source": { "type": "string" },
         "region": {
           "type": "string",
           "description": "The specific region or territory assigned to the employee."
@@ -97,9 +101,7 @@
         "status": {
           "type": "string",
           "description": "The current employment status of the employee.",
-          "items": {
-            "type": "string"
-          }
+          "enum": ["applicant", "training", "active", "rejected"]
         },
         "onboardingStep": {
           "type": "number",
@@ -107,14 +109,14 @@
         },
         "assignedJobIds": {
           "type": "array",
-          "description": "An array of IDs for jobs currently assigned to this employee. (Relationship: EmployeeProfile N:N Job)",
+          "description": "An array of IDs for jobs currently assigned to this employee.",
           "items": {
             "type": "string"
           }
         },
         "availability": {
           "type": "string",
-          "description": "An object where keys are date strings (YYYY-MM-DD) and values are booleans indicating employee availability for that day. This represents the employee's working availability."
+          "description": "An object where keys are date strings (YYYY-MM-DD) and values are booleans indicating employee availability."
         }
       },
       "required": [
@@ -135,11 +137,11 @@
         },
         "customerId": {
           "type": "string",
-          "description": "Reference to the UserProfile ID of the customer who booked the job. (Relationship: UserProfile 1:N Job)"
+          "description": "Reference to the UserProfile ID of the customer who booked the job."
         },
         "employeeIds": {
           "type": "array",
-          "description": "An array of UserProfile IDs for employees assigned to this job. (Relationship: Job N:N EmployeeProfile)",
+          "description": "An array of UserProfile IDs for employees assigned to this job.",
           "items": {
             "type": "string"
           }
@@ -151,9 +153,7 @@
         "status": {
           "type": "string",
           "description": "The current status of the job.",
-          "items": {
-            "type": "string"
-          }
+          "enum": ["new", "scheduled", "confirmed", "in-progress", "completed", "cancelled"]
         },
         "moveDate": {
           "type": "string",
@@ -170,10 +170,7 @@
         },
         "moveSize": {
           "type": "string",
-          "description": "The estimated size of the move.",
-          "items": {
-            "type": "string"
-          }
+          "description": "The estimated size of the move."
         },
         "specialItems": {
           "type": "string",
@@ -229,18 +226,16 @@
         },
         "customerId": {
           "type": "string",
-          "description": "Reference to the UserProfile ID of the customer requesting the quote. (Relationship: UserProfile 1:N Quote)"
+          "description": "Reference to the UserProfile ID of the customer requesting the quote."
         },
         "status": {
           "type": "string",
           "description": "The current status of the quote.",
-          "items": {
-            "type": "string"
-          }
+          "enum": ["new", "processed", "expired"]
         },
         "details": {
           "type": "string",
-          "description": "A map containing detailed information about the quote, such as move specifics, special requests, and pricing breakdowns."
+          "description": "A JSON string containing detailed information about the quote."
         },
         "createdAt": {
           "type": "string",
@@ -289,15 +284,12 @@
         },
         "resume": {
           "type": "string",
-          "description": "URL to the applicant's resume document stored in Firebase Cloud Storage.",
+          "description": "URL to the applicant's resume document.",
           "format": "uri"
         },
         "status": {
           "type": "string",
-          "description": "The current status of the job application.",
-          "items": {
-            "type": "string"
-          }
+          "description": "The current status of the job application."
         },
         "createdAt": {
           "type": "string",
@@ -356,6 +348,38 @@
               "description": "The unique Firebase Authentication User ID (UID)."
             }
           ]
+        }
+      },
+      {
+        "path": "/announcements/{announcementId}",
+        "definition": {
+          "entityName": "Announcement",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string" },
+              "content": { "type": "string" },
+              "createdAt": { "type": "string", "format": "date-time" },
+              "authorName": { "type": "string" }
+            }
+          },
+          "description": "System-wide broadcasts for employees."
+        }
+      },
+      {
+        "path": "/quotes/{quoteId}",
+        "definition": {
+          "entityName": "Quote",
+          "schema": { "$ref": "#/backend/entities/Quote" },
+          "description": "Customer requested moving quotes."
+        }
+      },
+      {
+        "path": "/jobs/{jobId}",
+        "definition": {
+          "entityName": "Job",
+          "schema": { "$ref": "#/backend/entities/Job" },
+          "description": "Moving job logistics and status."
         }
       }
     ]

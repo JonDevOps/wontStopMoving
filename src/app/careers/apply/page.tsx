@@ -19,7 +19,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Truck, ArrowLeft, AlertCircle, ShieldCheck, Check } from "lucide-react";
+import { ArrowLeft, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useFirestore, useAuth } from "@/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -28,7 +28,6 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-// Password Regex: 8-30 chars, 1 upper, 1 lower, 1 number, 1 special
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,30}$/;
 
 const signUpSchema = z.object({
@@ -51,13 +50,12 @@ export default function EmployeeSignUpPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   
-  const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [termsOpened, setTermsOpened] = useState(false);
   const [termsError, setTermsError] = useState<string | null>(null);
   const [existingAccountError, setExistingAccountError] = useState(false);
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<SignUpValues>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       agreeTerms: false
@@ -74,13 +72,10 @@ export default function EmployeeSignUpPage() {
     setIsLoading(true);
 
     try {
-      // 1. Create Auth User
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       const user = userCredential.user;
 
-      // 2. Create User Profile
-      const userRef = doc(firestore, "users", user.uid);
-      await setDoc(userRef, {
+      await setDoc(doc(firestore, "users", user.uid), {
         id: user.uid,
         email: data.email,
         name: `${data.firstName} ${data.lastName}`,
@@ -88,13 +83,11 @@ export default function EmployeeSignUpPage() {
         lastName: data.lastName,
         phone: data.phone,
         role: 'employee',
-        state: "Pending", // Will be set in Phase 2
+        state: "Pending",
         createdAt: serverTimestamp(),
       });
 
-      // 3. Create initial Employee Record
-      const employeeRef = doc(firestore, "employees", user.uid);
-      await setDoc(employeeRef, {
+      await setDoc(doc(firestore, "employees", user.uid), {
         id: user.uid,
         userId: user.uid,
         status: 'applicant',
@@ -107,8 +100,7 @@ export default function EmployeeSignUpPage() {
         description: "Moving to Phase 2: Your Details.",
       });
       
-      // For now we redirect to dashboard which will handle steps or we could set local step
-      router.push('/dashboard/employee');
+      router.push('/careers/apply/details');
 
     } catch (error: any) {
       console.error("Signup Error:", error);
@@ -148,7 +140,7 @@ export default function EmployeeSignUpPage() {
           </div>
 
           {existingAccountError && (
-            <Alert variant="destructive" className="mb-8 border-red-200 bg-red-50 text-red-900 animate-fade-in">
+            <Alert variant="destructive" className="mb-8 border-red-200 bg-red-50 text-red-900">
               <AlertCircle className="h-5 w-5" />
               <AlertTitle className="font-black uppercase tracking-tight">Existing Account Found</AlertTitle>
               <AlertDescription className="text-sm font-medium">
@@ -189,7 +181,7 @@ export default function EmployeeSignUpPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password" title="Password must be between 8 and 30 characters long, contains at least 1 uppercase letter, 1 lowercase letter, 1 number and 1 special character" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Password</Label>
+                  <Label htmlFor="password" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Password</Label>
                   <Input id="password" type="password" {...register("password")} className="h-12 border-gray-200 focus:ring-accent" />
                   <p className="text-[10px] text-muted-foreground font-medium">Must be 8-30 characters with uppercase, lowercase, number, and special character.</p>
                   {errors.password && <p className="text-xs text-destructive font-bold leading-tight">{errors.password.message}</p>}
@@ -230,7 +222,6 @@ export default function EmployeeSignUpPage() {
                                 <p>You verify that all information provided during this application is true and accurate. Misrepresentation of qualifications will result in immediate account termination.</p>
                                 <h3 className="text-primary font-black uppercase">4. Communication</h3>
                                 <p>You consent to receive electronic communications via email and SMS regarding job assignments, system updates, and logistics coordination.</p>
-                                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
                               </div>
                             </ScrollArea>
                             <DialogFooter>
@@ -250,23 +241,13 @@ export default function EmployeeSignUpPage() {
                 <Button 
                   type="submit" 
                   disabled={isLoading}
-                  className="w-full bg-accent hover:bg-accent/90 h-14 text-lg font-black rounded-xl uppercase tracking-widest shadow-xl shadow-accent/20 mt-4 group"
+                  className="w-full bg-accent hover:bg-accent/90 min-h-14 text-lg font-black rounded-xl uppercase tracking-widest shadow-xl shadow-accent/20 mt-4 px-6"
                 >
-                  {isLoading ? "Processing..." : (
-                    <>
-                      Create Account & Continue <ArrowLeft className="h-5 w-5 ml-2 rotate-180 group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
+                  {isLoading ? "Processing..." : "Create Account & Continue"}
                 </Button>
               </form>
             </CardContent>
           </Card>
-
-          <div className="mt-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              Already have a provider account? <Link href="/login" className="text-primary font-black hover:underline">Sign In</Link>
-            </p>
-          </div>
         </div>
       </div>
     </div>
