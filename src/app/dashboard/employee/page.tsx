@@ -13,7 +13,9 @@ import {
   ShieldCheck, 
   BookOpen,
   AlertCircle,
-  Megaphone
+  Megaphone,
+  User,
+  ShieldAlert
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from "@/firebase";
@@ -92,6 +94,8 @@ function EmployeeDashboardContent() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 {[
+                  { title: "Your Details", duration: "Profile", status: "Required", icon: User, color: "text-accent" },
+                  { title: "Verification", duration: "Security", status: "Pending", icon: ShieldAlert, color: "text-blue-500" },
                   { title: "Safety Protocol 101", duration: "12 min", status: "Completed", icon: ShieldCheck, color: "text-green-500" },
                   { title: "Customer Interaction", duration: "8 min", status: "Locked", icon: PlayCircle, color: "text-muted-foreground" },
                   { title: "Heavy Lifting Ergonomics", duration: "15 min", status: "Locked", icon: PlayCircle, color: "text-muted-foreground" },
