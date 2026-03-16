@@ -131,18 +131,18 @@ export default function ApplicationPage() {
   return (
     <div className="min-h-screen bg-gray-50 pt-32 pb-24">
       <div className="container mx-auto px-4">
-        <div className="max-w-3xl auto">
+        <div className="max-w-3xl mx-auto">
           <Link href="/careers" className="inline-flex items-center gap-2 text-primary font-bold mb-8 hover:text-accent transition-colors">
             <ArrowLeft className="h-4 w-4" /> Back to Careers
           </Link>
           
           <div className="mb-12">
-            <h1 className="text-4xl font-black text-primary mb-2 uppercase">JOIN THE <span className="text-accent">MOVEMENT</span></h1>
+            <h1 className="text-3xl sm:text-4xl font-black text-primary mb-2 uppercase break-words">JOIN THE <span className="text-accent">MOVEMENT</span></h1>
             <p className="text-muted-foreground">Apply now to create your account and start your journey.</p>
           </div>
 
           <Card className="border-none shadow-xl overflow-hidden bg-white">
-            <CardContent className="p-8 md:p-12">
+            <CardContent className="p-6 sm:p-8 md:p-12">
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -218,7 +218,11 @@ export default function ApplicationPage() {
                   <Textarea id="coverLetter" {...register("coverLetter")} placeholder="Tell us why you'd be a great fit for our team..." className="min-h-[150px]" />
                 </div>
 
-                <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 h-14 text-lg font-bold rounded-xl uppercase tracking-wider">
+                <Button 
+                  type="submit" 
+                  disabled={isLoading} 
+                  className="w-full bg-accent hover:bg-accent/90 min-h-14 py-3 text-sm sm:text-base md:text-lg font-black rounded-xl uppercase tracking-wider whitespace-normal text-center h-auto"
+                >
                   {isLoading ? "Processing Application..." : "Submit Application & Create Account"}
                 </Button>
               </form>
