@@ -1,3 +1,4 @@
+
 "use client";
 
 import { EmployeeLayout } from "@/components/layout/employee-layout";
@@ -24,7 +25,8 @@ import {
   IdCard
 } from "lucide-react";
 import { useState, useMemo } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
 
 type EmployeeStatus = 'active' | 'training' | 'applicant' | 'rejected';
 
@@ -161,41 +163,43 @@ function AdminEmployeesContent() {
             ) : filteredEmployees.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {filteredEmployees.map((employee) => (
-                  <div key={employee.id} className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between hover:bg-gray-50 transition-all group gap-4">
-                    <div className="flex items-start md:items-center gap-4 flex-1">
-                      <div className="w-12 h-12 md:w-14 md:h-14 bg-primary text-white rounded-2xl flex items-center justify-center text-lg md:text-xl font-black shrink-0 relative">
-                        {employee.name?.[0] || "E"}
-                        {employee.status === 'active' && (
-                          <div className="absolute -top-1 -right-1 bg-green-500 border-2 border-white w-4 h-4 rounded-full" />
-                        )}
-                      </div>
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-bold text-primary text-base md:text-lg group-hover:text-accent transition-colors truncate">
-                            {employee.name}
-                          </h3>
-                          {getStatusBadge(employee.status)}
+                  <Link key={employee.id} href={`/dashboard/admin/employees/${employee.id}`} className="block">
+                    <div className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between hover:bg-gray-50 transition-all group gap-4">
+                      <div className="flex items-start md:items-center gap-4 flex-1">
+                        <div className="w-12 h-12 md:w-14 md:h-14 bg-primary text-white rounded-2xl flex items-center justify-center text-lg md:text-xl font-black shrink-0 relative">
+                          {employee.name?.[0] || "E"}
+                          {employee.status === 'active' && (
+                            <div className="absolute -top-1 -right-1 bg-green-500 border-2 border-white w-4 h-4 rounded-full" />
+                          )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] md:text-xs text-muted-foreground font-medium">
-                          <span className="flex items-center gap-1.5 min-w-0 truncate"><Mail className="h-3 w-3 shrink-0" /> {employee.email}</span>
-                          <span className="flex items-center gap-1.5 shrink-0"><IdCard className="h-3 w-3 shrink-0" /> {employee.employeeId || "No ID Assigned"}</span>
-                          <span className="flex items-center gap-1.5 shrink-0"><MapPin className="h-3 w-3 shrink-0" /> {employee.state} ({employee.region})</span>
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-bold text-primary text-base md:text-lg group-hover:text-accent transition-colors truncate">
+                              {employee.name}
+                            </h3>
+                            {getStatusBadge(employee.status)}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] md:text-xs text-muted-foreground font-medium">
+                            <span className="flex items-center gap-1.5 min-w-0 truncate"><Mail className="h-3 w-3 shrink-0" /> {employee.email}</span>
+                            <span className="flex items-center gap-1.5 shrink-0"><IdCard className="h-3 w-3 shrink-0" /> {employee.employeeId || "No ID Assigned"}</span>
+                            <span className="flex items-center gap-1.5 shrink-0"><MapPin className="h-3 w-3 shrink-0" /> {employee.state} ({employee.region})</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center justify-between md:justify-end gap-4 md:gap-8 pt-4 md:pt-0 border-t md:border-none">
-                      <div className="text-left md:text-right hidden sm:block">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Regional Assignment</p>
-                        <p className="text-[11px] md:text-sm font-black text-primary uppercase">
-                          {employee.region === 'Pending' ? 'Awaiting Dispatch' : employee.region}
-                        </p>
+                      <div className="flex items-center justify-between md:justify-end gap-4 md:gap-8 pt-4 md:pt-0 border-t md:border-none">
+                        <div className="text-left md:text-right hidden sm:block">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Regional Assignment</p>
+                          <p className="text-[11px] md:text-sm font-black text-primary uppercase">
+                            {employee.region === 'Pending' ? 'Awaiting Dispatch' : employee.region}
+                          </p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-md transition-all group-hover:translate-x-1 shrink-0">
+                          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-accent" />
+                        </Button>
                       </div>
-                      <Button variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-md transition-all group-hover:translate-x-1 shrink-0">
-                        <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-accent" />
-                      </Button>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
