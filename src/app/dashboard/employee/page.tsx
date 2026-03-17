@@ -1,4 +1,3 @@
-
 "use client";
 
 import { EmployeeLayout } from "@/components/layout/employee-layout";
@@ -15,7 +14,8 @@ import {
   AlertCircle,
   Megaphone,
   User,
-  ShieldAlert
+  ShieldAlert,
+  ArrowRight
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from "@/firebase";
@@ -27,6 +27,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 function EmployeeDashboardContent() {
   const { user } = useUser();
@@ -53,6 +55,8 @@ function EmployeeDashboardContent() {
     );
   }
 
+  const onboardingStep = profile?.onboardingStep || 1;
+  const isApplicationIncomplete = onboardingStep < 4;
   const isTrainee = profile?.status === 'applicant' || profile?.status === 'training';
 
   return (
@@ -67,8 +71,33 @@ function EmployeeDashboardContent() {
           </p>
         </header>
 
+        {isApplicationIncomplete && (
+          <Card className="border-none shadow-2xl bg-primary text-white overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+              <ShieldAlert className="w-32 h-32" />
+            </div>
+            <CardContent className="p-8 sm:p-12 space-y-6 relative z-10">
+              <div className="max-w-2xl space-y-4">
+                <div className="inline-flex items-center gap-2 bg-accent text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                  Action Required
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter leading-none">Finish Your Application</h2>
+                <p className="text-lg opacity-80 leading-relaxed">
+                  You're just a few steps away from joining our field team. Complete your business details and ID verification to unlock training and job assignments.
+                </p>
+                <div className="pt-4">
+                  <Button asChild size="lg" className="bg-white text-primary hover:bg-gray-100 rounded-full px-8 h-14 font-black uppercase tracking-widest text-xs gap-3">
+                    <Link href={onboardingStep === 2 ? "/careers/apply/details" : "/careers/apply/verification"}>
+                      Resume Application <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {isTrainee ? (
-          /* --- TRAINING MODE UI --- */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               <Card className="border-accent/20 bg-accent/5 shadow-none overflow-hidden">
@@ -82,28 +111,30 @@ function EmployeeDashboardContent() {
                   <div className="space-y-3">
                     <div className="flex justify-between text-[10px] sm:text-xs font-black uppercase">
                       <span className="text-primary">Phase 1: Basic Certification</span>
-                      <span className="text-accent">25%</span>
+                      <span className="text-accent">{isApplicationIncomplete ? '25%' : '75%'}</span>
                     </div>
-                    <Progress value={25} className="h-2" />
+                    <Progress value={isApplicationIncomplete ? 25 : 75} className="h-2" />
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Welcome to the team! While our HR department reviews your application, please complete the initial training modules below. This will prepare you for your first day on the field once approved.
+                    {isApplicationIncomplete 
+                      ? "Welcome! Please finish your application steps to unlock the full training catalog and prepare for the field."
+                      : "Your documents are under review. While you wait, you can now begin exploring the safety and protocol training modules below."}
                   </p>
                 </CardContent>
               </Card>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 {[
-                  { title: "Your Details", duration: "Profile", status: "Required", icon: User, color: "text-accent" },
-                  { title: "Verification", duration: "Security", status: "Pending", icon: ShieldAlert, color: "text-blue-500" },
-                  { title: "Safety Protocol 101", duration: "12 min", status: "Locked", icon: PlayCircle, color: "text-muted-foreground" },
-                  { title: "Customer Interaction", duration: "8 min", status: "Locked", icon: PlayCircle, color: "text-muted-foreground" },
-                  { title: "Heavy Lifting Ergonomics", duration: "15 min", status: "Locked", icon: PlayCircle, color: "text-muted-foreground" },
-                  { title: "Logistics App Guide", duration: "10 min", status: "Locked", icon: PlayCircle, color: "text-muted-foreground" },
+                  { title: "Your Details", duration: "Profile", status: onboardingStep > 2 ? "Completed" : "Required", icon: User, color: onboardingStep > 2 ? "text-green-500" : "text-accent", locked: false },
+                  { title: "Verification", duration: "Security", status: onboardingStep > 3 ? "Completed" : "Pending", icon: ShieldAlert, color: onboardingStep > 3 ? "text-green-500" : "text-blue-500", locked: false },
+                  { title: "Safety Protocol 101", duration: "12 min", status: isApplicationIncomplete ? "Locked" : "Available", icon: PlayCircle, color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", locked: isApplicationIncomplete },
+                  { title: "Customer Interaction", duration: "8 min", status: isApplicationIncomplete ? "Locked" : "Available", icon: PlayCircle, color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", locked: isApplicationIncomplete },
+                  { title: "Heavy Lifting Ergonomics", duration: "15 min", status: isApplicationIncomplete ? "Locked" : "Available", icon: PlayCircle, color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", locked: isApplicationIncomplete },
+                  { title: "Logistics App Guide", duration: "10 min", status: isApplicationIncomplete ? "Locked" : "Available", icon: PlayCircle, color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", locked: isApplicationIncomplete },
                 ].map((video, i) => (
                   <Tooltip key={i}>
                     <TooltipTrigger asChild>
-                      <Card className="border-none shadow-sm group cursor-pointer hover:border-accent transition-all border border-transparent overflow-hidden">
+                      <Card className={`border-none shadow-sm transition-all border border-transparent overflow-hidden ${video.locked ? 'opacity-60 grayscale cursor-not-allowed' : 'group cursor-pointer hover:border-accent'}`}>
                         <CardContent className="p-4 sm:p-6 flex items-center gap-4">
                           <div className={`p-3 rounded-xl bg-gray-50 shrink-0 ${video.color}`}>
                             <video.icon className="h-6 w-6" />
@@ -116,7 +147,7 @@ function EmployeeDashboardContent() {
                       </Card>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="font-bold">{video.title}</p>
+                      <p className="font-bold">{video.locked ? "Complete application to unlock" : video.title}</p>
                     </TooltipContent>
                   </Tooltip>
                 ))}
@@ -133,10 +164,10 @@ function EmployeeDashboardContent() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {[
-                    { label: "Profile Setup", done: true },
+                    { label: "Account Setup", done: true },
+                    { label: "Profile Details", done: onboardingStep > 2 },
+                    { label: "ID Verification", done: onboardingStep > 3 },
                     { label: "Safety Quiz", done: false },
-                    { label: "Upload ID", done: false },
-                    { label: "Background Consent", done: false },
                   ].map((item, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${item.done ? 'bg-green-500 border-green-500 text-white' : 'border-gray-200'}`}>
@@ -154,14 +185,17 @@ function EmployeeDashboardContent() {
                     <AlertCircle className="h-6 w-6 text-accent" />
                   </div>
                   <h3 className="font-black uppercase text-xs sm:text-sm tracking-widest">Application Status</h3>
-                  <div className="bg-white/10 py-2 rounded-lg text-xs font-black text-accent uppercase">Under Review</div>
-                  <p className="text-[10px] font-bold uppercase opacity-60">Estimated review: 48 Hours</p>
+                  <div className="bg-white/10 py-2 rounded-lg text-xs font-black text-accent uppercase">
+                    {isApplicationIncomplete ? "Draft Mode" : "Under Review"}
+                  </div>
+                  <p className="text-[10px] font-bold uppercase opacity-60">
+                    {isApplicationIncomplete ? "Submit ID to start review" : "Estimated review: 48 Hours"}
+                  </p>
                 </CardContent>
               </Card>
             </aside>
           </div>
         ) : (
-          /* --- ACTIVE EMPLOYEE UI --- */
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[

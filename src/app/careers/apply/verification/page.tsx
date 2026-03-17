@@ -7,9 +7,8 @@ import {
   Upload, 
   ArrowRight, 
   CheckCircle2, 
-  AlertCircle,
-  HelpCircle,
-  Loader2
+  Loader2,
+  HelpCircle
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useUser, useStorage, useFirestore, errorEmitter, FirestorePermissionError } from "@/firebase";
@@ -62,10 +61,8 @@ export default function EmployeeVerificationPage() {
       const snapshot = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
 
-      // Update local state
       setUploads(prev => ({ ...prev, [field]: { status: 'done', url: downloadURL } }));
 
-      // Update employee document in Firestore (non-blocking)
       const employeeRef = doc(firestore, "employees", user.uid);
       const data = {
         [`verification.${field}`]: downloadURL,
@@ -97,6 +94,14 @@ export default function EmployeeVerificationPage() {
     }
   };
 
+  const handleSaveLater = () => {
+    toast({
+      title: "Progress Saved",
+      description: "You can resume your application from your dashboard at any time.",
+    });
+    router.push('/dashboard/employee');
+  };
+
   const handleFinish = () => {
     const allDone = Object.values(uploads).every(u => u.status === 'done');
     if (!allDone) {
@@ -109,12 +114,7 @@ export default function EmployeeVerificationPage() {
     }
 
     setIsLoading(true);
-    toast({
-      title: "Application Submitted",
-      description: "Redirecting to your onboarding dashboard.",
-    });
     
-    // Final status update (non-blocking)
     if (user) {
       const employeeRef = doc(firestore, "employees", user.uid);
       const data = {
@@ -123,7 +123,15 @@ export default function EmployeeVerificationPage() {
       };
       
       updateDoc(employeeRef, data)
+        .then(() => {
+          toast({
+            title: "Application Submitted",
+            description: "Redirecting to your onboarding dashboard.",
+          });
+          router.push('/dashboard/employee');
+        })
         .catch(async (serverError) => {
+          setIsLoading(false);
           const permissionError = new FirestorePermissionError({
             path: employeeRef.path,
             operation: 'update',
@@ -132,10 +140,6 @@ export default function EmployeeVerificationPage() {
           errorEmitter.emit('permission-error', permissionError);
         });
     }
-
-    setTimeout(() => {
-      router.push('/dashboard/employee');
-    }, 1500);
   };
 
   if (isUserLoading || !user) {
@@ -171,7 +175,6 @@ export default function EmployeeVerificationPage() {
     <div className="min-h-screen bg-gray-50 pt-10 pb-24">
       <div className="container mx-auto px-4 max-w-2xl">
         
-        {/* Stepper */}
         <div className="mb-16 relative">
           <div className="flex justify-between items-center relative z-10 px-4">
             {[
@@ -207,7 +210,6 @@ export default function EmployeeVerificationPage() {
             <CardContent className="p-0">
               <Accordion type="multiple" defaultValue={["selfie", "front", "back"]} className="divide-y divide-gray-100">
                 
-                {/* Selfie */}
                 <AccordionItem value="selfie" className="border-none px-6 py-6 group">
                   <AccordionTrigger className="hover:no-underline py-0 group-data-[state=open]:pb-2">
                     <div className="flex items-center gap-3">
@@ -218,7 +220,7 @@ export default function EmployeeVerificationPage() {
                   <AccordionContent className="pt-2 space-y-4">
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       Please upload a selfie with your Driver's License or Government Issued Identification Card. 
-                      Make sure you are in a well lit area and if you are wearing a hat, mask, sunglasses, or transition glasses, please remove them before taking your picture.
+                      Make sure you are in a well lit area.
                       <button className="inline-flex items-center gap-1 text-accent font-black ml-2 hover:underline uppercase text-[10px] tracking-widest">
                         <HelpCircle className="h-3 w-3" /> See Example
                       </button>
@@ -229,7 +231,6 @@ export default function EmployeeVerificationPage() {
                   </AccordionContent>
                 </AccordionItem>
 
-                {/* Front */}
                 <AccordionItem value="front" className="border-none px-6 py-6 group">
                   <AccordionTrigger className="hover:no-underline py-0 group-data-[state=open]:pb-2">
                     <div className="flex items-center gap-3">
@@ -239,11 +240,7 @@ export default function EmployeeVerificationPage() {
                   </AccordionTrigger>
                   <AccordionContent className="pt-2 space-y-4">
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      Please upload a photo of the front of your Driver's License or Government Issued Identification Card. 
-                      This will be used to help Wont Stop Moving® identify you and compare against your selfie.
-                      <button className="inline-flex items-center gap-1 text-accent font-black ml-2 hover:underline uppercase text-[10px] tracking-widest">
-                        <HelpCircle className="h-3 w-3" /> See Example
-                      </button>
+                      Please upload a photo of the front of your Identification Card.
                     </p>
                     <div className="flex justify-end pt-2">
                       {renderUploadButton('idFront', frontInputRef)}
@@ -251,7 +248,6 @@ export default function EmployeeVerificationPage() {
                   </AccordionContent>
                 </AccordionItem>
 
-                {/* Back */}
                 <AccordionItem value="back" className="border-none px-6 py-6 group">
                   <AccordionTrigger className="hover:no-underline py-0 group-data-[state=open]:pb-2">
                     <div className="flex items-center gap-3">
@@ -261,7 +257,7 @@ export default function EmployeeVerificationPage() {
                   </AccordionTrigger>
                   <AccordionContent className="pt-2 space-y-6">
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      Please upload a photo of the back of your Identification Card. Ensure the barcode and all text are clearly legible.
+                      Please upload a photo of the back of your Identification Card.
                     </p>
                     <div className="flex justify-center py-6 bg-white border-2 border-dashed border-gray-100 rounded-2xl max-w-xs mx-auto">
                       <div className="relative w-48 h-48 group/qr">
@@ -285,7 +281,11 @@ export default function EmployeeVerificationPage() {
 
           <div className="space-y-6 pt-10 px-2">
             <div className="flex flex-col sm:flex-row gap-4 justify-between">
-              <Button variant="outline" className="border-primary/20 text-primary font-black h-14 px-8 rounded-xl flex-1 uppercase tracking-widest text-xs hover:bg-primary/5 transition-all">
+              <Button 
+                variant="outline" 
+                onClick={handleSaveLater}
+                className="border-primary/20 text-primary font-black h-14 px-8 rounded-xl flex-1 uppercase tracking-widest text-xs hover:bg-primary/5 transition-all"
+              >
                 Save & Continue Later
               </Button>
               <Button 
