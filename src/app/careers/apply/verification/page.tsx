@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -9,10 +8,11 @@ import {
   ArrowRight, 
   CheckCircle2, 
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  Loader2
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@/firebase";
+import { useUser, useStorage, useFirestore, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { 
@@ -22,12 +22,28 @@ import {
   AccordionTrigger 
 } from "@/components/ui/accordion";
 import Image from "next/image";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, updateDoc } from "firebase/firestore";
+
+type UploadStatus = 'idle' | 'uploading' | 'done' | 'error';
 
 export default function EmployeeVerificationPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
+  const storage = useStorage();
+  const firestore = useFirestore();
+  
   const [isLoading, setIsLoading] = useState(false);
+  const [uploads, setUploads] = useState<Record<string, { status: UploadStatus, url?: string }>>({
+    selfie: { status: 'idle' },
+    idFront: { status: 'idle' },
+    idBack: { status: 'idle' },
+  });
+
+  const selfieInputRef = useRef<HTMLInputElement>(null);
+  const frontInputRef = useRef<HTMLInputElement>(null);
+  const backInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -35,12 +51,88 @@ export default function EmployeeVerificationPage() {
     }
   }, [user, isUserLoading, router]);
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploads(prev => ({ ...prev, [field]: { status: 'uploading' } }));
+
+    try {
+      const storageRef = ref(storage, `applicants/${user.uid}/${field}_${Date.now()}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      // Update local state
+      setUploads(prev => ({ ...prev, [field]: { status: 'done', url: downloadURL } }));
+
+      // Update employee document in Firestore (non-blocking)
+      const employeeRef = doc(firestore, "employees", user.uid);
+      const data = {
+        [`verification.${field}`]: downloadURL,
+        [`verification.${field}At`]: new Date().toISOString(),
+      };
+
+      updateDoc(employeeRef, data)
+        .catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+            path: employeeRef.path,
+            operation: 'update',
+            requestResourceData: data,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+
+      toast({
+        title: "File Uploaded",
+        description: "Your document has been securely stored for review.",
+      });
+    } catch (error: any) {
+      console.error("Upload Error:", error);
+      setUploads(prev => ({ ...prev, [field]: { status: 'error' } }));
+      toast({
+        variant: "destructive",
+        title: "Upload Failed",
+        description: "Ensure you have enabled Storage in Firebase Console and set rules.",
+      });
+    }
+  };
+
   const handleFinish = () => {
+    const allDone = Object.values(uploads).every(u => u.status === 'done');
+    if (!allDone) {
+      toast({
+        variant: "destructive",
+        title: "Incomplete",
+        description: "Please upload all 3 required verification items before submitting.",
+      });
+      return;
+    }
+
     setIsLoading(true);
     toast({
       title: "Application Submitted",
       description: "Redirecting to your onboarding dashboard.",
     });
+    
+    // Final status update (non-blocking)
+    if (user) {
+      const employeeRef = doc(firestore, "employees", user.uid);
+      const data = {
+        onboardingStep: 4,
+        status: 'applicant' 
+      };
+      
+      updateDoc(employeeRef, data)
+        .catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+            path: employeeRef.path,
+            operation: 'update',
+            requestResourceData: data,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+    }
+
     setTimeout(() => {
       router.push('/dashboard/employee');
     }, 1500);
@@ -49,6 +141,31 @@ export default function EmployeeVerificationPage() {
   if (isUserLoading || !user) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-primary font-bold uppercase tracking-widest text-xs">Verifying session...</div>;
   }
+
+  const renderUploadButton = (field: string, ref: React.RefObject<HTMLInputElement>) => {
+    const status = uploads[field].status;
+    
+    return (
+      <div className="flex flex-col items-end gap-2">
+        <input 
+          type="file" 
+          hidden 
+          ref={ref} 
+          accept="image/*" 
+          onChange={(e) => handleFileUpload(e, field)} 
+        />
+        <Button 
+          onClick={() => ref.current?.click()}
+          disabled={status === 'uploading'}
+          className={`${status === 'done' ? 'bg-green-500 hover:bg-green-600' : 'bg-accent hover:bg-accent/90'} text-white rounded-lg px-8 h-11 gap-2 font-black uppercase text-xs tracking-widest shadow-lg shadow-accent/20`}
+        >
+          {status === 'uploading' ? <Loader2 className="h-4 w-4 animate-spin" /> : status === 'done' ? <CheckCircle2 className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+          {status === 'uploading' ? "Uploading..." : status === 'done' ? "Uploaded" : "Upload"}
+        </Button>
+        {status === 'error' && <p className="text-[10px] text-destructive font-bold uppercase">Try again</p>}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pt-10 pb-24">
@@ -70,7 +187,6 @@ export default function EmployeeVerificationPage() {
               </div>
             ))}
           </div>
-          {/* Progress bar background */}
           <div className="absolute top-5 left-0 w-full h-[2px] bg-gray-200 -z-0">
             <div className="h-full bg-primary transition-all duration-700" style={{ width: '100%' }} />
           </div>
@@ -95,7 +211,7 @@ export default function EmployeeVerificationPage() {
                 <AccordionItem value="selfie" className="border-none px-6 py-6 group">
                   <AccordionTrigger className="hover:no-underline py-0 group-data-[state=open]:pb-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      <div className={`w-2 h-2 rounded-full ${uploads.selfie.status === 'done' ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
                       <span className="font-black text-primary uppercase text-sm tracking-tight group-hover:text-accent transition-colors">Selfie With Identification Card</span>
                     </div>
                   </AccordionTrigger>
@@ -108,9 +224,7 @@ export default function EmployeeVerificationPage() {
                       </button>
                     </p>
                     <div className="flex justify-end pt-2">
-                      <Button className="bg-accent hover:bg-accent/90 text-white rounded-lg px-8 h-11 gap-2 font-black uppercase text-xs tracking-widest shadow-lg shadow-accent/20">
-                        <Upload className="h-4 w-4" /> Upload
-                      </Button>
+                      {renderUploadButton('selfie', selfieInputRef)}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -119,7 +233,7 @@ export default function EmployeeVerificationPage() {
                 <AccordionItem value="front" className="border-none px-6 py-6 group">
                   <AccordionTrigger className="hover:no-underline py-0 group-data-[state=open]:pb-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      <div className={`w-2 h-2 rounded-full ${uploads.idFront.status === 'done' ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
                       <span className="font-black text-primary uppercase text-sm tracking-tight group-hover:text-accent transition-colors">Identification Card - Front</span>
                     </div>
                   </AccordionTrigger>
@@ -132,9 +246,7 @@ export default function EmployeeVerificationPage() {
                       </button>
                     </p>
                     <div className="flex justify-end pt-2">
-                      <Button className="bg-accent hover:bg-accent/90 text-white rounded-lg px-8 h-11 gap-2 font-black uppercase text-xs tracking-widest shadow-lg shadow-accent/20">
-                        <Upload className="h-4 w-4" /> Upload
-                      </Button>
+                      {renderUploadButton('idFront', frontInputRef)}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -143,25 +255,25 @@ export default function EmployeeVerificationPage() {
                 <AccordionItem value="back" className="border-none px-6 py-6 group">
                   <AccordionTrigger className="hover:no-underline py-0 group-data-[state=open]:pb-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      <div className={`w-2 h-2 rounded-full ${uploads.idBack.status === 'done' ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
                       <span className="font-black text-primary uppercase text-sm tracking-tight group-hover:text-accent transition-colors">Identification Card - Back</span>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="pt-2 space-y-6">
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      Please scan the below QR code using a mobile device to login and complete this step. 
-                      You will need the email address and password entered upon sign up to login. 
-                      To receive a texted URL, please <button className="text-accent font-black hover:underline uppercase text-[10px] tracking-widest">click here</button>.
+                      Please upload a photo of the back of your Identification Card. Ensure the barcode and all text are clearly legible.
                     </p>
                     <div className="flex justify-center py-6 bg-white border-2 border-dashed border-gray-100 rounded-2xl max-w-xs mx-auto">
                       <div className="relative w-48 h-48 group/qr">
-                        {/* Placeholder QR Code */}
                         <Image 
-                          src="https://picsum.photos/seed/qrcode/400/400" 
-                          alt="QR Code for mobile login" 
+                          src="https://picsum.photos/seed/idback/400/400" 
+                          alt="ID Back Preview" 
                           fill 
-                          className="object-contain group-hover/qr:scale-105 transition-transform"
+                          className="object-contain opacity-20 grayscale"
                         />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                           {renderUploadButton('idBack', backInputRef)}
+                        </div>
                       </div>
                     </div>
                   </AccordionContent>
