@@ -35,6 +35,13 @@ function EmployeeDashboardContent() {
   const { user } = useUser();
   const firestore = useFirestore();
 
+  // Fetch the main User Profile to get the employee's name
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user]);
+
+  // Fetch the Employee Profile for onboarding status and stats
   const employeeRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, "employees", user.uid);
@@ -45,10 +52,11 @@ function EmployeeDashboardContent() {
     return query(collection(firestore, "announcements"), orderBy("createdAt", "desc"), limit(5));
   }, [firestore, user]);
 
-  const { data: profile, isLoading } = useDoc(employeeRef);
+  const { data: userProfile, isLoading: isUserProfileLoading } = useDoc(userProfileRef);
+  const { data: profile, isLoading: isEmployeeLoading } = useDoc(employeeRef);
   const { data: announcements, isLoading: announcementsLoading } = useCollection(announcementsQuery);
 
-  if (isLoading) {
+  if (isEmployeeLoading || isUserProfileLoading) {
     return (
       <div className="p-20 text-center animate-pulse font-bold text-primary uppercase text-sm tracking-widest">
         Synchronizing Records...
@@ -123,7 +131,7 @@ function EmployeeDashboardContent() {
       <div className="space-y-8 animate-fade-in max-w-[1400px] mx-auto">
         <header className="space-y-2">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-primary uppercase leading-tight break-words">
-            Welcome back, <span className="text-accent">{profile?.name || user?.displayName || "Teammate"}</span>
+            Welcome back, <span className="text-accent">{userProfile?.name || "Teammate"}</span>
           </h1>
           <p className="text-xs sm:text-sm font-bold text-muted-foreground uppercase tracking-widest">
             {isTrainee ? "Training Mode | Account Pending Approval" : `Region: ${profile?.region || "National"} | ID: #${profile?.employeeId || "51-XXXX"}`}
@@ -207,7 +215,7 @@ function EmployeeDashboardContent() {
                           <Link href={task.href} className="block">
                             {content}
                           </Link>
-                        ) || <div>{content}</div>}
+                        )}
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="font-bold">{task.locked ? "Complete application to unlock" : task.title}</p>
