@@ -68,7 +68,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       title: "Connect",
       links: [
         { label: "Become a Provider", href: "/careers" },
-        { label: "Refer a Moving Helper", href: "/careers" },
+        { label: "Refer a Friend", href: "/careers" },
       ]
     },
     {
