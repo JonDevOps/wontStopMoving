@@ -8,7 +8,7 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Dialog, 
@@ -325,7 +325,7 @@ export default function EmployeeSignUpPage() {
                                   <div className="mt-4 space-y-4 text-xs">
                                     <p>1. <strong>General:</strong> You agree that any and all Claims arising out of or relating to this Agreement shall be submitted to binding arbitration on an individual basis only and not by court or jury trial.</p>
                                     <p>3. <strong>Class Action Waiver:</strong> You and the Company agree to resolve any Claim in arbitration on an individual basis only, and not on a class, collective action, or representative basis.</p>
-                                    <p>9. <strong>Governing Law:</strong> Interpretation of this Arbitration Agreement shall be governed by the laws of the state of Arizona. Jurisdiction shall be in the City and County of Phoenix, Arizona.</p>
+                                    <p>9. <strong>Governing Law:</strong> Interpretation of this Arbitration Agreement shall be governed by the laws of the state of California. Jurisdiction shall be in the City and County of Mountain View, California.</p>
                                   </div>
                                 </section>
 
