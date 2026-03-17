@@ -210,12 +210,12 @@ export default function EmployeeSignUpPage() {
                               Terms of Service
                             </button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
-                            <DialogHeader className="p-6 border-b shrink-0">
+                          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+                            <DialogHeader className="p-6 border-b shrink-0 bg-white z-10">
                               <DialogTitle className="text-2xl font-black uppercase tracking-tight">Terms of Service</DialogTitle>
                             </DialogHeader>
                             
-                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 bg-white">
                               <div className="prose prose-sm prose-primary max-w-none text-muted-foreground">
                                 <div>
                                   <h2 className="text-primary font-black uppercase text-lg">Wont Stop Moving® Affiliate Agreement</h2>
@@ -335,9 +335,9 @@ export default function EmployeeSignUpPage() {
                               </div>
                             </div>
 
-                            <DialogFooter className="p-6 border-t bg-gray-50 shrink-0">
+                            <DialogFooter className="p-6 border-t bg-gray-50 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                               <DialogClose asChild>
-                                <Button type="button" className="bg-primary text-white rounded-xl px-8 h-12 font-bold uppercase tracking-widest text-xs w-full sm:w-auto">
+                                <Button type="button" className="bg-primary text-white rounded-xl px-8 h-12 font-bold uppercase tracking-widest text-xs w-full sm:w-auto shadow-lg">
                                   I have read and accept the terms
                                 </Button>
                               </DialogClose>

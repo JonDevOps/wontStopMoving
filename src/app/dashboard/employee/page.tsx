@@ -1,3 +1,4 @@
+
 "use client";
 
 import { EmployeeLayout } from "@/components/layout/employee-layout";
@@ -58,6 +59,64 @@ function EmployeeDashboardContent() {
   const onboardingStep = profile?.onboardingStep || 1;
   const isApplicationIncomplete = onboardingStep < 4;
   const isTrainee = profile?.status === 'applicant' || profile?.status === 'training';
+
+  // Define tasks with specific links for incomplete phases
+  const onboardingTasks = [
+    { 
+      title: "Your Details", 
+      duration: "Phase 2", 
+      status: onboardingStep > 2 ? "Completed" : "Required", 
+      icon: User, 
+      color: onboardingStep > 2 ? "text-green-500" : "text-accent", 
+      locked: false,
+      href: "/careers/apply/details"
+    },
+    { 
+      title: "ID Verification", 
+      duration: "Phase 3", 
+      status: onboardingStep > 3 ? "Completed" : "Pending", 
+      icon: ShieldAlert, 
+      color: onboardingStep > 3 ? "text-green-500" : "text-blue-500", 
+      locked: false,
+      href: "/careers/apply/verification"
+    },
+    { 
+      title: "Safety Protocol 101", 
+      duration: "12 min", 
+      status: isApplicationIncomplete ? "Locked" : "Available", 
+      icon: PlayCircle, 
+      color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", 
+      locked: isApplicationIncomplete,
+      href: "#"
+    },
+    { 
+      title: "Customer Interaction", 
+      duration: "8 min", 
+      status: isApplicationIncomplete ? "Locked" : "Available", 
+      icon: PlayCircle, 
+      color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", 
+      locked: isApplicationIncomplete,
+      href: "#"
+    },
+    { 
+      title: "Heavy Lifting Ergonomics", 
+      duration: "15 min", 
+      status: isApplicationIncomplete ? "Locked" : "Available", 
+      icon: PlayCircle, 
+      color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", 
+      locked: isApplicationIncomplete,
+      href: "#"
+    },
+    { 
+      title: "Logistics App Guide", 
+      duration: "10 min", 
+      status: isApplicationIncomplete ? "Locked" : "Available", 
+      icon: PlayCircle, 
+      color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", 
+      locked: isApplicationIncomplete,
+      href: "#"
+    },
+  ];
 
   return (
     <TooltipProvider>
@@ -124,33 +183,38 @@ function EmployeeDashboardContent() {
               </Card>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                {[
-                  { title: "Your Details", duration: "Profile", status: onboardingStep > 2 ? "Completed" : "Required", icon: User, color: onboardingStep > 2 ? "text-green-500" : "text-accent", locked: false },
-                  { title: "Verification", duration: "Security", status: onboardingStep > 3 ? "Completed" : "Pending", icon: ShieldAlert, color: onboardingStep > 3 ? "text-green-500" : "text-blue-500", locked: false },
-                  { title: "Safety Protocol 101", duration: "12 min", status: isApplicationIncomplete ? "Locked" : "Available", icon: PlayCircle, color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", locked: isApplicationIncomplete },
-                  { title: "Customer Interaction", duration: "8 min", status: isApplicationIncomplete ? "Locked" : "Available", icon: PlayCircle, color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", locked: isApplicationIncomplete },
-                  { title: "Heavy Lifting Ergonomics", duration: "15 min", status: isApplicationIncomplete ? "Locked" : "Available", icon: PlayCircle, color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", locked: isApplicationIncomplete },
-                  { title: "Logistics App Guide", duration: "10 min", status: isApplicationIncomplete ? "Locked" : "Available", icon: PlayCircle, color: isApplicationIncomplete ? "text-muted-foreground" : "text-accent", locked: isApplicationIncomplete },
-                ].map((video, i) => (
-                  <Tooltip key={i}>
-                    <TooltipTrigger asChild>
-                      <Card className={`border-none shadow-sm transition-all border border-transparent overflow-hidden ${video.locked ? 'opacity-60 grayscale cursor-not-allowed' : 'group cursor-pointer hover:border-accent'}`}>
-                        <CardContent className="p-4 sm:p-6 flex items-center gap-4">
-                          <div className={`p-3 rounded-xl bg-gray-50 shrink-0 ${video.color}`}>
-                            <video.icon className="h-6 w-6" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-bold text-primary text-sm sm:text-base group-hover:text-accent transition-colors truncate">{video.title}</p>
-                            <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest truncate">{video.duration} • {video.status}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="font-bold">{video.locked ? "Complete application to unlock" : video.title}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
+                {onboardingTasks.map((task, i) => {
+                  const content = (
+                    <Card className={`border-none shadow-sm transition-all border border-transparent overflow-hidden h-full ${task.locked ? 'opacity-60 grayscale cursor-not-allowed' : 'group cursor-pointer hover:border-accent hover:shadow-md'}`}>
+                      <CardContent className="p-4 sm:p-6 flex items-center gap-4 h-full">
+                        <div className={`p-3 rounded-xl bg-gray-50 shrink-0 ${task.color}`}>
+                          <task.icon className="h-6 w-6" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-primary text-sm sm:text-base group-hover:text-accent transition-colors truncate">{task.title}</p>
+                          <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest truncate">{task.duration} • {task.status}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+
+                  return (
+                    <Tooltip key={i}>
+                      <TooltipTrigger asChild>
+                        {task.locked ? (
+                          <div>{content}</div>
+                        ) : (
+                          <Link href={task.href} className="block">
+                            {content}
+                          </Link>
+                        ) || <div>{content}</div>}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="font-bold">{task.locked ? "Complete application to unlock" : task.title}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
               </div>
             </div>
 
