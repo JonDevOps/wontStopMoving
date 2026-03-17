@@ -19,7 +19,6 @@ import {
   DialogFooter,
   DialogClose
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, AlertCircle, Truck } from "lucide-react";
 import Link from "next/link";
 import { useFirestore, useAuth } from "@/firebase";
@@ -211,24 +210,25 @@ export default function EmployeeSignUpPage() {
                               Terms of Service
                             </button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
-                            <DialogHeader>
+                          <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
+                            <DialogHeader className="p-6 border-b shrink-0">
                               <DialogTitle className="text-2xl font-black uppercase tracking-tight">Terms of Service</DialogTitle>
                             </DialogHeader>
-                            <ScrollArea className="flex-1 pr-4 mt-4">
-                              <div className="prose prose-sm prose-primary max-w-none space-y-6 text-muted-foreground">
+                            
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                              <div className="prose prose-sm prose-primary max-w-none text-muted-foreground">
                                 <div>
                                   <h2 className="text-primary font-black uppercase text-lg">Wont Stop Moving® Affiliate Agreement</h2>
                                   <p className="font-bold text-primary">Effective July 26, 2023</p>
                                 </div>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">AGREEMENT:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">AGREEMENT:</h3>
                                   <p>You acknowledge and agree to the following terms and conditions when You use the Wont Stop Moving® MarketPlace. Our responsibilities are specific and limited to the terms of this Agreement. You must read, agree with, and accept all of the terms and conditions contained in this Agreement which are those terms, conditions and definitions expressly set out below.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">1. Arbitration Agreement:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">1. Arbitration Agreement:</h3>
                                   <p className="font-bold text-destructive uppercase">YOU ACKNOWLEDGE AND AGREE THAT THIS AGREEMENT INCLUDES THE WONT STOP MOVING COMMERCIAL ARBITRATION AGREEMENT, AVAILABLE AT APPENDIX “A” TO THIS AGREEMENT, THAT GOVERNS ANY DISPUTES BETWEEN YOU AND WONT STOP MOVING, INC. THIS ARBITRATION AGREEMENT WILL:</p>
                                   <ul className="list-disc pl-5 font-bold text-destructive">
                                     <li>ELIMINATE YOUR RIGHT TO A JURY TRIAL; AND</li>
@@ -237,7 +237,7 @@ export default function EmployeeSignUpPage() {
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">2. Definitions:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">2. Definitions:</h3>
                                   <p>A. The following is a non-exhaustive list of definitions that shall apply to the use of this MarketPlace; other definitions are included through out the text:</p>
                                   <ul className="list-disc pl-5">
                                     <li><strong>"You", "Your", "User", "mover", "Wont Stop Moving® affiliate", "service provider"</strong> - you, individually, or You for and on behalf of, an entity, organization or corporation, who provides services, such as Wont Stop Moving® services and others, to the consuming public;</li>
@@ -250,76 +250,76 @@ export default function EmployeeSignUpPage() {
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">3. Free Sign up and Advertising Acknowledgement; Common Sense and Business Judgment:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">3. Free Sign up and Advertising Acknowledgement; Common Sense and Business Judgment:</h3>
                                   <p>You acknowledge that We allow You to sign up on the MarketPlace free of charge and allow You to advertise Yourself and Your Services free of charge. You agree to use common sense and good business judgment when using the WONT STOP MOVING® MarketPlace.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">4. Modification of Agreement:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">4. Modification of Agreement:</h3>
                                   <p>We may modify the Agreement by sending to You, by email to Your provided email address, a copy of the modified Agreement. If You reject the modified Agreement, then You must terminate this Agreement immediately with notice to Us no later than thirty (30) days after the modified Agreement is sent to You by Us. You agree that Your continued participation as a WONT STOP MOVING® affiliate thirty (30) days after the Agreement is sent to You by Us is Your express consent and agreement to the Modified Agreement.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">5. Neutral Venue and Online Clearinghouse:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">5. Neutral Venue and Online Clearinghouse:</h3>
                                   <p>We and Our WONT STOP MOVING® MarketPlace function solely as a neutral venue and online clearinghouse. We are the neutral venue for the connection between You and the Customer. You do not work for Us or represent Us. You agree that We are not your employer. We do not provide any endorsement for You or Your Services.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">6. Labor Only:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">6. Labor Only:</h3>
                                   <p>You agree that the MarketPlace is a place where You offer labor services only and that the Services that You provide will only involve labor.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">7. Disputes:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">7. Disputes:</h3>
                                   <p>Because we are a neutral venue, We are not responsible for resolving any disputes between You and the Customer regarding the Services. All disputes must be resolved between You and the Customer. You expressly authorize Us to release Your provided contact information to the Customer to settle disputes.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">8. Effective Offer and Acceptance for Services:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">8. Effective Offer and Acceptance for Services:</h3>
                                   <p>You agree and acknowledge that when a request for the Services has been submitted to You by a Customer, the Customer has effectively communicated an offer to You to enter into a contract for the Services. If You accept, You and the Customer have entered into a contract. Rate changes based on specific addresses are handled between You and the Customer.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">9. MarketPlace Fee:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">9. MarketPlace Fee:</h3>
                                   <p>You acknowledge and agree that We shall receive a "MarketPlace Fee". Our MarketPlace Fee is NOT an additional charge to the total amount to be paid by the Customer. Our MarketPlace Fee is calculated as a 15% cut from the total amount paid by the Customer for the Services.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">10. Payment for Services:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">10. Payment for Services:</h3>
                                   <p>You acknowledge and agree that payment for the provided Services will be made pursuant to the provision of the Payment Authorization Code ("Code") to You by the Customer. Payments are to be released to You upon Your input of the Code.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">11. Your Financial Obligation to Us:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">11. Your Financial Obligation to Us:</h3>
                                   <p>By entering the Code you represent and warrant that the Services have been completed and You accept the MarketPlace Fee deduction.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">12. Additional Services:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">12. Additional Services:</h3>
                                   <p>Additional Services must be reported to Us. You agree to remit a 15% MarketPlace Fee for any additional compensation received. Failure to comply results in penalties and potential account termination.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">13. Authorization to credit and debit Your identified account:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">13. Authorization to credit and debit Your identified account:</h3>
                                   <p>You irrevocably and expressly authorize Us to credit monies to Your account, and to withhold or debit monies for customer disputes, chargebacks, fees, or adjustments.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">14. Prohibited Actions:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">14. Prohibited Actions:</h3>
                                   <p>You shall NOT attempt to circumvent the MarketPlace Fee, improperly influence Customer reviews, or create multiple accounts/profiles.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">19. Confidentiality/Non-Disclosure:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">19. Confidentiality/Non-Disclosure:</h3>
                                   <p>You agree that all Our documents, source code, business practices, and systems are Our sole and exclusive intellectual property. Unauthorized disclosure is strictly prohibited.</p>
                                 </section>
 
                                 <section>
-                                  <h3 className="text-primary font-bold uppercase">20. Non-Competition:</h3>
+                                  <h3 className="text-primary font-bold uppercase mt-6">20. Non-Competition:</h3>
                                   <p>You shall not engage in or assist others in the operation of a similar internet-based moving marketplace during the term of this Agreement and for one year thereafter.</p>
                                 </section>
 
-                                <section className="bg-primary/5 p-6 rounded-2xl border border-primary/10">
+                                <section className="bg-primary/5 p-6 rounded-2xl border border-primary/10 mt-8">
                                   <h2 className="text-primary font-black uppercase text-xl text-center">APPENDIX A</h2>
                                   <h3 className="text-primary font-black uppercase text-lg text-center mt-2">ARBITRATION AGREEMENT</h3>
                                   <div className="mt-4 space-y-4 text-xs">
@@ -329,12 +329,13 @@ export default function EmployeeSignUpPage() {
                                   </div>
                                 </section>
 
-                                <div className="text-[10px] text-center opacity-50 uppercase font-bold py-4">
+                                <div className="text-[10px] text-center opacity-50 uppercase font-bold py-8">
                                   Full Agreement Version 2023.07.26 - All Rights Reserved
                                 </div>
                               </div>
-                            </ScrollArea>
-                            <DialogFooter className="p-6 border-t bg-gray-50">
+                            </div>
+
+                            <DialogFooter className="p-6 border-t bg-gray-50 shrink-0">
                               <DialogClose asChild>
                                 <Button type="button" className="bg-primary text-white rounded-xl px-8 h-12 font-bold uppercase tracking-widest text-xs w-full sm:w-auto">
                                   I have read and accept the terms
