@@ -1,15 +1,16 @@
-
 "use client";
 
 import { CustomerLayout } from "@/components/layout/customer-layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useCollection, useMemoFirebase, useUser, useFirestore } from "@/firebase";
 import { collection, query, where, orderBy } from "firebase/firestore";
-import { FileText, Calendar, Clock, ChevronRight, Sparkles, MapPin } from "lucide-react";
+import { FileText, Calendar, Clock, ChevronRight, Sparkles, MapPin, CreditCard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import Link from "next/link";
+import { calculateMoveTotal } from "@/lib/pricing";
+import { createCheckoutSession } from "@/app/actions/stripe";
 
 export default function MyQuotesPage() {
   const { user } = useUser();
@@ -60,6 +61,12 @@ export default function MyQuotesPage() {
                 console.error("Error parsing quote details", e);
               }
 
+              const selectedAddOns = Object.entries(details?.addOns || {})
+                .filter(([_, active]) => active)
+                .map(([key]) => key);
+
+              const estimatedTotal = calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns);
+
               return (
                 <Card key={quote.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden">
                   <CardContent className="p-0">
@@ -79,15 +86,18 @@ export default function MyQuotesPage() {
                               {quote.moveSize || details?.moveSize || "Residential"} Move
                             </h3>
                           </div>
-                          <Badge 
-                            className={
-                              quote.status === 'processed' ? "bg-green-500 hover:bg-green-500" :
-                              quote.status === 'expired' ? "bg-gray-400 hover:bg-gray-400" :
-                              "bg-accent hover:bg-accent text-white"
-                            }
-                          >
-                            {quote.status || 'pending'}
-                          </Badge>
+                          <div className="text-right">
+                            <p className="text-2xl font-black text-primary">${estimatedTotal.toLocaleString()}</p>
+                            <Badge 
+                              className={
+                                quote.status === 'processed' ? "bg-green-500 hover:bg-green-500" :
+                                quote.status === 'expired' ? "bg-gray-400 hover:bg-gray-400" :
+                                "bg-accent hover:bg-accent text-white"
+                              }
+                            >
+                              {quote.status || 'pending'}
+                            </Badge>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -112,15 +122,26 @@ export default function MyQuotesPage() {
                             <div>
                               <p className="text-[10px] font-bold text-muted-foreground uppercase">Add-ons</p>
                               <p className="text-sm font-bold">
-                                {Object.values(details?.addOns || {}).filter(Boolean).length} Selected
+                                {selectedAddOns.length} Selected
                               </p>
                             </div>
                           </div>
                         </div>
                       </div>
-                      <div className="bg-gray-50 p-6 flex flex-col justify-center border-t md:border-t-0 md:border-l">
+                      <div className="bg-gray-50 p-6 flex flex-col justify-center gap-3 border-t md:border-t-0 md:border-l min-w-[200px]">
+                        {quote.status !== 'processed' && (
+                          <form action={createCheckoutSession}>
+                            <input type="hidden" name="quoteId" value={quote.id} />
+                            <input type="hidden" name="moveSize" value={quote.moveSize || details?.moveSize || "studio"} />
+                            <input type="hidden" name="addOns" value={JSON.stringify(selectedAddOns)} />
+                            <input type="hidden" name="email" value={user?.email || ''} />
+                            <Button type="submit" className="w-full rounded-full bg-primary hover:bg-primary/90 text-white font-bold gap-2">
+                              <CreditCard className="h-4 w-4" /> Pay & Book
+                            </Button>
+                          </form>
+                        )}
                         <Button variant="ghost" className="rounded-full font-bold text-primary hover:text-accent transition-all gap-2 group-hover:translate-x-1">
-                          Review Details <ChevronRight className="h-4 w-4" />
+                          Details <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
