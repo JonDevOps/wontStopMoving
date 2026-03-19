@@ -3,10 +3,10 @@
 
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Truck, FileText, TrendingUp, AlertCircle, ChevronRight, Megaphone, Send } from "lucide-react";
+import { Users, Truck, FileText, TrendingUp, AlertCircle, ChevronRight, Megaphone, Send, Calculator } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useCollection, useMemoFirebase, useFirestore, addDocumentNonBlocking, useDoc, useUser } from "@/firebase";
-import { collection, query, orderBy, limit, doc, serverTimestamp } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, serverTimestamp, where } from "firebase/firestore";
 import Link from "next/link";
 import { format } from "date-fns";
 import { useState } from "react";
@@ -27,13 +27,23 @@ function AdminDashboardContent() {
     return query(collection(firestore, "applications"), orderBy("createdAt", "desc"), limit(5));
   }, [firestore]);
 
+  const quotesQuery = useMemoFirebase(() => {
+    return query(collection(firestore, "quotes"), orderBy("createdAt", "desc"), limit(5));
+  }, [firestore]);
+
+  const pendingQuotesCountQuery = useMemoFirebase(() => {
+    return query(collection(firestore, "quotes"), where("status", "==", "new"));
+  }, [firestore]);
+
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !authUser) return null;
     return doc(firestore, "users", authUser.uid);
   }, [firestore, authUser]);
 
   const { data: profile } = useDoc(userProfileRef);
-  const { data: applications, isLoading } = useCollection(appsQuery);
+  const { data: applications, isLoading: appsLoading } = useCollection(appsQuery);
+  const { data: quotes, isLoading: quotesLoading } = useCollection(quotesQuery);
+  const { data: pendingQuotes } = useCollection(pendingQuotesCountQuery);
 
   const handleSendAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,8 +81,8 @@ function AdminDashboardContent() {
   const kpis = [
     { label: "Total Revenue", value: "$42,850", trend: "+12.5%", icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10" },
     { label: "Active Jobs", value: "32", icon: Truck, color: "text-blue-500", bg: "bg-blue-500/10" },
-    { label: "Unassigned", value: "8", icon: AlertCircle, color: "text-accent", bg: "bg-accent/10" },
-    { label: "Employees", value: "51,000", icon: Users, color: "text-purple-500", bg: "bg-purple-500/10" },
+    { label: "Pending Quotes", value: String(pendingQuotes?.length || 0), icon: Calculator, color: "text-accent", bg: "bg-accent/10" },
+    { label: "Team Members", value: "51,000", icon: Users, color: "text-purple-500", bg: "bg-purple-500/10" },
   ];
 
   return (
@@ -103,49 +113,73 @@ function AdminDashboardContent() {
 
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <Card className="border-none shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-black tracking-widest uppercase">RECENT APPLICATIONS</CardTitle>
-              <Link href="/dashboard/admin/careers" className="text-xs font-bold text-accent hover:underline">View All</Link>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {isLoading ? (
-                  <div className="p-8 text-center text-muted-foreground animate-pulse">Scanning database...</div>
-                ) : applications && applications.length > 0 ? (
-                  applications.map((app) => (
-                    <Link key={app.id} href={`/dashboard/admin/applications/${app.id}`}>
-                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group mb-2 border border-transparent hover:border-accent/20">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold">
-                            {app.name?.[0] || "?"}
-                          </div>
-                          <div>
-                            <p className="font-bold text-primary">{app.name}</p>
-                            <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">
-                              {app.state} • {app.experience} Years Exp • {app.createdAt ? format(app.createdAt.toDate(), "MMM d") : "Just now"}
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Recent Quotes */}
+            <Card className="border-none shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-xs font-black tracking-widest uppercase">RECENT QUOTES</CardTitle>
+                <Link href="/dashboard/admin/quotes" className="text-[10px] font-bold text-accent hover:underline uppercase">View All</Link>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {quotesLoading ? (
+                    <div className="p-4 text-center text-muted-foreground animate-pulse text-xs">Syncing estimates...</div>
+                  ) : quotes && quotes.length > 0 ? (
+                    quotes.map((quote) => (
+                      <Link key={quote.id} href={`/dashboard/admin/quotes/${quote.id}`}>
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group mb-2 border border-transparent hover:border-accent/20">
+                          <div className="min-w-0">
+                            <p className="font-bold text-primary text-sm truncate">{quote.name || "Anonymous"}</p>
+                            <p className="text-[9px] uppercase font-black text-muted-foreground tracking-widest">
+                              {quote.moveSize} • {quote.createdAt ? format(quote.createdAt.toDate(), "MMM d") : "New"}
                             </p>
                           </div>
+                          <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:text-accent transition-colors shrink-0" />
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${app.status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
-                            {app.status}
-                          </span>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-accent transition-colors" />
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center border-2 border-dashed rounded-2xl">
+                      <p className="text-[10px] font-bold text-muted-foreground">No recent quotes.</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recent Applications */}
+            <Card className="border-none shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-xs font-black tracking-widest uppercase">RECENT APPLICANTS</CardTitle>
+                <Link href="/dashboard/admin/careers" className="text-[10px] font-bold text-accent hover:underline uppercase">View All</Link>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {appsLoading ? (
+                    <div className="p-4 text-center text-muted-foreground animate-pulse text-xs">Accessing candidate database...</div>
+                  ) : applications && applications.length > 0 ? (
+                    applications.map((app) => (
+                      <Link key={app.id} href={`/dashboard/admin/applications/${app.id}`}>
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group mb-2 border border-transparent hover:border-accent/20">
+                          <div className="min-w-0">
+                            <p className="font-bold text-primary text-sm truncate">{app.name}</p>
+                            <p className="text-[9px] uppercase font-black text-muted-foreground tracking-widest">
+                              {app.state} • {app.experience}yr Exp
+                            </p>
+                          </div>
+                          <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:text-accent transition-colors shrink-0" />
                         </div>
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  <div className="p-12 text-center border-2 border-dashed rounded-2xl">
-                    <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-sm font-bold text-primary">No applications received yet.</p>
-                    <p className="text-xs text-muted-foreground">New applicant profiles will appear here.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center border-2 border-dashed rounded-2xl">
+                      <p className="text-[10px] font-bold text-muted-foreground">No new candidates.</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           <Card className="border-none shadow-sm overflow-hidden">
             <CardHeader className="bg-primary text-white flex flex-row items-center gap-2">

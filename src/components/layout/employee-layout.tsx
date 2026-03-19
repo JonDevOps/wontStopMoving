@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   ShieldCheck,
-  FileText
+  FileText,
+  Calculator
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
   const adminNav: NavItem[] = [
     { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Customers", href: "/dashboard/admin/customers", icon: User },
+    { label: "Quotes", href: "/dashboard/admin/quotes", icon: Calculator },
     { label: "Jobs", href: "/dashboard/admin/jobs", icon: Truck },
     { label: "Employees", href: "/dashboard/admin/employees", icon: ShieldCheck },
     { label: "Applications", href: "/dashboard/admin/careers", icon: FileText },
