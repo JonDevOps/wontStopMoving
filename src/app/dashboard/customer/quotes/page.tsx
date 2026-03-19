@@ -71,6 +71,8 @@ export default function MyQuotesPage() {
                 isExpress: !!details?.addOns?.express
               });
 
+              const isProcessed = quote.status === 'processed';
+
               return (
                 <Card key={quote.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden">
                   <CardContent className="p-0">
@@ -135,22 +137,28 @@ export default function MyQuotesPage() {
                         </div>
                       </div>
                       <div className="bg-gray-50 p-6 flex flex-col justify-center gap-3 border-t md:border-t-0 md:border-l min-w-[200px]">
-                        {quote.status !== 'processed' && (
+                        {!isProcessed && quote.status !== 'expired' && (
                           <form action={createCheckoutSession}>
                             <input type="hidden" name="quoteId" value={quote.id} />
+                            <input type="hidden" name="customerId" value={user?.uid || ''} />
                             <input type="hidden" name="moveSize" value={quote.moveSize || details?.moveSize || "studio"} />
                             <input type="hidden" name="addOns" value={JSON.stringify(selectedAddOns)} />
                             <input type="hidden" name="email" value={user?.email || ''} />
                             <input type="hidden" name="isStudent" value={String(!!details?.isStudent)} />
                             <input type="hidden" name="isMilitary" value={String(!!details?.isMilitary)} />
                             <input type="hidden" name="isExpress" value={String(!!details?.addOns?.express)} />
-                            <Button type="submit" className="w-full rounded-full bg-primary hover:bg-primary/90 text-white font-bold gap-2 shadow-lg">
+                            <Button type="submit" className="w-full rounded-full bg-primary hover:bg-primary/90 text-white font-bold gap-2 shadow-lg h-12 uppercase tracking-widest text-xs">
                               <CreditCard className="h-4 w-4" /> Pay & Book
                             </Button>
                           </form>
                         )}
+                        {isProcessed && (
+                          <Button asChild className="w-full rounded-full bg-green-500 hover:bg-green-600 text-white font-bold h-12 uppercase tracking-widest text-xs">
+                            <Link href="/dashboard/customer/moves">View Scheduled Move</Link>
+                          </Button>
+                        )}
                         <Button variant="ghost" className="rounded-full font-bold text-primary hover:text-accent transition-all gap-2 group-hover:translate-x-1">
-                          Details <ChevronRight className="h-4 w-4" />
+                          Full Details <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>

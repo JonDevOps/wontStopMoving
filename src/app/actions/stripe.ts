@@ -5,8 +5,13 @@ import { calculateMoveTotal } from '@/lib/pricing';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+/**
+ * Creates a Stripe Checkout Session for a specific quote.
+ * This is called from the "Pay & Book" button on the customer dashboard.
+ */
 export async function createCheckoutSession(formData: FormData) {
   const quoteId = formData.get('quoteId') as string;
+  const customerId = formData.get('customerId') as string;
   const moveSize = formData.get('moveSize') as string;
   const addOnsJson = formData.get('addOns') as string;
   const customerEmail = formData.get('email') as string;
@@ -27,7 +32,7 @@ export async function createCheckoutSession(formData: FormData) {
           currency: 'usd',
           product_data: {
             name: `${moveSize.toUpperCase()} Professional Move`,
-            description: `Scheduled move via Wont Stop Moving. Includes ${addOns.length} add-ons.`,
+            description: `Wont Stop Moving: Nationwide logistics for your ${moveSize} relocation. Includes ${addOns.length} premium add-ons.`,
           },
           unit_amount: Math.round(totalAmount * 100), // Stripe expects cents
         },
@@ -35,15 +40,14 @@ export async function createCheckoutSession(formData: FormData) {
       },
     ],
     mode: 'payment',
-    success_url: `${origin}/dashboard/customer/moves?success=true&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/dashboard/customer/quotes?cancelled=true`,
+    // Metadata is critical for the webhook to know which quote/user to update after payment
     metadata: {
       quoteId,
+      customerId,
       moveSize,
-      isStudent: String(isStudent),
-      isMilitary: String(isMilitary),
-      isExpress: String(isExpress),
     },
+    success_url: `${origin}/dashboard/customer/moves?success=true&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/dashboard/customer/quotes?cancelled=true`,
   });
 
   if (!session.url) {
