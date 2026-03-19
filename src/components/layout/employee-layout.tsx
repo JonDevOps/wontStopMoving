@@ -37,6 +37,18 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
   const firestore = useFirestore();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [mobileOpen]);
+
   // Role Guarding Logic
   const userRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -83,7 +95,6 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
 
   const currentNav = isAdmin ? adminNav : employeeNav;
 
-  // Security Gate: Ensure role is verified before showing any content
   const isAuthorized = !isProfileLoading && (
     (isAdmin && profile?.role === 'admin') || 
     (!isAdmin && (profile?.role === 'employee' || profile?.role === 'admin'))
@@ -181,30 +192,30 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute top-0 left-0 w-80 h-full bg-primary text-white flex flex-col animate-in slide-in-from-left duration-300">
-            <div className="p-8 flex items-center justify-between">
+          <aside className="absolute top-0 left-0 w-80 h-full bg-primary text-white flex flex-col animate-in slide-in-from-left duration-300 shadow-2xl">
+            <div className="p-8 flex items-center justify-between shrink-0">
               <Link href="/" className="flex items-center gap-2">
                 <Truck className="h-6 w-6 text-accent" />
                 <span className="text-xl font-headline font-black tracking-tighter text-white">
                   Wont Stop <span className="text-accent">Moving</span>
                 </span>
               </Link>
-              <button onClick={() => setMobileOpen(false)}><X className="h-6 w-6" /></button>
+              <button onClick={() => setMobileOpen(false)}><X className="h-6 w-6 text-white" /></button>
             </div>
-            <nav className="flex-1 px-6 space-y-2">
+            <nav className="flex-1 px-6 space-y-2 overflow-y-auto py-4">
               {currentNav.map((item) => (
                 <Link 
                   key={item.href} 
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-4 px-4 py-4 rounded-xl text-lg font-bold ${pathname === item.href ? 'bg-accent' : ''}`}
+                  className={`flex items-center gap-4 px-4 py-4 rounded-xl text-lg font-bold transition-all ${pathname === item.href ? 'bg-accent text-white' : 'text-white/80 hover:text-white'}`}
                 >
                   <item.icon className="h-6 w-6" />
                   {item.label}
                 </Link>
               ))}
             </nav>
-            <div className="p-8 border-t border-white/10">
+            <div className="p-8 border-t border-white/10 shrink-0">
               <Button 
                 onClick={handleSignOut}
                 className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl h-14 font-black uppercase tracking-widest text-xs gap-2"

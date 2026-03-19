@@ -34,6 +34,18 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
   const firestore = useFirestore();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [mobileOpen]);
+
   // Role Guarding Logic
   const userRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -47,9 +59,6 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
       router.replace("/login");
     }
     if (!isProfileLoading && profile) {
-      // If employee/admin tries to see customer dashboard, it's allowed,
-      // but if a user has NO profile or an invalid role, we should be careful.
-      // For now, we kick employees to their own dashboard to maintain "lanes".
       if (profile.role === 'employee') {
         router.replace("/dashboard/employee");
       }
@@ -69,7 +78,6 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
     { label: "Profile", href: "/dashboard/customer/profile", icon: User },
   ];
 
-  // Prevent flash of content during role check
   const isAuthorized = !isProfileLoading && (profile?.role === 'customer' || profile?.role === 'admin');
 
   if (isUserLoading || isProfileLoading || !isAuthorized) {
@@ -166,7 +174,7 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <aside className="absolute top-0 left-0 w-80 h-full bg-white flex flex-col animate-in slide-in-from-left duration-300">
-            <div className="p-8 flex items-center justify-between">
+            <div className="p-8 flex items-center justify-between shrink-0">
               <Link href="/" className="flex items-center gap-2">
                 <Truck className="h-6 w-6 text-accent" />
                 <span className="text-xl font-headline font-black tracking-tighter text-primary">
@@ -175,7 +183,7 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
               </Link>
               <button onClick={() => setMobileOpen(false)}><X className="h-6 w-6 text-primary" /></button>
             </div>
-            <nav className="flex-1 px-6 space-y-2">
+            <nav className="flex-1 px-6 space-y-2 overflow-y-auto py-4">
               {customerNav.map((item) => (
                 <Link 
                   key={item.href} 
@@ -188,7 +196,7 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
             </nav>
-            <div className="p-8 border-t">
+            <div className="p-8 border-t shrink-0">
               <Button 
                 onClick={handleSignOut} 
                 className="w-full bg-primary text-white rounded-xl h-14 font-black uppercase tracking-widest text-xs gap-2"
