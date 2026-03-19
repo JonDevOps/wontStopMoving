@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -26,10 +27,15 @@ import {
   Warehouse,
   Zap,
   GraduationCap,
-  Shield
+  Shield,
+  Lock,
+  Loader2
 } from "lucide-react";
-import { useFirestore, addDocumentNonBlocking, useUser } from "@/firebase";
-import { collection, serverTimestamp } from "firebase/firestore";
+import { useFirestore, useUser, useAuth } from "@/firebase";
+import { collection, serverTimestamp, doc, setDoc, addDoc } from "firebase/firestore";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 
 const formSchema = z.object({
   pickupZip: z.string().min(5, "Invalid Zip"),
@@ -52,15 +58,19 @@ const formSchema = z.object({
   name: z.string().min(2, "Name required"),
   email: z.string().email("Invalid email"),
   phone: z.string().min(10, "Invalid phone"),
+  password: z.string().min(8, "Password must be 8+ characters").optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 export function QuoteForm() {
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const totalSteps = 5;
   const firestore = useFirestore();
+  const auth = useAuth();
   const { user } = useUser();
+  const { toast } = useToast();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -78,33 +88,84 @@ export function QuoteForm() {
     }
   });
 
-  const onSubmit = (data: FormValues) => {
-    const quotesRef = collection(firestore, 'quotes');
-    addDocumentNonBlocking(quotesRef, {
-      ...data,
-      customerId: user?.uid || "anonymous",
-      status: 'new',
-      createdAt: serverTimestamp(),
-      details: JSON.stringify({
+  const onSubmit = async (data: FormValues) => {
+    setIsSubmitting(true);
+    let currentUserId = user?.uid;
+
+    try {
+      // 1. Handle Account Creation if not logged in
+      if (!currentUserId) {
+        if (!data.password) {
+          toast({
+            variant: "destructive",
+            title: "Password Required",
+            description: "Please provide a password to create your secure account.",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
+        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        const newUser = userCredential.user;
+        currentUserId = newUser.uid;
+
+        // Create the user profile in Firestore
+        await setDoc(doc(firestore, "users", currentUserId), {
+          id: currentUserId,
+          email: data.email,
+          name: data.name,
+          phone: data.phone,
+          role: 'customer',
+          state: "Pending", // Default, can be updated later
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      // 2. Save the Quote
+      const quotesRef = collection(firestore, 'quotes');
+      await addDoc(quotesRef, {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
         pickupZip: data.pickupZip,
         dropoffZip: data.dropoffZip,
         moveDate: data.moveDate,
         moveSize: data.moveSize,
-        specialItems: data.specialItems,
-        isStudent: data.isStudent,
-        isMilitary: data.isMilitary,
-        addOns: {
-          packing: data.packingService,
-          crating: data.cratingService,
-          cleaning: data.cleaningService,
-          junkRemoval: data.junkRemoval,
-          assembly: data.assemblyService,
-          storage: data.storageService,
-          express: data.expressMoving
-        }
-      })
-    });
-    setStep(6); // Success step
+        specialItems: data.specialItems || "",
+        customerId: currentUserId,
+        status: 'new',
+        createdAt: serverTimestamp(),
+        details: JSON.stringify({
+          pickupZip: data.pickupZip,
+          dropoffZip: data.dropoffZip,
+          moveDate: data.moveDate,
+          moveSize: data.moveSize,
+          specialItems: data.specialItems,
+          isStudent: data.isStudent,
+          isMilitary: data.isMilitary,
+          addOns: {
+            packing: data.packingService,
+            crating: data.cratingService,
+            cleaning: data.cleaningService,
+            junkRemoval: data.junkRemoval,
+            assembly: data.assemblyService,
+            storage: data.storageService,
+            express: data.expressMoving
+          }
+        })
+      });
+
+      setStep(6); // Success step
+    } catch (error: any) {
+      console.error("Submission Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Submission Failed",
+        description: error.message || "An error occurred while processing your request.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, totalSteps));
@@ -129,9 +190,12 @@ export function QuoteForm() {
           <Check className="h-10 w-10" />
         </div>
         <h2 className="text-3xl font-black text-primary mb-4 uppercase tracking-tighter">Quote Requested!</h2>
-        <p className="text-muted-foreground mb-8">Thank you, {watch("name")}! We've sent a confirmation to {watch("email")}. A moving specialist will contact you shortly to finalize your premium moving plan.</p>
-        <Button asChild className="bg-primary rounded-full px-8">
-          <a href="/">Back to Home</a>
+        <p className="text-muted-foreground mb-8 text-balance">
+          Thank you, {watch("name")}! We've created your secure account and sent a confirmation to {watch("email")}. 
+          You can now track your quote and book your move directly from your dashboard.
+        </p>
+        <Button asChild className="bg-primary rounded-full px-12 h-12 font-bold uppercase tracking-widest text-xs">
+          <Link href="/dashboard/customer">Go to My Dashboard</Link>
         </Button>
       </Card>
     );
@@ -154,19 +218,19 @@ export function QuoteForm() {
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="pickupZip">Pickup Zip Code</Label>
-                  <Input id="pickupZip" {...register("pickupZip")} placeholder="e.g. 75201" />
-                  {errors.pickupZip && <p className="text-xs text-destructive">{errors.pickupZip.message}</p>}
+                  <Input id="pickupZip" {...register("pickupZip")} placeholder="e.g. 75201" className="h-12" />
+                  {errors.pickupZip && <p className="text-xs text-destructive font-bold">{errors.pickupZip.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="dropoffZip">Dropoff Zip Code</Label>
-                  <Input id="dropoffZip" {...register("dropoffZip")} placeholder="e.g. 10001" />
-                  {errors.dropoffZip && <p className="text-xs text-destructive">{errors.dropoffZip.message}</p>}
+                  <Input id="dropoffZip" {...register("dropoffZip")} placeholder="e.g. 10001" className="h-12" />
+                  {errors.dropoffZip && <p className="text-xs text-destructive font-bold">{errors.dropoffZip.message}</p>}
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="moveDate">Move Date</Label>
-                <Input id="moveDate" type="date" {...register("moveDate")} />
-                {errors.moveDate && <p className="text-xs text-destructive">{errors.moveDate.message}</p>}
+                <Input id="moveDate" type="date" {...register("moveDate")} className="h-12" />
+                {errors.moveDate && <p className="text-xs text-destructive font-bold">{errors.moveDate.message}</p>}
               </div>
             </div>
           )}
@@ -181,7 +245,7 @@ export function QuoteForm() {
               <div className="space-y-2">
                 <Label>Home Size</Label>
                 <Select onValueChange={(val) => setValue("moveSize", val)} defaultValue={watch("moveSize")}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-12">
                     <SelectValue placeholder="Select home size" />
                   </SelectTrigger>
                   <SelectContent>
@@ -200,7 +264,7 @@ export function QuoteForm() {
                   id="specialItems" 
                   {...register("specialItems")} 
                   placeholder="Piano, Pool Table, Fine Art, Gun Safe, etc." 
-                  className="min-h-[120px]"
+                  className="min-h-[120px] border-gray-200"
                 />
               </div>
             </div>
@@ -246,54 +310,59 @@ export function QuoteForm() {
             </div>
           )}
 
-          {/* Step 4: Contact & Discounts */}
+          {/* Step 4: Contact & Account */}
           {step === 4 && (
             <div className="space-y-6 animate-fade-in">
               <div className="flex items-center gap-3 mb-8">
                 <div className="bg-primary/10 p-2 rounded-lg text-primary"><User className="h-5 w-5" /></div>
                 <h3 className="text-xl font-bold">Who should we contact?</h3>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" {...register("name")} placeholder="John Doe" />
-                {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-              </div>
-              <div className="grid sm:grid-cols-2 gap-6">
+              
+              <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" type="email" {...register("email")} placeholder="john@example.com" />
-                  {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input id="name" {...register("name")} placeholder="John Doe" className="h-12" />
+                  {errors.name && <p className="text-xs text-destructive font-bold">{errors.name.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" type="tel" {...register("phone")} placeholder="(555) 000-0000" />
-                  {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
+                  <Input id="phone" type="tel" {...register("phone")} placeholder="(555) 000-0000" className="h-12" />
+                  {errors.phone && <p className="text-xs text-destructive font-bold">{errors.phone.message}</p>}
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input id="email" type="email" {...register("email")} placeholder="john@example.com" className="h-12" />
+                {errors.email && <p className="text-xs text-destructive font-bold">{errors.email.message}</p>}
+              </div>
+
+              {!user && (
+                <div className="pt-6 border-t border-gray-100 space-y-4">
+                  <div className="flex items-center gap-2 text-accent">
+                    <Lock className="h-4 w-4" />
+                    <h4 className="text-sm font-black uppercase tracking-widest">Create Secure Account</h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground">We'll create an account so you can track your quote and manage your move.</p>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Account Password</Label>
+                    <Input id="password" type="password" {...register("password")} placeholder="Create a secure password" title="Required for tracking your quote" className="h-12" />
+                    {errors.password && <p className="text-xs text-destructive font-bold">{errors.password.message}</p>}
+                  </div>
+                </div>
+              )}
+
               <div className="pt-4 space-y-4">
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Apply Special Discounts (5%)</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Apply Discounts (5%)</p>
                 <div className="grid grid-cols-2 gap-4">
-                  <div 
-                    className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${watch("isStudent") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}
-                  >
-                    <Checkbox 
-                      id="isStudent"
-                      checked={watch("isStudent")} 
-                      onCheckedChange={(val) => setValue("isStudent", val === true)} 
-                    />
+                  <div className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${watch("isStudent") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}>
+                    <Checkbox id="isStudent" checked={watch("isStudent")} onCheckedChange={(val) => setValue("isStudent", val === true)} />
                     <Label htmlFor="isStudent" className="text-xs font-bold flex items-center gap-2 cursor-pointer">
                       <GraduationCap className="h-4 w-4" /> Student
                     </Label>
                   </div>
-                  <div 
-                    className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${watch("isMilitary") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}
-                  >
-                    <Checkbox 
-                      id="isMilitary"
-                      checked={watch("isMilitary")} 
-                      onCheckedChange={(val) => setValue("isMilitary", val === true)} 
-                    />
+                  <div className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${watch("isMilitary") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}>
+                    <Checkbox id="isMilitary" checked={watch("isMilitary")} onCheckedChange={(val) => setValue("isMilitary", val === true)} />
                     <Label htmlFor="isMilitary" className="text-xs font-bold flex items-center gap-2 cursor-pointer">
                       <Shield className="h-4 w-4" /> Military
                     </Label>
@@ -340,30 +409,40 @@ export function QuoteForm() {
                   </div>
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Contact</p>
-                  <p className="font-bold text-primary">{watch("name")} • {watch("phone")}</p>
+                  <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Contact & Account</p>
+                  <p className="font-bold text-primary">{watch("name")} • {watch("email")}</p>
+                  {!user && <p className="text-[10px] text-accent font-black uppercase mt-1">Account will be created upon submission</p>}
                 </div>
               </div>
               <div className="p-4 bg-primary/5 rounded-xl text-xs text-primary leading-relaxed">
-                By clicking "Submit Request", you agree to our terms of service and consent to being contacted by our moving specialists.
+                By clicking "Submit Request", you agree to our <Link href="/terms" className="underline font-bold">terms of service</Link> and consent to account creation for move tracking purposes.
               </div>
             </div>
           )}
 
           <div className="flex items-center justify-between mt-12">
             {step > 1 ? (
-              <Button type="button" variant="ghost" onClick={prevStep} className="flex items-center gap-2">
+              <Button type="button" variant="ghost" onClick={prevStep} className="flex items-center gap-2 font-bold h-12">
                 <ChevronLeft className="h-4 w-4" /> Back
               </Button>
             ) : <div />}
 
             {step < totalSteps ? (
-              <Button type="button" onClick={nextStep} className="bg-primary rounded-full px-8 flex items-center gap-2">
+              <Button type="button" onClick={nextStep} className="bg-primary rounded-full px-10 h-12 font-bold flex items-center gap-2 shadow-lg shadow-primary/10">
                 Next <ChevronRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button type="submit" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-12 text-lg font-bold">
-                Submit Request
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-14 text-lg font-black uppercase tracking-widest shadow-xl shadow-accent/20"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Processing...
+                  </>
+                ) : "Submit Request"}
               </Button>
             )}
           </div>
