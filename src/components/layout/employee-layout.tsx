@@ -204,12 +204,13 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
                 </Link>
               ))}
             </nav>
-            <div className="p-8">
+            <div className="p-8 border-t border-white/10">
               <Button 
                 onClick={handleSignOut}
-                className="w-full bg-white/10 hover:bg-white/20 text-white rounded-xl h-12"
+                className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl h-14 font-black uppercase tracking-widest text-xs gap-2"
               >
-                Log Out
+                <LogOut className="h-4 w-4" />
+                Sign Out
               </Button>
             </div>
           </aside>

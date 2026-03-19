@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Truck, Menu, X, ArrowRight, ChevronDown } from 'lucide-react';
+import { Truck, Menu, X, ArrowRight, ChevronDown, LogOut } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
@@ -18,7 +18,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useUser } from '@/firebase';
+import { useUser, useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 interface PublicLayoutProps {
   children: React.ReactNode;
@@ -28,10 +30,18 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+    setOpen(false);
+    router.push('/login');
+  };
 
   const navLinks = [
     { href: "/services", label: "Services" },
@@ -213,9 +223,19 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                           {isUserLoading ? (
                             <div className="w-full h-14 bg-gray-100 animate-pulse rounded-xl" />
                           ) : user ? (
-                            <Button asChild className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest text-xs shadow-lg shadow-primary/20">
-                              <Link href="/dashboard" onClick={() => setOpen(false)}>My Dashboard</Link>
-                            </Button>
+                            <div className="space-y-3">
+                              <Button asChild className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl h-14 font-black uppercase tracking-widest text-xs shadow-lg shadow-primary/20">
+                                <Link href="/dashboard" onClick={() => setOpen(false)}>My Dashboard</Link>
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                onClick={handleSignOut}
+                                className="w-full rounded-xl h-14 font-bold uppercase tracking-widest text-xs border-red-100 text-red-500 hover:bg-red-50 gap-2"
+                              >
+                                <LogOut className="h-4 w-4" />
+                                Log Out
+                              </Button>
+                            </div>
                           ) : (
                             <>
                               <Button asChild variant="outline" className="w-full rounded-xl h-14 font-bold uppercase tracking-widest text-xs border-primary/20 text-primary">

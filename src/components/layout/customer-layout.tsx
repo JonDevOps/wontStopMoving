@@ -188,8 +188,14 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
             </nav>
-            <div className="p-8">
-              <Button onClick={handleSignOut} className="w-full bg-primary text-white rounded-xl h-12">Log Out</Button>
+            <div className="p-8 border-t">
+              <Button 
+                onClick={handleSignOut} 
+                className="w-full bg-primary text-white rounded-xl h-14 font-black uppercase tracking-widest text-xs gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
             </div>
           </aside>
         </div>
