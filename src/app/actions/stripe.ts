@@ -10,9 +10,12 @@ export async function createCheckoutSession(formData: FormData) {
   const moveSize = formData.get('moveSize') as string;
   const addOnsJson = formData.get('addOns') as string;
   const customerEmail = formData.get('email') as string;
+  const isStudent = formData.get('isStudent') === 'true';
+  const isMilitary = formData.get('isMilitary') === 'true';
+  const isExpress = formData.get('isExpress') === 'true';
   
   const addOns = JSON.parse(addOnsJson || '[]');
-  const totalAmount = calculateMoveTotal(moveSize, addOns);
+  const totalAmount = calculateMoveTotal(moveSize, addOns, { isStudent, isMilitary, isExpress });
 
   const origin = (await headers()).get('origin');
 
@@ -37,6 +40,9 @@ export async function createCheckoutSession(formData: FormData) {
     metadata: {
       quoteId,
       moveSize,
+      isStudent: String(isStudent),
+      isMilitary: String(isMilitary),
+      isExpress: String(isExpress),
     },
   });
 

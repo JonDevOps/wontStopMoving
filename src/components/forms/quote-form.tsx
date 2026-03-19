@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -25,7 +24,9 @@ import {
   Trash2,
   Wrench,
   Warehouse,
-  Zap
+  Zap,
+  GraduationCap,
+  Shield
 } from "lucide-react";
 import { useFirestore, addDocumentNonBlocking, useUser } from "@/firebase";
 import { collection, serverTimestamp } from "firebase/firestore";
@@ -44,6 +45,9 @@ const formSchema = z.object({
   assemblyService: z.boolean().default(false),
   storageService: z.boolean().default(false),
   expressMoving: z.boolean().default(false),
+  // Discounts
+  isStudent: z.boolean().default(false),
+  isMilitary: z.boolean().default(false),
   // Contact
   name: z.string().min(2, "Name required"),
   email: z.string().email("Invalid email"),
@@ -69,6 +73,8 @@ export function QuoteForm() {
       assemblyService: false,
       storageService: false,
       expressMoving: false,
+      isStudent: false,
+      isMilitary: false,
     }
   });
 
@@ -85,6 +91,8 @@ export function QuoteForm() {
         moveDate: data.moveDate,
         moveSize: data.moveSize,
         specialItems: data.specialItems,
+        isStudent: data.isStudent,
+        isMilitary: data.isMilitary,
         addOns: {
           packing: data.packingService,
           crating: data.cratingService,
@@ -111,7 +119,7 @@ export function QuoteForm() {
     { id: "junkRemoval", label: "Junk Removal", icon: Trash2, desc: "Dispose of unwanted items before moving." },
     { id: "assemblyService", label: "Furniture Assembly", icon: Wrench, desc: "TV mounting & furniture setup." },
     { id: "storageService", label: "Vaulted Storage", icon: Warehouse, desc: "Secure, climate-controlled storage." },
-    { id: "expressMoving", label: "Express Moving", icon: Zap, desc: "Guaranteed fast delivery dates." },
+    { id: "expressMoving", label: "Express Moving", icon: Zap, desc: "Guaranteed fast delivery dates (25% fee)." },
   ];
 
   if (step === 6) {
@@ -234,7 +242,7 @@ export function QuoteForm() {
             </div>
           )}
 
-          {/* Step 4: Contact */}
+          {/* Step 4: Contact & Discounts */}
           {step === 4 && (
             <div className="space-y-6 animate-fade-in">
               <div className="flex items-center gap-3 mb-8">
@@ -246,15 +254,41 @@ export function QuoteForm() {
                 <Input id="name" {...register("name")} placeholder="John Doe" />
                 {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" {...register("email")} placeholder="john@example.com" />
-                {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+              <div className="grid sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input id="email" type="email" {...register("email")} placeholder="john@example.com" />
+                  {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input id="phone" type="tel" {...register("phone")} placeholder="(555) 000-0000" />
+                  {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" type="tel" {...register("phone")} placeholder="(555) 000-0000" />
-                {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
+
+              <div className="pt-4 space-y-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Apply Special Discounts (5%)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div 
+                    className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${watch("isStudent") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}
+                    onClick={() => setValue("isStudent", !watch("isStudent"))}
+                  >
+                    <Checkbox checked={watch("isStudent")} onCheckedChange={(val) => setValue("isStudent", val === true)} />
+                    <Label className="text-xs font-bold flex items-center gap-2 cursor-pointer">
+                      <GraduationCap className="h-4 w-4" /> Student
+                    </Label>
+                  </div>
+                  <div 
+                    className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${watch("isMilitary") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}
+                    onClick={() => setValue("isMilitary", !watch("isMilitary"))}
+                  >
+                    <Checkbox checked={watch("isMilitary")} onCheckedChange={(val) => setValue("isMilitary", val === true)} />
+                    <Label className="text-xs font-bold flex items-center gap-2 cursor-pointer">
+                      <Shield className="h-4 w-4" /> Military
+                    </Label>
+                  </div>
+                </div>
               </div>
             </div>
           )}

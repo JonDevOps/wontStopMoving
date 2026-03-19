@@ -4,7 +4,7 @@ import { CustomerLayout } from "@/components/layout/customer-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCollection, useMemoFirebase, useUser, useFirestore } from "@/firebase";
 import { collection, query, where, orderBy } from "firebase/firestore";
-import { FileText, Calendar, Clock, ChevronRight, Sparkles, MapPin, CreditCard } from "lucide-react";
+import { FileText, Calendar, Clock, ChevronRight, Sparkles, MapPin, CreditCard, GraduationCap, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
@@ -65,7 +65,11 @@ export default function MyQuotesPage() {
                 .filter(([_, active]) => active)
                 .map(([key]) => key);
 
-              const estimatedTotal = calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns);
+              const estimatedTotal = calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
+                isStudent: !!details?.isStudent,
+                isMilitary: !!details?.isMilitary,
+                isExpress: !!details?.addOns?.express
+              });
 
               return (
                 <Card key={quote.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden">
@@ -74,10 +78,12 @@ export default function MyQuotesPage() {
                       <div className="p-6 flex-1 space-y-4">
                         <div className="flex justify-between items-start">
                           <div className="space-y-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <Badge variant="outline" className="text-[10px] font-black border-accent text-accent uppercase tracking-widest">
                                 Estimate #{quote.id.slice(0, 8)}
                               </Badge>
+                              {details?.isStudent && <Badge className="bg-blue-500 text-[9px] font-black uppercase"><GraduationCap className="h-3 w-3 mr-1" /> Student</Badge>}
+                              {details?.isMilitary && <Badge className="bg-green-600 text-[9px] font-black uppercase"><Shield className="h-3 w-3 mr-1" /> Military</Badge>}
                               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                                 {quote.createdAt ? format(quote.createdAt.toDate(), "MMM d, yyyy") : "Date TBD"}
                               </span>
@@ -135,7 +141,10 @@ export default function MyQuotesPage() {
                             <input type="hidden" name="moveSize" value={quote.moveSize || details?.moveSize || "studio"} />
                             <input type="hidden" name="addOns" value={JSON.stringify(selectedAddOns)} />
                             <input type="hidden" name="email" value={user?.email || ''} />
-                            <Button type="submit" className="w-full rounded-full bg-primary hover:bg-primary/90 text-white font-bold gap-2">
+                            <input type="hidden" name="isStudent" value={String(!!details?.isStudent)} />
+                            <input type="hidden" name="isMilitary" value={String(!!details?.isMilitary)} />
+                            <input type="hidden" name="isExpress" value={String(!!details?.addOns?.express)} />
+                            <Button type="submit" className="w-full rounded-full bg-primary hover:bg-primary/90 text-white font-bold gap-2 shadow-lg">
                               <CreditCard className="h-4 w-4" /> Pay & Book
                             </Button>
                           </form>

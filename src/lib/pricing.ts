@@ -1,47 +1,67 @@
 /**
  * @fileOverview Centralized pricing configuration for Wont Stop Moving.
- * Uses a hybrid model of fixed base fees and estimated hourly labor.
+ * Uses the master pricing list provided for residential flat-rates, 
+ * hourly labor, and specialized add-ons.
  */
 
 export interface PricingPlan {
   baseFee: number;
-  hourlyRate: number;
-  moversCount: number;
-  estimatedHours: number;
+  description: string;
 }
 
+// Residential Flat-Rate Pricing (Mid-range estimates for the automated quote)
 export const MOVE_PRICING: Record<string, PricingPlan> = {
-  'studio': { baseFee: 199, hourlyRate: 90, moversCount: 2, estimatedHours: 3 },
-  '1br': { baseFee: 299, hourlyRate: 90, moversCount: 2, estimatedHours: 5 },
-  '2br': { baseFee: 399, hourlyRate: 135, moversCount: 3, estimatedHours: 7 },
-  '3br': { baseFee: 499, hourlyRate: 135, moversCount: 3, estimatedHours: 9 },
-  '4br+': { baseFee: 699, hourlyRate: 180, moversCount: 4, estimatedHours: 12 },
-  'commercial': { baseFee: 799, hourlyRate: 180, moversCount: 4, estimatedHours: 8 },
+  'studio': { baseFee: 700, description: "Studio Apartment" },
+  '1br': { baseFee: 850, description: "1 Bedroom Home" },
+  '2br': { baseFee: 1500, description: "2 Bedroom Home" },
+  '3br': { baseFee: 2500, description: "3 Bedroom Home" },
+  '4br+': { baseFee: 3500, description: "4+ Bedroom Home" },
+  'commercial': { baseFee: 1200, description: "Commercial/Office (Base)" },
 };
 
+// Add-on Pricing (Fixed mid-range for estimates)
 export const ADDON_PRICING: Record<string, number> = {
-  'packing': 150,
-  'crating': 200,
-  'cleaning': 199,
-  'junk': 99,
-  'assembly': 75,
-  'storage': 150,
-  'express': 250,
+  'packing': 300,      // Regular Packing range mid-point
+  'crating': 400,      // Specialty Crating mid-point
+  'cleaning': 400,     // Deep clean mid-point
+  'junk': 250,         // 1/4 truck load mid-point
+  'assembly': 200,     // 2hr min @ $100/hr mid-point
+  'storage': 225,      // Per month vault mid-point
 };
+
+export interface PriceCalculationOptions {
+  isStudent?: boolean;
+  isMilitary?: boolean;
+  isExpress?: boolean;
+}
 
 /**
- * Calculates the total estimated price for a move based on size and selected add-ons.
+ * Calculates the total estimated price for a move based on size, add-ons, and discounts.
  */
-export function calculateMoveTotal(moveSize: string, addOns: string[]): number {
+export function calculateMoveTotal(
+  moveSize: string, 
+  addOns: string[], 
+  options: PriceCalculationOptions = {}
+): number {
   const plan = MOVE_PRICING[moveSize] || MOVE_PRICING['studio'];
-  
-  let total = plan.baseFee + (plan.hourlyRate * plan.estimatedHours);
-  
+  let total = plan.baseFee;
+
+  // Add-ons
   addOns.forEach(addon => {
     if (ADDON_PRICING[addon]) {
       total += ADDON_PRICING[addon];
     }
   });
-  
-  return total;
+
+  // Express Moving: 25% Priority Fee on the base rate
+  if (options.isExpress) {
+    total += (plan.baseFee * 0.25);
+  }
+
+  // Discounts: 5% for Students or Military (not cumulative for MVP)
+  if (options.isStudent || options.isMilitary) {
+    total = total * 0.95;
+  }
+
+  return Math.round(total);
 }

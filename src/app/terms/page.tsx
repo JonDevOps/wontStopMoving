@@ -17,63 +17,43 @@ export default function TermsOfServicePage() {
               </p>
             </header>
 
-            <div className="prose prose-primary max-w-none space-y-8">
+            <div className="prose prose-primary max-w-none space-y-12">
               <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">1. Acceptance of Terms</h2>
+                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">1. Estimates & Final Charges</h2>
+                <div className="space-y-4 text-muted-foreground leading-relaxed">
+                  <p><strong>Hourly Services:</strong> All hourly moves are subject to a strict 3-hour minimum. The final cost is calculated based on actual time worked, plus applicable travel time (compliant with state Double Drive Time regulations where applicable).</p>
+                  <p><strong>Flat-Rate Services:</strong> Flat-rate quotes are based entirely on the inventory and home size declared at the time of booking. Additional items, flights of stairs, or undeclared heavy items (e.g., pianos, safes) added on moving day will incur additional fees or revert the job to an hourly rate.</p>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">2. Valuation & Liability</h2>
+                <div className="space-y-4 text-muted-foreground leading-relaxed">
+                  <p><strong>Standard Protection:</strong> By default, all moves include Released Value Protection at no additional charge. Under this federally mandated minimum, Wont Stop Moving’s liability for lost or damaged goods is strictly limited to $0.60 per pound per article, regardless of the item's actual value.</p>
+                  <p><strong>Full Value Protection (FVP):</strong> Customers requiring comprehensive coverage must explicitly declare a total shipment value and purchase FVP or Third-Party Insurance prior to the start of the move.</p>
+                  <p><strong>High-Value Items:</strong> Items valued at more than $100 per pound (e.g., jewelry, fine art, electronics) must be disclosed in writing prior to the move to be eligible for coverage.</p>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">3. Packing & Exclusions</h2>
+                <div className="space-y-4 text-muted-foreground leading-relaxed">
+                  <p><strong>Customer-Packed Boxes (PBO):</strong> Wont Stop Moving is not liable for damage to the contents of boxes packed by the customer (Packed By Owner) unless the box itself shows clear signs of exterior damage caused by our crew (e.g., dropped or crushed).</p>
+                  <p><strong>Pressed Wood/Particle Board:</strong> Due to the inherent instability of pressed wood or particle board furniture (e.g., standard IKEA items), Wont Stop Moving assumes no liability for damage to these items during transport or reassembly.</p>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">4. Cancellations & Rescheduling</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  By accessing or using the services provided by Wont Stop Moving, Inc. ("Wont Stop Moving," "we," "us," or "our"), you agree to be bound by these Terms of Service. If you do not agree to all of these terms, you must not use our services.
+                  Cancellations or rescheduling requests must be made at least 48 hours prior to the scheduled move date. Changes made within 48 hours may be subject to a cancellation fee or forfeiture of the booking deposit.
                 </p>
               </section>
 
               <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">2. Scope of Services</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  Wont Stop Moving provides nationwide moving, packing, storage, and logistics services across 50 US States and Puerto Rico. All service requests are subject to regional availability and crew capacity within our 51 service regions.
-                </p>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">3. Quotes and Estimates</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  Quotes provided via our AI-driven system are professional estimates based on the inventory and distances provided by the user. "Binding Not-to-Exceed" quotes are final based on the agreed-upon inventory; any additional items added on moving day will result in adjusted charges.
-                </p>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">4. User Responsibilities</h2>
-                <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-                  <li>Providing accurate inventory lists and location details.</li>
-                  <li>Ensuring safe and legal access for our 26-foot moving vehicles at both origin and destination.</li>
-                  <li>Securing necessary parking permits or elevator reservations as required by local authorities or building management.</li>
-                  <li>Being present (or appointing a representative) during the loading and unloading process to verify inventory.</li>
-                </ul>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">5. Valuation and Protection</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  All moves include standard Released Value Protection ($0.60 per lb per article) as required by law. Customers may elect to purchase "Full Value Protection" for additional coverage. Wont Stop Moving is not liable for items packed by the customer ("PBO") unless external damage to the box is visible and noted upon delivery.
-                </p>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">6. Cancellation and Rescheduling</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  Cancellations made within 72 hours of the scheduled move date may be subject to a service fee. Rescheduling is subject to availability and may result in rate adjustments based on seasonal demand.
-                </p>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">7. Prohibited Items</h2>
+                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">5. Prohibited Items</h2>
                 <p className="text-muted-foreground leading-relaxed">
                   We are prohibited by law from transporting hazardous materials, including but not limited to: explosives, pressurized gases, flammable liquids, and certain chemicals. A full list of "Non-Allowables" is provided in your booking packet.
-                </p>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">8. Governing Law</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  These terms are governed by the laws of the State of California, without regard to its conflict of law principles. Any disputes arising from our services will be settled via binding arbitration in Santa Clara County, CA.
                 </p>
               </section>
 
