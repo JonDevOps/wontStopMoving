@@ -70,7 +70,7 @@ Move Details:
 - Dropoff Address: {{{dropoffAddress}}}
 - Estimated Hours: {{{estimatedHours}}} hours
 - Special Items: {{#if specialItems}}{{{specialItems}}}{{else}}None specified.{{/if}}
-- Quoted Price: ${{{price}}}.
+- Quoted Price: \${{{price}}}.
 
 Based on these details, please generate a comprehensive quote description for the customer.`,
 });
