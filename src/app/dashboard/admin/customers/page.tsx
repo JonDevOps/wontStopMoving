@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
 
 type CustomerCategory = 'Potential' | 'Current' | 'Past' | 'Repeat';
 
@@ -173,40 +174,42 @@ function AdminCustomersContent() {
             ) : filteredCustomers.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {filteredCustomers.map((customer) => (
-                  <div key={customer.id} className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between hover:bg-gray-50 transition-all group gap-4">
-                    <div className="flex items-start md:items-center gap-4 flex-1">
-                      <div className="w-12 h-12 md:w-14 md:h-14 bg-primary text-white rounded-2xl flex items-center justify-center text-lg md:text-xl font-black shrink-0">
-                        {customer.name?.[0] || "C"}
-                      </div>
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-bold text-primary text-base md:text-lg group-hover:text-accent transition-colors truncate">
-                            {customer.name}
-                          </h3>
-                          {getCategoryBadge(customer.category)}
+                  <Link key={customer.id} href={`/dashboard/admin/customers/${customer.id}`} className="block">
+                    <div className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between hover:bg-gray-50 transition-all group gap-4">
+                      <div className="flex items-start md:items-center gap-4 flex-1">
+                        <div className="w-12 h-12 md:w-14 md:h-14 bg-primary text-white rounded-2xl flex items-center justify-center text-lg md:text-xl font-black shrink-0">
+                          {customer.name?.[0] || "C"}
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] md:text-xs text-muted-foreground font-medium">
-                          <span className="flex items-center gap-1.5 min-w-0 truncate"><Mail className="h-3 w-3 shrink-0" /> {customer.email}</span>
-                          {customer.phone && <span className="flex items-center gap-1.5 shrink-0"><Phone className="h-3 w-3 shrink-0" /> {customer.phone}</span>}
-                          <span className="flex items-center gap-1.5 shrink-0"><MapPin className="h-3 w-3 shrink-0" /> {customer.state}</span>
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-bold text-primary text-base md:text-lg group-hover:text-accent transition-colors truncate">
+                              {customer.name}
+                            </h3>
+                            {getCategoryBadge(customer.category)}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] md:text-xs text-muted-foreground font-medium">
+                            <span className="flex items-center gap-1.5 min-w-0 truncate"><Mail className="h-3 w-3 shrink-0" /> {customer.email}</span>
+                            {customer.phone && <span className="flex items-center gap-1.5 shrink-0"><Phone className="h-3 w-3 shrink-0" /> {customer.phone}</span>}
+                            <span className="flex items-center gap-1.5 shrink-0"><MapPin className="h-3 w-3 shrink-0" /> {customer.state}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center justify-between md:justify-end gap-4 md:gap-8 pt-4 md:pt-0 border-t md:border-none">
-                      <div className="text-left md:text-right">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Move History</p>
-                        <div className="flex gap-3 text-[11px] md:text-sm font-black text-primary">
-                          <span title="Active Jobs">{customer.activeJobsCount} Active</span>
-                          <span className="text-gray-200">|</span>
-                          <span title="Completed Jobs">{customer.completedJobsCount} Finished</span>
+                      <div className="flex items-center justify-between md:justify-end gap-4 md:gap-8 pt-4 md:pt-0 border-t md:border-none">
+                        <div className="text-left md:text-right">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Move History</p>
+                          <div className="flex gap-3 text-[11px] md:text-sm font-black text-primary">
+                            <span title="Active Jobs">{customer.activeJobsCount} Active</span>
+                            <span className="text-gray-200">|</span>
+                            <span title="Completed Jobs">{customer.completedJobsCount} Finished</span>
+                          </div>
                         </div>
+                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-md transition-all group-hover:translate-x-1 shrink-0">
+                          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-accent" />
+                        </Button>
                       </div>
-                      <Button variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-md transition-all group-hover:translate-x-1 shrink-0">
-                        <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-accent" />
-                      </Button>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
