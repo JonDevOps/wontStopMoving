@@ -216,28 +216,32 @@ export function QuoteForm() {
               <p className="text-sm text-muted-foreground mb-6">Select additional services to make your move completely stress-free.</p>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {addOns.map((addon) => (
-                  <div 
-                    key={addon.id} 
-                    className={`flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${watch(addon.id as any) ? 'bg-accent/5 border-accent shadow-sm' : 'bg-white border-gray-100 hover:border-gray-200'}`}
-                    onClick={() => setValue(addon.id as any, !watch(addon.id as any))}
-                  >
-                    <div className="pt-0.5">
-                      <Checkbox 
-                        id={addon.id} 
-                        checked={watch(addon.id as any)} 
-                        onCheckedChange={(val) => setValue(addon.id as any, val === true)} 
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <addon.icon className={`h-4 w-4 ${watch(addon.id as any) ? 'text-accent' : 'text-muted-foreground'}`} />
-                        <Label htmlFor={addon.id} className="font-bold cursor-pointer text-sm">{addon.label}</Label>
+                {addOns.map((addon) => {
+                  const isChecked = watch(addon.id as any);
+                  return (
+                    <div 
+                      key={addon.id} 
+                      className={`flex items-start gap-3 p-4 rounded-2xl border transition-all ${isChecked ? 'bg-accent/5 border-accent shadow-sm' : 'bg-white border-gray-100 hover:border-gray-200'}`}
+                    >
+                      <div className="pt-0.5">
+                        <Checkbox 
+                          id={addon.id} 
+                          checked={isChecked} 
+                          onCheckedChange={(val) => setValue(addon.id as any, val === true)} 
+                        />
                       </div>
-                      <p className="text-[10px] text-muted-foreground leading-tight">{addon.desc}</p>
+                      <div className="flex-1">
+                        <Label htmlFor={addon.id} className="cursor-pointer space-y-1 block">
+                          <div className="flex items-center gap-2">
+                            <addon.icon className={`h-4 w-4 ${isChecked ? 'text-accent' : 'text-muted-foreground'}`} />
+                            <span className="font-bold text-sm">{addon.label}</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground leading-tight">{addon.desc}</p>
+                        </Label>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -271,20 +275,26 @@ export function QuoteForm() {
                 <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Apply Special Discounts (5%)</p>
                 <div className="grid grid-cols-2 gap-4">
                   <div 
-                    className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${watch("isStudent") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}
-                    onClick={() => setValue("isStudent", !watch("isStudent"))}
+                    className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${watch("isStudent") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}
                   >
-                    <Checkbox checked={watch("isStudent")} onCheckedChange={(val) => setValue("isStudent", val === true)} />
-                    <Label className="text-xs font-bold flex items-center gap-2 cursor-pointer">
+                    <Checkbox 
+                      id="isStudent"
+                      checked={watch("isStudent")} 
+                      onCheckedChange={(val) => setValue("isStudent", val === true)} 
+                    />
+                    <Label htmlFor="isStudent" className="text-xs font-bold flex items-center gap-2 cursor-pointer">
                       <GraduationCap className="h-4 w-4" /> Student
                     </Label>
                   </div>
                   <div 
-                    className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${watch("isMilitary") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}
-                    onClick={() => setValue("isMilitary", !watch("isMilitary"))}
+                    className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${watch("isMilitary") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}
                   >
-                    <Checkbox checked={watch("isMilitary")} onCheckedChange={(val) => setValue("isMilitary", val === true)} />
-                    <Label className="text-xs font-bold flex items-center gap-2 cursor-pointer">
+                    <Checkbox 
+                      id="isMilitary"
+                      checked={watch("isMilitary")} 
+                      onCheckedChange={(val) => setValue("isMilitary", val === true)} 
+                    />
+                    <Label htmlFor="isMilitary" className="text-xs font-bold flex items-center gap-2 cursor-pointer">
                       <Shield className="h-4 w-4" /> Military
                     </Label>
                   </div>
