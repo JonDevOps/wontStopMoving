@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -29,10 +28,11 @@ import {
   GraduationCap,
   Shield,
   Lock,
-  Loader2
+  Loader2,
+  Music
 } from "lucide-react";
 import { useFirestore, useUser, useAuth } from "@/firebase";
-import { collection, serverTimestamp, doc, setDoc, addDoc } from "firebase/firestore";
+import { collection, serverTimestamp, doc, setDoc, addDoc, getDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
@@ -51,6 +51,7 @@ const formSchema = z.object({
   assemblyService: z.boolean().default(false),
   storageService: z.boolean().default(false),
   expressMoving: z.boolean().default(false),
+  pianoMoving: z.boolean().default(false),
   // Discounts
   isStudent: z.boolean().default(false),
   isMilitary: z.boolean().default(false),
@@ -69,7 +70,7 @@ export function QuoteForm() {
   const totalSteps = 5;
   const firestore = useFirestore();
   const auth = useAuth();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormValues>({
@@ -83,10 +84,28 @@ export function QuoteForm() {
       assemblyService: false,
       storageService: false,
       expressMoving: false,
+      pianoMoving: false,
       isStudent: false,
       isMilitary: false,
     }
   });
+
+  // Pre-fill fields if user is logged in
+  useEffect(() => {
+    if (user && !isUserLoading) {
+      const fetchProfile = async () => {
+        const docRef = doc(firestore, "users", user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setValue("name", data.name || "");
+          setValue("email", data.email || "");
+          setValue("phone", data.phone || "");
+        }
+      };
+      fetchProfile();
+    }
+  }, [user, isUserLoading, setValue, firestore]);
 
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
@@ -99,7 +118,7 @@ export function QuoteForm() {
           toast({
             variant: "destructive",
             title: "Password Required",
-            description: "Please provide a password to create your secure account.",
+            description: "Please provide a password to secure your account and track your quote.",
           });
           setIsSubmitting(false);
           return;
@@ -116,7 +135,7 @@ export function QuoteForm() {
           name: data.name,
           phone: data.phone,
           role: 'customer',
-          state: "Pending", // Default, can be updated later
+          state: "New",
           createdAt: serverTimestamp(),
         });
       }
@@ -150,7 +169,8 @@ export function QuoteForm() {
             junkRemoval: data.junkRemoval,
             assembly: data.assemblyService,
             storage: data.storageService,
-            express: data.expressMoving
+            express: data.expressMoving,
+            piano: data.pianoMoving
           }
         })
       });
@@ -180,6 +200,7 @@ export function QuoteForm() {
     { id: "junkRemoval", label: "Junk Removal", icon: Trash2, desc: "Dispose of unwanted items before moving." },
     { id: "assemblyService", label: "Furniture Assembly", icon: Wrench, desc: "TV mounting & furniture setup." },
     { id: "storageService", label: "Vaulted Storage", icon: Warehouse, desc: "Secure, climate-controlled storage." },
+    { id: "pianoMoving", label: "Piano Moving", icon: Music, desc: "Specialized handling for instruments." },
     { id: "expressMoving", label: "Express Moving", icon: Zap, desc: "Guaranteed fast delivery dates (25% fee)." },
   ];
 
@@ -189,10 +210,10 @@ export function QuoteForm() {
         <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
           <Check className="h-10 w-10" />
         </div>
-        <h2 className="text-3xl font-black text-primary mb-4 uppercase tracking-tighter">Quote Requested!</h2>
+        <h2 className="text-3xl font-black text-primary mb-4 uppercase tracking-tighter">Estimate Ready!</h2>
         <p className="text-muted-foreground mb-8 text-balance">
-          Thank you, {watch("name")}! We've created your secure account and sent a confirmation to {watch("email")}. 
-          You can now track your quote and book your move directly from your dashboard.
+          Thank you, {watch("name")}! {user ? "Your quote has been added to your account." : "We've created your secure account and saved your quote."} 
+          You can now review your price and book your move directly from your dashboard.
         </p>
         <Button asChild className="bg-primary rounded-full px-12 h-12 font-bold uppercase tracking-widest text-xs">
           <Link href="/dashboard/customer">Go to My Dashboard</Link>
@@ -249,10 +270,9 @@ export function QuoteForm() {
                     <SelectValue placeholder="Select home size" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="studio">Studio Apartment</SelectItem>
-                    <SelectItem value="1br">1 Bedroom Home</SelectItem>
+                    <SelectItem value="studio">Studio / 1-Bedroom</SelectItem>
                     <SelectItem value="2br">2 Bedroom Home</SelectItem>
-                    <SelectItem value="3br">3 Bedroom Home</SelectItem>
+                    <SelectItem value="3br">3+ Bedroom Home</SelectItem>
                     <SelectItem value="4br+">4+ Bedroom Home</SelectItem>
                     <SelectItem value="commercial">Commercial/Office</SelectItem>
                   </SelectContent>
@@ -343,10 +363,10 @@ export function QuoteForm() {
                     <Lock className="h-4 w-4" />
                     <h4 className="text-sm font-black uppercase tracking-widest">Create Secure Account</h4>
                   </div>
-                  <p className="text-xs text-muted-foreground">We'll create an account so you can track your quote and manage your move.</p>
+                  <p className="text-xs text-muted-foreground">Please create a password to track your quote and manage your move.</p>
                   <div className="space-y-2">
                     <Label htmlFor="password">Account Password</Label>
-                    <Input id="password" type="password" {...register("password")} placeholder="Create a secure password" title="Required for tracking your quote" className="h-12" />
+                    <Input id="password" type="password" {...register("password")} placeholder="Min 8 characters" className="h-12" />
                     {errors.password && <p className="text-xs text-destructive font-bold">{errors.password.message}</p>}
                   </div>
                 </div>
@@ -409,13 +429,17 @@ export function QuoteForm() {
                   </div>
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Contact & Account</p>
+                  <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Account Status</p>
                   <p className="font-bold text-primary">{watch("name")} • {watch("email")}</p>
-                  {!user && <p className="text-[10px] text-accent font-black uppercase mt-1">Account will be created upon submission</p>}
+                  {user ? (
+                    <p className="text-[10px] text-green-600 font-black uppercase mt-1">Logged into existing account</p>
+                  ) : (
+                    <p className="text-[10px] text-accent font-black uppercase mt-1">New account will be created</p>
+                  )}
                 </div>
               </div>
               <div className="p-4 bg-primary/5 rounded-xl text-xs text-primary leading-relaxed">
-                By clicking "Submit Request", you agree to our <Link href="/terms" className="underline font-bold">terms of service</Link> and consent to account creation for move tracking purposes.
+                By clicking "Submit Request", you agree to our <Link href="/terms" className="underline font-bold">terms of service</Link>.
               </div>
             </div>
           )}
@@ -440,7 +464,7 @@ export function QuoteForm() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Processing...
+                    Submitting...
                   </>
                 ) : "Submit Request"}
               </Button>

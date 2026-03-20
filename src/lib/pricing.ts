@@ -9,24 +9,26 @@ export interface PricingPlan {
   description: string;
 }
 
-// Residential Flat-Rate Pricing (Mid-range estimates for the automated quote)
+// Residential Flat-Rate Pricing (Based on the master list provided)
+// Using mid-points or high-end for conservative estimates
 export const MOVE_PRICING: Record<string, PricingPlan> = {
-  'studio': { baseFee: 700, description: "Studio Apartment" },
-  '1br': { baseFee: 850, description: "1 Bedroom Home" },
-  '2br': { baseFee: 1500, description: "2 Bedroom Home" },
-  '3br': { baseFee: 2500, description: "3 Bedroom Home" },
+  'studio': { baseFee: 825, description: "Studio / 1-Bedroom" },
+  '1br': { baseFee: 825, description: "Studio / 1-Bedroom" },
+  '2br': { baseFee: 1500, description: "2-Bedroom Home" },
+  '3br': { baseFee: 2750, description: "3+ Bedroom Home" },
   '4br+': { baseFee: 3500, description: "4+ Bedroom Home" },
-  'commercial': { baseFee: 1200, description: "Commercial/Office (Base)" },
+  'commercial': { baseFee: 1500, description: "Commercial / Office (Base)" },
 };
 
-// Add-on Pricing (Fixed mid-range for estimates)
+// Add-on Pricing (Based on mid-points of the provided ranges)
 export const ADDON_PRICING: Record<string, number> = {
-  'packing': 300,      // Regular Packing range mid-point
-  'crating': 400,      // Specialty Crating mid-point
-  'cleaning': 400,     // Deep clean mid-point
-  'junk': 250,         // 1/4 truck load mid-point
-  'assembly': 200,     // 2hr min @ $100/hr mid-point
-  'storage': 225,      // Per month vault mid-point
+  'packing': 350,      // Regular Packing ($60-80/hr range estimate)
+  'crating': 400,      // Specialty Crating ($200-600 range)
+  'cleaning': 425,     // Deep clean ($250-600 range)
+  'junk': 250,         // 1/4 truck load ($150-350 range)
+  'assembly': 200,     // Handyman ($75-125/hr with 2hr min)
+  'storage': 225,      // Vaulted storage ($150-300 range)
+  'piano': 450,        // Specialized Item: Piano Upright
 };
 
 export interface PriceCalculationOptions {
