@@ -39,8 +39,8 @@ export default function Home() {
           
           <div className="container relative mx-auto px-4 z-10">
             <div className="max-w-3xl">
-              <h1 className="text-6xl md:text-8xl font-headline font-black text-white leading-tight mb-6 animate-fade-in">
-                MOVING MADE <span className="text-accent">SIMPLE</span>
+              <h1 className="text-6xl md:text-8xl font-headline font-black text-white leading-tight mb-6 animate-fade-in animate-kinetic">
+                MOVING MADE <span className="text-accent inline-block animate-float">SIMPLE</span>
               </h1>
               <p className="text-xl text-white/80 mb-10 max-w-xl leading-relaxed">
                 Nationwide moving excellence across 50 states + Puerto Rico. 51,000 professional movers ready to handle your journey.
@@ -98,10 +98,10 @@ export default function Home() {
                 { title: "Secure Storage", icon: ShieldCheck, desc: "Climate-controlled facilities for long or short term.", href: "/services" },
                 { title: "Express Delivery", icon: Clock, desc: "Time-sensitive moving for urgent requirements.", href: "/services" }
               ].map((service, i) => (
-                <Card key={i} className="group hover:shadow-xl transition-all border-none overflow-hidden bg-white">
-                  <CardContent className="p-8">
-                    <div className="bg-primary/5 p-4 rounded-2xl w-fit mb-6 group-hover:bg-accent group-hover:text-white transition-colors">
-                      <service.icon className="h-8 w-8" />
+                <Card key={i} className="group hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-none overflow-hidden bg-white rounded-[2rem] shadow-sm">
+                  <CardContent className="p-10">
+                    <div className="bg-primary/5 p-5 rounded-2xl w-fit mb-8 group-hover:bg-accent group-hover:text-white transition-colors animate-float">
+                      <service.icon className="h-10 w-10" />
                     </div>
                     <h3 className="text-2xl font-bold mb-3 text-primary">{service.title}</h3>
                     <p className="text-muted-foreground mb-6 leading-relaxed">{service.desc}</p>

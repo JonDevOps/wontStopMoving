@@ -91,3 +91,29 @@
     @apply font-headline tracking-tight;
   }
 }
+
+@layer utilities {
+  .animate-kinetic {
+    animation: kinetic 10s ease-in-out infinite;
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+@keyframes kinetic {
+  0%, 100% { transform: skew(0deg) scale(1); }
+  25% { transform: skew(2deg) scale(1.02); }
+  50% { transform: skew(-1deg) scale(0.98); }
+  75% { transform: skew(-2deg) scale(1.05); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
