@@ -13,11 +13,15 @@ export async function POST(req: Request) {
 
     // Create Checkout Session
     // We capture the initial amount to the platform (Wont Stop Moving).
-    // The funds are held in the platform's balance until the job is completed,
-    // at which point we will do a manual Transfer to the provider.
+    // The funds are held in the platform's balance until the job is completed.
+    // We save the payment method by defining `setup_future_usage`.
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
+      customer_creation: "always",
+      payment_intent_data: {
+        setup_future_usage: "off_session",
+      },
       line_items: [
         {
           price_data: {

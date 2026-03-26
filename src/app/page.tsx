@@ -43,7 +43,7 @@ export default function Home() {
                 MOVING MADE <span className="text-accent inline-block animate-float">SIMPLE</span>
               </h1>
               <p className="text-xl text-white/80 mb-10 max-w-xl leading-relaxed">
-                Nationwide moving excellence across 50 states + Puerto Rico. 51,000 professional movers ready to handle your journey.
+                Nationwide moving excellence across 50 states + Puerto Rico. 51,000+ professionals ready to handle your journey.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-8 h-16 text-lg font-bold shadow-xl shadow-accent/20">
@@ -63,7 +63,7 @@ export default function Home() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white">
               <div>
                 <div className="text-4xl font-black font-headline">51,000+</div>
-                <div className="text-sm uppercase tracking-widest opacity-80">Trained Movers</div>
+                <div className="text-sm uppercase tracking-widest opacity-80">Trained Professionals</div>
               </div>
               <div>
                 <div className="text-4xl font-black font-headline">51</div>
@@ -126,12 +126,12 @@ export default function Home() {
           <div className="container mx-auto px-4">
             <div className="flex flex-col lg:flex-row items-center gap-16">
               <div className="lg:w-1/2">
-                <h2 className="text-4xl md:text-5xl font-black mb-6 text-primary leading-tight">WE COVER ALL <span className="text-accent">51 REGIONS</span></h2>
+                <h2 className="text-4xl md:text-5xl font-black mb-6 text-primary leading-tight">WE COVER <span className="text-accent">51 STATES + PUERTO RICO AND CANADA</span></h2>
                 <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
                   From the bustling streets of New York to the scenic landscapes of Puerto Rico, our network is ready. We have a dedicated team of 1,000 movers in every state, ensuring local expertise with nationwide standards.
                 </p>
                 <ul className="space-y-4 mb-10">
-                  {['50 US States + Puerto Rico', 'Uniformed, background-checked staff', 'Real-time GPS truck tracking', 'Full valuation protection included'].map((item, i) => (
+                  {['50 US States + Puerto Rico & Canada', 'Uniformed, background-checked staff', 'Real-time GPS truck tracking', 'Full valuation protection included'].map((item, i) => (
                     <li key={i} className="flex items-center gap-3 font-medium text-primary">
                       <div className="bg-accent rounded-full p-1"><ChevronRight className="h-4 w-4 text-white" /></div>
                       {item}
@@ -174,7 +174,7 @@ export default function Home() {
           <div className="container mx-auto px-4 relative z-10 text-center">
             <h2 className="text-4xl md:text-6xl font-black mb-8">READY TO START YOUR JOURNEY?</h2>
             <p className="text-xl opacity-80 mb-12 max-w-2xl mx-auto">
-              Get an instant quote in minutes or join our growing team of 51,000 professional movers.
+              Get an instant quote in minutes or join our growing team of 51,000 professionals.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-6">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-12 h-16 text-xl font-black shadow-xl shadow-accent/20">

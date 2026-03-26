@@ -14,6 +14,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       paymentStatus: session.payment_status,
       paymentIntentId: session.payment_intent,
+      customerId: session.customer,
       status: session.status
     });
   } catch (error: any) {

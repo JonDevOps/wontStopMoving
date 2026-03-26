@@ -3,7 +3,7 @@
 
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Truck, FileText, TrendingUp, AlertCircle, ChevronRight, Megaphone, Send, Calculator } from "lucide-react";
+import { Users, Truck, FileText, TrendingUp, AlertCircle, ChevronRight, Megaphone, Send, Calculator, UserCheck } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useCollection, useMemoFirebase, useFirestore, addDocumentNonBlocking, useDoc, useUser } from "@/firebase";
 import { collection, query, orderBy, limit, doc, serverTimestamp, where } from "firebase/firestore";
@@ -35,6 +35,10 @@ function AdminDashboardContent() {
     return query(collection(firestore, "quotes"), where("status", "==", "new"));
   }, [firestore]);
 
+  const pendingProvidersQuery = useMemoFirebase(() => {
+    return query(collection(firestore, "providers"), where("status", "==", "pending_approval"), limit(5));
+  }, [firestore]);
+
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !authUser) return null;
     return doc(firestore, "users", authUser.uid);
@@ -44,6 +48,7 @@ function AdminDashboardContent() {
   const { data: applications, isLoading: appsLoading } = useCollection(appsQuery);
   const { data: quotes, isLoading: quotesLoading } = useCollection(quotesQuery);
   const { data: pendingQuotes } = useCollection(pendingQuotesCountQuery);
+  const { data: pendingProviders, isLoading: providersLoading } = useCollection(pendingProvidersQuery);
 
   const handleSendAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +87,7 @@ function AdminDashboardContent() {
     { label: "Total Revenue", value: "$42,850", trend: "+12.5%", icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10" },
     { label: "Active Jobs", value: "32", icon: Truck, color: "text-blue-500", bg: "bg-blue-500/10" },
     { label: "Pending Quotes", value: String(pendingQuotes?.length || 0), icon: Calculator, color: "text-accent", bg: "bg-accent/10" },
-    { label: "Team Members", value: "51,000", icon: Users, color: "text-purple-500", bg: "bg-purple-500/10" },
+    { label: "Pending Providers", value: String(pendingProviders?.length || 0), icon: UserCheck, color: "text-amber-500", bg: "bg-amber-500/10" },
   ];
 
   return (
@@ -147,33 +152,33 @@ function AdminDashboardContent() {
               </CardContent>
             </Card>
 
-            {/* Recent Applications */}
+            {/* Pending Providers */}
             <Card className="border-none shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-xs font-black tracking-widest uppercase">RECENT APPLICANTS</CardTitle>
-                <Link href="/dashboard/admin/careers" className="text-[10px] font-bold text-accent hover:underline uppercase">View All</Link>
+                <CardTitle className="text-xs font-black tracking-widest uppercase text-amber-600">PENDING PROVIDERS</CardTitle>
+                <Link href="/dashboard/admin/providers" className="text-[10px] font-bold text-accent hover:underline uppercase">Manage All</Link>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {appsLoading ? (
-                    <div className="p-4 text-center text-muted-foreground animate-pulse text-xs">Accessing candidate database...</div>
-                  ) : applications && applications.length > 0 ? (
-                    applications.map((app) => (
-                      <Link key={app.id} href={`/dashboard/admin/applications/${app.id}`}>
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group mb-2 border border-transparent hover:border-accent/20">
+                  {providersLoading ? (
+                    <div className="p-4 text-center text-muted-foreground animate-pulse text-xs">Loading provider queue...</div>
+                  ) : pendingProviders && pendingProviders.length > 0 ? (
+                    pendingProviders.map((provider) => (
+                      <Link key={provider.id} href={`/dashboard/admin/providers`}>
+                        <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl hover:bg-amber-100 transition-colors cursor-pointer group mb-2 border border-transparent hover:border-amber-200">
                           <div className="min-w-0">
-                            <p className="font-bold text-primary text-sm truncate">{app.name}</p>
-                            <p className="text-[9px] uppercase font-black text-muted-foreground tracking-widest">
-                              {app.state} • {app.experience}yr Exp
+                            <p className="font-bold text-amber-900 text-sm truncate">{provider.businessName || provider.name}</p>
+                            <p className="text-[9px] uppercase font-black text-amber-700/70 tracking-widest">
+                              {provider.address?.city || "Unknown City"} • {provider.services?.length || 0} Services
                             </p>
                           </div>
-                          <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:text-accent transition-colors shrink-0" />
+                          <ChevronRight className="h-3 w-3 text-amber-700 group-hover:text-amber-900 transition-colors shrink-0" />
                         </div>
                       </Link>
                     ))
                   ) : (
                     <div className="p-8 text-center border-2 border-dashed rounded-2xl">
-                      <p className="text-[10px] font-bold text-muted-foreground">No new candidates.</p>
+                      <p className="text-[10px] font-bold text-muted-foreground">All providers reviewed.</p>
                     </div>
                   )}
                 </div>

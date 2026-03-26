@@ -2,16 +2,17 @@
 
 import { ProviderLayout } from "@/components/layout/provider-layout";
 import { useFirestore, useUser } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Clock, Phone, Mail, Key } from "lucide-react";
+import { MapPin, Clock, Phone, Mail, Key, PlusCircle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ChatInterface } from "@/components/chat/chat-interface";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 interface JobDetails {
@@ -37,6 +38,9 @@ export default function ProviderJobDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [releaseCode, setReleaseCode] = useState("");
   const [submittingCode, setSubmittingCode] = useState(false);
+  const [modifyAmount, setModifyAmount] = useState("");
+  const [modifyDesc, setModifyDesc] = useState("");
+  const [isModifying, setIsModifying] = useState(false);
   const { toast } = useToast();
 
   const handleCompleteJob = async () => {
@@ -161,6 +165,96 @@ export default function ProviderJobDetailsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {(job.status === 'confirmed' || job.status === 'in-progress') && (
+              <Card className="border-2 shadow-sm mt-6">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-black tracking-widest uppercase flex items-center gap-2">
+                    <PlusCircle className="w-5 h-5 text-accent" /> Add Extra Hours / Services
+                  </CardTitle>
+                  <p className="text-xs font-medium text-slate-600 mt-1">
+                    If the job takes longer or requires additional materials, securely charge the customer's payment method on file.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-slate-500">Amount ($)</label>
+                        <Input 
+                          type="number" 
+                          min="1"
+                          placeholder="Amount in USD"
+                          value={modifyAmount}
+                          onChange={(e) => setModifyAmount(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-slate-500">Reason</label>
+                        <Input 
+                          type="text" 
+                          placeholder="e.g. 2 Extra Hours"
+                          value={modifyDesc}
+                          onChange={(e) => setModifyDesc(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <Button 
+                      className="w-full font-bold bg-accent hover:bg-accent/90 disabled:opacity-50"
+                      onClick={async () => {
+                        if (!modifyAmount || !modifyDesc) return toast({ variant: "destructive", title: "Missing Fields" });
+                        if (!job?.stripeCustomerId) return toast({ variant: "destructive", title: "Missing Card", description: "Customer did not save a card on file during escrow." });
+                        setIsModifying(true);
+                        try {
+                          const res = await fetch("/api/jobs/modify", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ 
+                              jobId, 
+                              amount: Number(modifyAmount), 
+                              description: modifyDesc,
+                              stripeCustomerId: job.stripeCustomerId
+                            })
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error);
+
+                          // Local Firestore update because of mocked backend architecture
+                          const addedAmount = Number(modifyAmount);
+                          const newPrice = (job.price || 0) + addedAmount;
+                          const newModifications = job.modifications || [];
+                          newModifications.push({
+                            amount: addedAmount,
+                            description: modifyDesc,
+                            timestamp: new Date().toISOString(),
+                            paymentIntentId: data.paymentIntentId
+                          });
+
+                          await updateDoc(doc(firestore!, "jobs", jobId), {
+                            price: newPrice,
+                            modifications: newModifications
+                          });
+
+                          toast({ title: "Charge Successful", description: `Added $${modifyAmount} to job total.` });
+                          setModifyAmount("");
+                          setModifyDesc("");
+                          // Refresh job data
+                          const docSnap = await getDoc(doc(firestore!, "jobs", jobId));
+                          setJob({ id: docSnap.id, ...docSnap.data() } as JobDetails);
+                        } catch (e: any) {
+                          toast({ variant: "destructive", title: "Charge Failed", description: e.message });
+                        } finally {
+                          setIsModifying(false);
+                        }
+                      }}
+                      disabled={isModifying || !modifyAmount || !modifyDesc}
+                    >
+                      {isModifying ? "Processing Charge..." : "Add to Job Total"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {(job.status === 'confirmed' || job.status === 'in-progress') && (
               <Card className="border-2 border-accent shadow-lg bg-accent/5 mt-6">

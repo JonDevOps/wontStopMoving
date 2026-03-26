@@ -50,7 +50,8 @@ function MovesContent() {
             const jobRef = doc(firestore, "jobs", jobId);
             await updateDoc(jobRef, { 
               status: "confirmed",
-              paymentIntentId: data.paymentIntentId || null
+              paymentIntentId: data.paymentIntentId || null,
+              stripeCustomerId: data.customerId || null
             });
             toast({
               title: "Payment Successful! 🎉",

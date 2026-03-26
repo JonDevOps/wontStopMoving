@@ -14,7 +14,8 @@ import {
   X,
   ShieldCheck,
   FileText,
-  Calculator
+  Calculator,
+  UserCheck
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Customers", href: "/dashboard/admin/customers", icon: User },
     { label: "Quotes", href: "/dashboard/admin/quotes", icon: Calculator },
     { label: "Jobs", href: "/dashboard/admin/jobs", icon: Truck },
+    { label: "Providers", href: "/dashboard/admin/providers", icon: UserCheck },
     { label: "Employees", href: "/dashboard/admin/employees", icon: ShieldCheck },
     { label: "Applications", href: "/dashboard/admin/careers", icon: FileText },
     { label: "Profile", href: "/dashboard/admin/profile", icon: User },

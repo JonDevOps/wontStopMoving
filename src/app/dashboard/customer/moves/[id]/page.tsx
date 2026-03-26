@@ -120,16 +120,31 @@ export default function CustomerJobDetailsPage() {
             </Card>
 
             {job.price && (
-              <Card className="border-2 border-slate-900 shadow-lg">
-                <div className="p-6 flex justify-between items-center">
+              <Card className="border-2 border-slate-900 shadow-lg overflow-hidden">
+                <div className="p-6 flex justify-between items-center bg-white">
                   <div>
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-accent mb-1">Est. Total</h4>
-                    <p className="text-sm font-bold text-slate-500">Fixed Upfront Booking</p>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-accent mb-1">
+                      {job.modifications?.length ? "Updated Total" : "Est. Total"}
+                    </h4>
+                    <p className="text-sm font-bold text-slate-500">
+                      {job.modifications?.length ? "Includes Extra Charges" : "Fixed Upfront Booking"}
+                    </p>
                   </div>
                   <div className="text-3xl font-black text-slate-900">
                     ${job.price.toLocaleString()}<span className="text-lg text-slate-400">.00</span>
                   </div>
                 </div>
+                {job.modifications && job.modifications.length > 0 && (
+                  <div className="bg-slate-50 border-t border-slate-100 p-6 space-y-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Extra Charges & Modifications</h4>
+                    {job.modifications.map((mod: any, idx: number) => (
+                      <div key={idx} className="flex justify-between items-center text-sm">
+                        <span className="font-bold text-slate-700">{mod.description}</span>
+                        <span className="font-black text-slate-900">+${mod.amount.toLocaleString()}.00</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </Card>
             )}
 

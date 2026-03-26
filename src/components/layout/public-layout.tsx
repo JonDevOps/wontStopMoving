@@ -79,7 +79,8 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     {
       title: "Connect",
       links: [
-        { label: "Become a Provider", href: "/careers" },
+        { label: "Careers", href: "/careers" },
+        { label: "Become a Provider", href: "/provider-signup" },
         { label: "Refer a Friend", href: "/careers" },
       ]
     },
@@ -281,7 +282,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 </span>
               </Link>
               <p className="text-sm leading-relaxed mb-6">
-                Redefining the moving experience with technology and transparency. Serving all 50 states and Puerto Rico with unparalleled reliability.
+                Redefining the moving experience with technology and transparency. Serving all 50 states + Puerto Rico & Canada with unparalleled reliability.
               </p>
             </div>
             
