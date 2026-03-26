@@ -10,8 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { useEffect, Suspense } from "react";
+import { doc, updateDoc } from "firebase/firestore";
 
-export default function MyMovesPage() {
+function MovesContent() {
   const { user } = useUser();
   const firestore = useFirestore();
 
@@ -26,10 +30,44 @@ export default function MyMovesPage() {
   }, [firestore, user]);
 
   const { data: jobs, isLoading } = useCollection(jobsQuery);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { toast } = useToast();
+  const sessionId = searchParams.get("session_id");
+  const jobId = searchParams.get("job_id");
+
+  useEffect(() => {
+    if (sessionId && jobId && firestore) {
+      const verifySession = async () => {
+        try {
+          const res = await fetch("/api/stripe/verify-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId })
+          });
+          const data = await res.json();
+          if (data.paymentStatus === "paid") {
+            const jobRef = doc(firestore, "jobs", jobId);
+            await updateDoc(jobRef, { 
+              status: "confirmed",
+              paymentIntentId: data.paymentIntentId || null
+            });
+            toast({
+              title: "Payment Successful! 🎉",
+              description: "Your moving job has been fully confirmed and is held in escrow.",
+            });
+            router.replace("/dashboard/customer/moves", { scroll: false });
+          }
+        } catch (error) {
+          console.error("Session verification failed", error);
+        }
+      };
+      verifySession();
+    }
+  }, [sessionId, jobId, firestore, router, toast]);
 
   return (
-    <CustomerLayout>
-      <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-primary uppercase">My <span className="text-accent">Moves</span></h1>
@@ -101,8 +139,10 @@ export default function MyMovesPage() {
                       </div>
                     </div>
                     <div className="bg-gray-50 p-6 flex flex-col justify-center border-t md:border-t-0 md:border-l">
-                      <Button variant="outline" className="rounded-full font-bold border-primary text-primary hover:bg-primary hover:text-white transition-all gap-2">
-                        View Details <ChevronRight className="h-4 w-4" />
+                      <Button asChild variant="outline" className="rounded-full font-bold border-primary text-primary hover:bg-primary hover:text-white transition-all gap-2">
+                        <Link href={`/dashboard/customer/moves/${job.id}`}>
+                          View Details <ChevronRight className="h-4 w-4" />
+                        </Link>
                       </Button>
                     </div>
                   </div>
@@ -123,6 +163,15 @@ export default function MyMovesPage() {
           )}
         </div>
       </div>
+  );
+}
+
+export default function MyMovesPage() {
+  return (
+    <CustomerLayout>
+      <Suspense fallback={<div className="p-20 text-center animate-pulse uppercase font-bold tracking-widest text-xs text-muted-foreground">Loading dashboard...</div>}>
+        <MovesContent />
+      </Suspense>
     </CustomerLayout>
   );
 }

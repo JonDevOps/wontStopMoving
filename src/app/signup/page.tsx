@@ -25,6 +25,7 @@ const signupSchema = z.object({
   email: z.string().email("Invalid email"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   state: z.string().min(1, "Select state"),
+  accountType: z.enum(['customer', 'provider']).default('customer'),
 });
 
 type SignupValues = z.infer<typeof signupSchema>;
@@ -52,12 +53,36 @@ export default function SignupPage() {
         id: user.uid,
         email: data.email,
         name: data.name,
-        role: 'customer',
+        role: data.accountType,
         state: data.state,
         createdAt: serverTimestamp(),
       });
 
-      router.push('/dashboard/customer');
+      if (data.accountType === 'provider') {
+        const providerRef = doc(firestore, "providers", user.uid);
+        await setDoc(providerRef, {
+          uid: user.uid,
+          businessName: data.name, // Can be updated later
+          email: data.email,
+          status: "pending",
+          isEmployee: false,
+          services: [],
+          rating: 0,
+          reviewCount: 0,
+          onboarding: {
+            signupDate: new Date().toISOString(),
+            insuranceUploaded: false,
+            licenseVerified: false
+          }
+        });
+        toast({
+          title: "Account Created",
+          description: "Your provider account is pending admin approval.",
+        });
+        router.push('/dashboard/provider');
+      } else {
+        router.push('/dashboard/customer');
+      }
     } catch (error: any) {
       console.error("Signup Error:", error);
       toast({
@@ -115,6 +140,19 @@ export default function SignupPage() {
                   </SelectContent>
                 </Select>
                 {errors.state && <p className="text-xs text-destructive">{errors.state.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accountType">Account Type</Label>
+                <Select defaultValue="customer" onValueChange={(val: any) => setValue("accountType", val)}>
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Select account type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="customer">Customer (Booking a Move)</SelectItem>
+                    <SelectItem value="provider">Service Provider (Movers/Contractors)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.accountType && <p className="text-xs text-destructive">{errors.accountType.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>

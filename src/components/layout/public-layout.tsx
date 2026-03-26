@@ -47,6 +47,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     { href: "/services", label: "Services" },
     { href: "/services/types-of-moves", label: "Types of Moves" },
     { href: "/services/local-moving", label: "Local Moves" },
+    { href: "/marketplace", label: "Marketplace" },
   ];
 
   const resourceLinks = [
@@ -64,6 +65,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
         { label: "Local Moving", href: "/services/local-moving" },
         { label: "Long Distance", href: "/services/long-distance" },
         { label: "Locations", href: "/locations" },
+        { label: "Marketplace", href: "/marketplace" },
       ]
     },
     {

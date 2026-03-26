@@ -12,6 +12,6 @@ if (apiKey === 'sk_test_placeholder_key_required' && process.env.NODE_ENV === 'p
 }
 
 export const stripe = new Stripe(apiKey, {
-  apiVersion: '2025-01-27', // Use latest API version
+  apiVersion: '2025-02-24.acacia', // Use latest API version
   typescript: true,
 });

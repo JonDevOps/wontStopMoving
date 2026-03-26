@@ -21,6 +21,14 @@ service cloud.firestore {
       return hasRole('admin');
     }
 
+    function canAccessJob(jobId) {
+      let job = get(/databases/$(database)/documents/jobs/$(jobId)).data;
+      return isAdmin() || 
+             job.customerId == request.auth.uid || 
+             (job.providerIds != null && request.auth.uid in job.providerIds) || 
+             (job.employeeIds != null && request.auth.uid in job.employeeIds);
+    }
+
     // Rules
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
@@ -34,6 +42,18 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.auth.uid == employeeUid;
       allow update: if isOwner(employeeUid) || isAdmin();
       allow list: if isAdmin();
+    }
+
+    match /providers/{providerUid} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.auth.uid == providerUid;
+      allow update: if isOwner(providerUid) || isAdmin();
+      allow delete: if isAdmin();
+
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if isSignedIn(); // Allow customers to write a review
+      }
     }
 
     match /announcements/{id} {
@@ -54,10 +74,19 @@ service cloud.firestore {
     }
 
     match /jobs/{id} {
-      allow read: if (isSignedIn() && (resource.data.customerId == request.auth.uid || request.auth.uid in resource.data.employeeIds)) || isAdmin();
+      allow read: if (isSignedIn() && (resource.data.customerId == request.auth.uid || 
+        (resource.data.employeeIds != null && request.auth.uid in resource.data.employeeIds) || 
+        (resource.data.providerIds != null && request.auth.uid in resource.data.providerIds))) || isAdmin();
       allow create: if (isSignedIn() && request.resource.data.customerId == request.auth.uid) || isAdmin();
-      allow update: if (isSignedIn() && request.auth.uid in resource.data.employeeIds) || isAdmin();
+      allow update: if (isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        (resource.data.employeeIds != null && request.auth.uid in resource.data.employeeIds) || 
+        (resource.data.providerIds != null && request.auth.uid in resource.data.providerIds))) || isAdmin();
       allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read, create: if isSignedIn() && canAccessJob(id);
+      }
     }
   }
 }

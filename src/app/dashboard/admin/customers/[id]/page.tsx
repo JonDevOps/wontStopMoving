@@ -15,7 +15,8 @@ import {
   Calculator, 
   ChevronRight,
   TrendingUp,
-  Package
+  Package,
+  User
 } from "lucide-react";
 import Link from "next/link";
 import { use, useMemo } from "react";

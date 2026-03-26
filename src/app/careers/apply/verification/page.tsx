@@ -146,7 +146,7 @@ export default function EmployeeVerificationPage() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-primary font-bold uppercase tracking-widest text-xs">Verifying session...</div>;
   }
 
-  const renderUploadButton = (field: string, ref: React.RefObject<HTMLInputElement>) => {
+  const renderUploadButton = (field: string, ref: React.RefObject<HTMLInputElement | null>) => {
     const status = uploads[field].status;
     
     return (

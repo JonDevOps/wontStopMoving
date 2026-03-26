@@ -9,8 +9,9 @@ import { Calendar, Clock, ArrowLeft, User, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export default function BlogPostDetail({ params }: { params: { slug: string } }) {
-  const post = BLOG_POSTS.find(p => p.slug === params.slug);
+export default async function BlogPostDetail({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = BLOG_POSTS.find(p => p.slug === slug);
 
   if (!post) {
     notFound();
@@ -97,7 +98,7 @@ export default function BlogPostDetail({ params }: { params: { slug: string } })
                 <div className="bg-gray-50 p-8 rounded-3xl border border-gray-100">
                   <h4 className="text-primary font-black uppercase tracking-widest text-xs mb-6">Recent Articles</h4>
                   <div className="space-y-8">
-                    {BLOG_POSTS.filter(p => p.slug !== params.slug).slice(0, 3).map((recent) => (
+                    {BLOG_POSTS.filter(p => p.slug !== slug).slice(0, 3).map((recent) => (
                       <Link key={recent.slug} href={`/blog/${recent.slug}`} className="group block space-y-2">
                         <span className="text-[10px] font-black text-accent uppercase tracking-widest">{recent.category}</span>
                         <h5 className="font-bold text-primary group-hover:text-accent transition-colors leading-tight">

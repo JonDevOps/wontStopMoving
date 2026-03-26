@@ -64,7 +64,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function QuoteForm() {
+export function QuoteForm({ providerId }: { providerId?: string }) {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const totalSteps = 5;
@@ -152,6 +152,7 @@ export function QuoteForm() {
         moveSize: data.moveSize,
         specialItems: data.specialItems || "",
         customerId: currentUserId,
+        preferredProviderId: providerId || null,
         status: 'new',
         createdAt: serverTimestamp(),
         details: JSON.stringify({

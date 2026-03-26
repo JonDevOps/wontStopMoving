@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -185,8 +187,10 @@ function AdminJobsContent() {
                           <span>${job.price?.toLocaleString()}</span>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-md transition-all group-hover:translate-x-1 shrink-0">
-                        <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-accent" />
+                      <Button asChild variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-md transition-all group-hover:translate-x-1 shrink-0">
+                        <Link href={`/dashboard/admin/jobs/${job.id}`}>
+                          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-accent" />
+                        </Link>
                       </Button>
                     </div>
                   </div>
