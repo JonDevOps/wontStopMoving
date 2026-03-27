@@ -93,10 +93,10 @@ export default function Home() {
               {[
                 { title: "Local Moving", icon: Truck, desc: "Quick and efficient relocation within your city or state.", href: "/services/local-moving" },
                 { title: "Long Distance", icon: MapPin, desc: "Nationwide service connecting all 50 states and Puerto Rico.", href: "/services/long-distance" },
-                { title: "Commercial", icon: Warehouse, desc: "Specialized office and business relocation solutions.", href: "/services" },
-                { title: "Packing Services", icon: Package, desc: "Professional packing with high-quality materials.", href: "/services" },
-                { title: "Secure Storage", icon: ShieldCheck, desc: "Climate-controlled facilities for long or short term.", href: "/services" },
-                { title: "Express Delivery", icon: Clock, desc: "Time-sensitive moving for urgent requirements.", href: "/services" }
+                { title: "Commercial", icon: Warehouse, desc: "Specialized office and business relocation solutions.", href: "/services/commercial" },
+                { title: "Packing Services", icon: Package, desc: "Professional packing with high-quality materials.", href: "/services/white-glove-packing" },
+                { title: "Secure Storage", icon: ShieldCheck, desc: "Climate-controlled facilities for long or short term.", href: "/services/vaulted-storage" },
+                { title: "Express Delivery", icon: Clock, desc: "Time-sensitive moving for urgent requirements.", href: "/services/express-moving" }
               ].map((service, i) => (
                 <Card key={i} className="group hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-none overflow-hidden bg-white rounded-[2rem] shadow-sm">
                   <CardContent className="p-10">
@@ -126,7 +126,7 @@ export default function Home() {
           <div className="container mx-auto px-4">
             <div className="flex flex-col lg:flex-row items-center gap-16">
               <div className="lg:w-1/2">
-                <h2 className="text-4xl md:text-5xl font-black mb-6 text-primary leading-tight">WE COVER <span className="text-accent">51 STATES + PUERTO RICO AND CANADA</span></h2>
+                <h2 className="text-4xl md:text-5xl font-black mb-6 text-primary leading-tight">WE COVER <span className="text-accent">50 STATES + PUERTO RICO AND CANADA</span></h2>
                 <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
                   From the bustling streets of New York to the scenic landscapes of Puerto Rico, our network is ready. We have a dedicated team of 1,000 movers in every state, ensuring local expertise with nationwide standards.
                 </p>

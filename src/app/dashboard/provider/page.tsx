@@ -1,6 +1,8 @@
 "use client";
 
+import { Progress } from "@/components/ui/progress";
 import { ProviderLayout } from "@/components/layout/provider-layout";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
@@ -10,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, CheckCircle2, MapPin, DollarSign, ExternalLink, Loader2, TrendingUp, Pencil } from "lucide-react";
+import { AlertCircle, CheckCircle2, MapPin, DollarSign, ExternalLink, Loader2, TrendingUp, Pencil, User, CreditCard, Shield, FileText, Camera } from "lucide-react";
 import { geohashForLocation } from "geofire-common";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,6 +38,7 @@ function ProviderDashboardContent() {
   const [saving, setSaving] = useState(false);
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
   const [geohash, setGeohash] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const [stripeStatusLoading, setStripeStatusLoading] = useState(false);
   const [totalEarnings, setTotalEarnings] = useState<number>(0);
@@ -81,6 +84,7 @@ function ProviderDashboardContent() {
         setLocation(providerInfo.location);
         setGeohash(providerInfo.geohash || null);
       }
+      setTermsAccepted(providerInfo.termsAccepted || false);
     }
   }, [providerInfo]);
 
@@ -116,7 +120,8 @@ function ProviderDashboardContent() {
       await updateDoc(providerRef, {
         businessName,
         bio,
-        services
+        services,
+        termsAccepted
       });
       toast({ title: "Profile Updated Successfully", description: "Your details have been saved." });
     } catch (err: any) {
@@ -133,6 +138,18 @@ function ProviderDashboardContent() {
         "onboarding.insuranceUploaded": true
       });
       toast({ title: "Insurance Uploaded", description: "Demo COI marked as true." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    }
+  };
+
+  const simulateIdUpload = async (field: string) => {
+    if (!providerRef) return;
+    try {
+      await updateDoc(providerRef, {
+        [`onboarding.${field}`]: true
+      });
+      toast({ title: "Document Uploaded", description: `${field.replace(/([A-Z])/g, ' $1')} marked as completed.` });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
     }
@@ -219,11 +236,44 @@ function ProviderDashboardContent() {
 
   const isPending = providerInfo?.status === "pending";
 
+  const completionStats = [
+    { label: "Business Bio", done: !!bio },
+    { label: "Services Selected", done: services.length > 0 },
+    { label: "Location Set", done: !!location },
+    { label: "Selfie Uploaded", done: !!providerInfo?.onboarding?.selfieUploaded },
+    { label: "ID Front", done: !!providerInfo?.onboarding?.idFrontUploaded },
+    { label: "ID Back", done: !!providerInfo?.onboarding?.idBackUploaded },
+    { label: "Insurance", done: !!providerInfo?.onboarding?.insuranceUploaded },
+    { label: "Bank Account", done: !!providerInfo?.stripeOnboardingComplete },
+    { label: "Terms Accepted", done: termsAccepted }
+  ];
+  
+  const completionPercentage = Math.round((completionStats.filter(s => s.done).length / completionStats.length) * 100);
+
   return (
-    <div className="space-y-8 animate-fade-in max-w-4xl">
-      <header>
-        <h1 className="text-3xl font-black text-slate-900 uppercase">Provider <span className="text-accent">Dashboard</span></h1>
-        <p className="text-muted-foreground">Manage your marketplace profile and onboarding</p>
+    <div className="space-y-8 animate-in fade-in duration-700 max-w-4xl pb-20">
+      <header className="relative overflow-hidden p-8 rounded-3xl bg-slate-900 text-white shadow-2xl mb-8">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-accent/20 rounded-full blur-3xl -mr-32 -mt-32 animate-pulse" />
+        <div className="relative z-10">
+          <Badge className="mb-4 bg-accent hover:bg-accent text-white border-none px-3 py-1 text-[10px] font-black uppercase tracking-tighter">
+            {providerInfo?.status || "Member"}
+          </Badge>
+          <h1 className="text-4xl md:text-5xl font-black uppercase leading-tight mb-2">
+            Provider <span className="text-accent underline decoration-4 underline-offset-8">Dashboard</span>
+          </h1>
+          <p className="text-slate-400 font-medium max-w-lg mb-8">Manage your professional presence, identity verification, and earnings in one place.</p>
+          
+          <div className="space-y-3 max-w-md">
+            <div className="flex justify-between items-end">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Profile Completion</span>
+              <span className="text-2xl font-black text-accent">{completionPercentage}%</span>
+            </div>
+            <Progress value={completionPercentage} className="h-2 bg-slate-800" />
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
+              Complete all steps to {providerInfo?.status === 'approved' ? 'maintain' : 'activate'} your account.
+            </p>
+          </div>
+        </div>
       </header>
 
       {isPending && (
@@ -232,7 +282,7 @@ function ProviderDashboardContent() {
           <div>
             <h3 className="font-bold text-lg mb-1">Your Account is Pending Review</h3>
             <p className="text-sm">
-              Please complete your profile below and ensure you have uploaded your insurance COI. 
+              Please complete your profile below, ensure you have uploaded your identity documents (Selfie & ID), covered your insurance COI, and accepted the terms.
               Our admin team will review your application shortly. You will not appear in the marketplace until approved.
             </p>
           </div>
@@ -254,41 +304,45 @@ function ProviderDashboardContent() {
       {/* Earnings Overview */}
       {(providerInfo?.status === "approved" || completedJobsCount > 0) && (
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card className="border-none shadow-lg bg-slate-900 text-white">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start">
+          <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden group">
+            <CardContent className="p-8 relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-accent/10 rounded-full blur-2xl -mr-16 -mt-16 group-hover:bg-accent/20 transition-colors duration-500" />
+              <div className="flex justify-between items-start relative z-10">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Lifetime Earnings</p>
-                  <p className="text-5xl font-black text-accent">${totalEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Lifetime Earnings</p>
+                  <p className="text-5xl font-black text-accent tracking-tighter">${totalEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
-                <div className="p-3 bg-white/10 rounded-xl">
+                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 group-hover:scale-110 transition-transform duration-500">
                   <TrendingUp className="w-8 h-8 text-accent" />
                 </div>
               </div>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-4">85% Platform Payout Rate</p>
+              <p className="text-[10px] text-slate-600 uppercase tracking-widest font-black mt-6">85% Platform Payout Rate</p>
             </CardContent>
           </Card>
           
-          <Card className="border-none shadow-lg bg-white">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start">
+          <Card className="border-none shadow-xl bg-white/80 backdrop-blur-xl border border-white/20 overflow-hidden group">
+            <CardContent className="p-8 relative">
+              <div className="flex justify-between items-start relative z-10">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Completed Jobs</p>
-                  <p className="text-5xl font-black text-slate-900">{completedJobsCount}</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Completed Jobs</p>
+                  <p className="text-5xl font-black text-slate-900 tracking-tighter">{completedJobsCount}</p>
                 </div>
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl group-hover:rotate-12 transition-transform duration-500">
                   <CheckCircle2 className="w-8 h-8 text-slate-400" />
                 </div>
               </div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mt-4">Successfully fulfilled bookings</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mt-6">Successfully fulfilled bookings</p>
             </CardContent>
           </Card>
         </div>
       )}
 
-      <Card className="shadow-lg border-none">
-        <CardHeader className="bg-slate-50 border-b border-gray-100 rounded-t-xl">
-          <CardTitle className="text-xl font-black uppercase text-slate-800">Public Profile Details</CardTitle>
+      <Card className="shadow-2xl border-none bg-white/90 backdrop-blur-xl overflow-hidden">
+        <CardHeader className="bg-slate-50/50 border-b border-gray-100 font-black">
+          <CardTitle className="text-xl font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
+             <div className="w-2 h-8 bg-accent rounded-full" />
+             Public Profile Details
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <form onSubmit={handleUpdate} className="space-y-6">
@@ -359,44 +413,56 @@ function ProviderDashboardContent() {
               />
             </div>
 
-            <div className="pt-4 border-t flex justify-end">
-              <Button type="submit" disabled={saving} className="bg-accent hover:bg-accent/90 text-white font-bold h-12 px-8 uppercase tracking-wider rounded-xl">
-                {saving ? "Saving..." : "Save Profile"}
-              </Button>
+            <div className="pt-6 border-t flex flex-col gap-4">
+              <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                <Checkbox 
+                  id="terms" 
+                  checked={termsAccepted} 
+                  onCheckedChange={(checked) => setTermsAccepted(!!checked)}
+                />
+                <Label htmlFor="terms" className="text-sm font-medium leading-none cursor-pointer">
+                  I agree to the <Link href="/terms" className="text-accent hover:underline">Terms and Conditions</Link> and <Link href="/privacy" className="text-accent hover:underline">Privacy Policy</Link>
+                </Label>
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={saving || !termsAccepted} className="bg-accent hover:bg-accent/90 text-white font-bold h-12 px-8 uppercase tracking-wider rounded-xl shadow-lg shadow-accent/20">
+                  {saving ? "Saving..." : "Save Profile"}
+                </Button>
+              </div>
             </div>
           </form>
         </CardContent>
       </Card>
 
-      <Card className="shadow-lg border-none mt-8">
-         <CardHeader className="bg-slate-50 border-b border-gray-100 rounded-t-xl flex flex-row items-center justify-between">
-          <CardTitle className="text-xl font-black uppercase text-slate-800 flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-accent" />
+      <Card className="shadow-2xl border-none bg-white/90 backdrop-blur-xl mt-8 overflow-hidden">
+         <CardHeader className="bg-slate-50/50 border-b border-gray-100 flex flex-row items-center justify-between">
+          <CardTitle className="text-xl font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
+            <div className="p-2 bg-accent/10 rounded-lg"><MapPin className="h-5 w-5 text-accent" /></div>
             Service Location
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <div>
-              <p className="font-bold text-slate-900">Your Base Location</p>
-              <p className="text-sm text-muted-foreground mt-1">
+        <CardContent className="p-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-accent/20 transition-all duration-500">
+            <div className="space-y-1">
+              <p className="font-black text-slate-900 uppercase tracking-tight">Your Base Location</p>
+              <div className="flex items-center gap-2">
                 {location ? (
-                  <>
-                    <span className="text-green-600 font-bold">Location Set</span> 
-                    <span className="ml-2 hidden sm:inline">(Lat: {location.lat.toFixed(4)}, Lng: {location.lng.toFixed(4)})</span>
-                  </>
+                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[10px] font-black uppercase">Active</Badge>
                 ) : (
-                  <span className="text-amber-600 font-bold">Not Set</span>
+                  <Badge variant="outline" className="text-amber-600 border-amber-200 text-[10px] font-black uppercase">Not Set</Badge>
                 )}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">We use this to connect you with customers in your radius.</p>
+                <span className="text-xs text-slate-400 font-medium">
+                  {location ? `(${location.lat.toFixed(4)}, ${location.lng.toFixed(4)})` : 'Requires GPS access'}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Connected to local customer radius</p>
             </div>
             
             <Button 
               onClick={handleSetLocation} 
               disabled={saving}
               variant={location ? "outline" : "default"} 
-              className={location ? "border-accent text-accent hover:bg-accent hover:text-white" : "bg-accent hover:bg-accent/90 text-white"}
+              className={`h-12 px-8 rounded-xl font-black uppercase tracking-widest transition-all duration-300 ${location ? "border-accent text-accent hover:bg-accent hover:text-white" : "bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/20"}`}
             >
               {saving ? "Locating..." : (location ? "Update Location" : "Share My Location")}
             </Button>
@@ -404,23 +470,76 @@ function ProviderDashboardContent() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-lg border-none mt-8">
-         <CardHeader className="bg-slate-50 border-b border-gray-100 rounded-t-xl">
-          <CardTitle className="text-xl font-black uppercase text-slate-800">Insurance & Compliance</CardTitle>
+      <Card className="shadow-2xl border-none bg-white/90 backdrop-blur-xl mt-8 overflow-hidden">
+         <CardHeader className="bg-slate-50/50 border-b border-gray-100 flex flex-row items-center justify-between">
+          <CardTitle className="text-xl font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
+            <div className="p-2 bg-accent/10 rounded-lg"><Shield className="h-5 w-5 text-accent" /></div>
+            Identity & KYC Verification
+          </CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <div>
-              <p className="font-bold text-slate-900">Certificate of Liability Insurance (COI)</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Status: {providerInfo?.onboarding?.insuranceUploaded ? 
-                  <span className="text-green-600 font-bold">Uploaded & Verified</span> : 
-                  <span className="text-amber-600 font-bold">Pending Upload</span>}
-              </p>
+        <CardContent className="p-8 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {[
+              { id: 'selfieUploaded', label: 'Selfie with ID', icon: Camera, desc: 'Face clearly visible' },
+              { id: 'idFrontUploaded', label: 'ID Front', icon: CreditCard, desc: 'Full legal name and photo' },
+              { id: 'idBackUploaded', label: 'ID Back', icon: FileText, desc: 'Barcode and address' }
+            ].map((doc) => (
+              <div key={doc.id} className="group p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-accent/20 transition-all duration-500 flex flex-col items-center text-center gap-4">
+                <div className={`p-5 rounded-2xl transition-all duration-500 ${providerInfo?.onboarding?.[doc.id] ? 'bg-green-50 text-green-500 scale-110' : 'bg-slate-50 text-slate-300 group-hover:bg-accent/5 group-hover:text-accent'}`}>
+                  <doc.icon className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-900">{doc.label}</p>
+                  <p className="text-[10px] font-medium text-slate-400 italic">{doc.desc}</p>
+                  <div className="pt-2">
+                    {providerInfo?.onboarding?.[doc.id] ? (
+                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[9px] font-black uppercase px-2 py-0.5">Verified</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-slate-300 border-slate-200 text-[9px] font-black uppercase px-2 py-0.5">Pending</Badge>
+                    )}
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => simulateIdUpload(doc.id)} 
+                  variant="ghost" 
+                  size="sm"
+                  className="w-full h-10 text-[10px] font-black uppercase tracking-[0.2em] text-accent hover:bg-accent hover:text-white rounded-xl border border-accent/10 transition-all"
+                >
+                  {providerInfo?.onboarding?.[doc.id] ? "Update Photo" : "Upload Now"}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-2xl border-none bg-white/90 backdrop-blur-xl mt-8 overflow-hidden">
+         <CardHeader className="bg-slate-50/50 border-b border-gray-100">
+          <CardTitle className="text-xl font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
+             <div className="p-2 bg-accent/10 rounded-lg"><FileText className="h-5 w-5 text-accent" /></div>
+             Insurance & Compliance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 bg-slate-50 rounded-3xl border border-slate-100 transition-all duration-500 hover:border-accent/20">
+            <div className="space-y-1">
+              <p className="font-black text-slate-900 uppercase tracking-tight">Certificate of Liability (COI)</p>
+              <div className="flex items-center gap-2">
+                {providerInfo?.onboarding?.insuranceUploaded ? (
+                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[10px] font-black uppercase">Verified</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-amber-600 border-amber-200 text-[10px] font-black uppercase">Required</Badge>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Document must list 'Wont Stop Moving' as additional insured</p>
             </div>
-            {!providerInfo?.onboarding?.insuranceUploaded && (
-              <Button onClick={setDemoCOI} variant="outline" className="border-accent text-accent hover:bg-accent hover:text-white font-bold rounded-lg transition-all shrink-0">
-                Simulate Upload
+            {!providerInfo?.onboarding?.insuranceUploaded ? (
+              <Button onClick={setDemoCOI} variant="outline" className="h-12 px-8 rounded-xl border-accent text-accent hover:bg-accent hover:text-white font-black uppercase tracking-widest transition-all duration-300">
+                Upload
+              </Button>
+            ) : (
+              <Button onClick={setDemoCOI} variant="ghost" className="h-12 px-8 rounded-xl border-accent/20 text-slate-400 hover:bg-accent hover:text-white font-black uppercase tracking-widest transition-all duration-300">
+                Update COI
               </Button>
             )}
           </div>
@@ -428,40 +547,39 @@ function ProviderDashboardContent() {
       </Card>
 
       {/* Stripe Connect Section */}
-      <Card className="shadow-lg border-none mt-8 overflow-hidden">
-        <div className="bg-slate-900 border-b border-gray-100 p-6">
-          <CardTitle className="text-xl font-black uppercase text-white flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-accent" />
+      <Card className="shadow-2xl border-none bg-slate-900 text-white mt-8 overflow-hidden group">
+        <div className="bg-white/5 border-b border-white/5 p-8 relative">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#635BFF]/10 rounded-full blur-3xl -mr-32 -mt-32" />
+          <CardTitle className="text-xl font-black uppercase tracking-tighter text-white flex items-center gap-3 relative z-10">
+            <div className="p-2 bg-[#635BFF]/20 rounded-lg"><DollarSign className="h-5 w-5 text-[#635BFF]" /></div>
             Payments & Payouts
           </CardTitle>
-          <p className="text-slate-400 text-sm mt-1">Connect your bank account securely via Stripe to receive payouts directly to your bank.</p>
+          <p className="text-slate-500 text-xs font-medium mt-2 max-w-md relative z-10 uppercase tracking-widest leading-loose">Connect your bank account securely via Stripe to receive automated payouts directly to your bank.</p>
         </div>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <div>
-              <p className="font-bold text-slate-900">Bank Account Setup</p>
-              <p className="text-sm text-muted-foreground mt-1">
+        <CardContent className="p-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 bg-white/5 rounded-3xl border border-white/5 transition-all duration-500 hover:border-[#635BFF]/30 group">
+            <div className="space-y-1">
+              <p className="font-black text-white uppercase tracking-tight">Bank Account Status</p>
+              <div className="flex items-center gap-2">
                 {providerInfo?.stripeOnboardingComplete ? (
-                  <span className="text-green-600 font-bold flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4" /> Account Connected & Verified
-                  </span>
+                  <Badge className="bg-green-500 text-white border-none text-[10px] font-black uppercase">Verified & Active</Badge>
                 ) : providerInfo?.stripeAccountId ? (
-                  <span className="text-amber-600 font-bold">Onboarding Incomplete</span>
+                  <Badge className="bg-amber-500 text-white border-none text-[10px] font-black uppercase">Action Required</Badge>
                 ) : (
-                  <span className="text-slate-500 font-medium">Not Connected</span>
+                  <Badge className="bg-slate-700 text-slate-400 border-none text-[10px] font-black uppercase">Not Connected</Badge>
                 )}
-              </p>
+              </div>
             </div>
             
             <Button 
               onClick={handleConnectBank} 
               disabled={stripeStatusLoading}
-              className={providerInfo?.stripeOnboardingComplete 
-                ? "bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold" 
-                : "bg-[#635BFF] hover:bg-[#4f46e5] text-white font-bold"}
+              className={`h-12 px-8 rounded-xl font-black uppercase tracking-widest transition-all duration-300 ${providerInfo?.stripeOnboardingComplete 
+                ? "bg-slate-800 text-slate-300 hover:bg-slate-700" 
+                : "bg-[#635BFF] hover:bg-[#4f46e5] text-white shadow-lg shadow-[#635BFF]/20"}`}
             >
               {stripeStatusLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              {providerInfo?.stripeOnboardingComplete ? "Update Bank Details" : (providerInfo?.stripeAccountId ? "Complete Onboarding" : "Connect with Stripe")}
+              {providerInfo?.stripeOnboardingComplete ? "Update Payout Details" : (providerInfo?.stripeAccountId ? "Resume Onboarding" : "Connect Stripe")}
               {!stripeStatusLoading && <ExternalLink className="w-4 h-4 ml-2" />}
             </Button>
           </div>

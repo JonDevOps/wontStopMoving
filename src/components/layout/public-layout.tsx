@@ -43,10 +43,17 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     router.push('/login');
   };
 
+  const serviceLinks = [
+    { href: "/services/local-moving", label: "Local Moving" },
+    { href: "/services/long-distance", label: "Long Distance" },
+    { href: "/services/commercial", label: "Commercial Moving" },
+    { href: "/services/white-glove-packing", label: "Packing Services" },
+    { href: "/services/vaulted-storage", label: "Secure Storage" },
+    { href: "/services/express-moving", label: "Express Delivery" },
+  ];
+
   const navLinks = [
-    { href: "/services", label: "Services" },
     { href: "/services/types-of-moves", label: "Types of Moves" },
-    { href: "/services/local-moving", label: "Local Moves" },
     { href: "/marketplace", label: "Marketplace" },
   ];
 
@@ -58,14 +65,14 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
   const footerSections = [
     {
-      title: "Quick Links",
+      title: "Services",
       links: [
-        { label: "Services", href: "/services" },
-        { label: "Types of Moves", href: "/services/types-of-moves" },
         { label: "Local Moving", href: "/services/local-moving" },
         { label: "Long Distance", href: "/services/long-distance" },
-        { label: "Locations", href: "/locations" },
-        { label: "Marketplace", href: "/marketplace" },
+        { label: "Commercial Moving", href: "/services/commercial" },
+        { label: "Packing Services", href: "/services/white-glove-packing" },
+        { label: "Secure Storage", href: "/services/vaulted-storage" },
+        { label: "Express Delivery", href: "/services/express-moving" },
       ]
     },
     {
@@ -110,6 +117,27 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           <nav className="hidden lg:flex items-center gap-8 text-primary font-bold">
             {mounted ? (
               <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="flex items-center gap-1 text-sm hover:text-accent transition-colors outline-none">
+                    Services <ChevronDown className="h-4 w-4" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56 p-2 rounded-xl border-none shadow-xl">
+                    {serviceLinks.map((link) => (
+                      <DropdownMenuItem key={link.label} asChild>
+                        <Link href={link.href} className="w-full cursor-pointer font-bold text-primary hover:text-accent transition-colors py-2">
+                          {link.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                    <div className="border-t my-1 mx-2" />
+                    <DropdownMenuItem asChild>
+                      <Link href="/services" className="w-full cursor-pointer font-bold text-accent hover:text-accent/80 transition-colors py-2 italic">
+                        View All Services
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 {navLinks.map((link) => (
                   <Link 
                     key={link.label} 
@@ -188,6 +216,33 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                       <nav className="flex-1 p-6 space-y-6 overflow-y-auto">
                         <div className="space-y-2">
                           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Navigation</p>
+                          <Accordion type="single" collapsible className="w-full">
+                            <AccordionItem value="services" className="border-none">
+                              <AccordionTrigger className="text-xl font-black text-primary hover:text-accent hover:no-underline py-3">
+                                Services
+                              </AccordionTrigger>
+                              <AccordionContent className="pt-2 pb-4 space-y-4">
+                                {serviceLinks.map((link) => (
+                                  <Link 
+                                    key={link.label} 
+                                    href={link.href} 
+                                    onClick={() => setOpen(false)}
+                                    className="block text-lg font-bold text-muted-foreground hover:text-accent pl-4"
+                                  >
+                                    {link.label}
+                                  </Link>
+                                ))}
+                                <Link 
+                                  href="/services" 
+                                  onClick={() => setOpen(false)}
+                                  className="block text-lg font-bold text-accent hover:text-accent/80 pl-4 italic"
+                                >
+                                  View All Services
+                                </Link>
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+
                           {navLinks.map((link) => (
                             <Link 
                               key={link.label} 
