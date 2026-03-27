@@ -10,9 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, CheckCircle2, MapPin, DollarSign, ExternalLink, Loader2, TrendingUp } from "lucide-react";
+import { AlertCircle, CheckCircle2, MapPin, DollarSign, ExternalLink, Loader2, TrendingUp, Pencil } from "lucide-react";
 import { geohashForLocation } from "geofire-common";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { AVAILABLE_SERVICES } from "@/lib/services";
 
 function ProviderDashboardContent() {
   const { user } = useUser();
@@ -28,7 +31,8 @@ function ProviderDashboardContent() {
   
   const [businessName, setBusinessName] = useState("");
   const [bio, setBio] = useState("");
-  const [services, setServices] = useState("");
+  const [services, setServices] = useState<string[]>([]);
+  const [isEditingServices, setIsEditingServices] = useState(false);
   const [saving, setSaving] = useState(false);
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
   const [geohash, setGeohash] = useState<string | null>(null);
@@ -71,7 +75,7 @@ function ProviderDashboardContent() {
       setBusinessName(providerInfo.businessName || "");
       setBio(providerInfo.bio || "");
       if (Array.isArray(providerInfo.services)) {
-        setServices(providerInfo.services.join(", "));
+        setServices(providerInfo.services);
       }
       if (providerInfo.location) {
         setLocation(providerInfo.location);
@@ -112,7 +116,7 @@ function ProviderDashboardContent() {
       await updateDoc(providerRef, {
         businessName,
         bio,
-        services: services.split(",").map(s => s.trim()).filter(Boolean)
+        services
       });
       toast({ title: "Profile Updated Successfully", description: "Your details have been saved." });
     } catch (err: any) {
@@ -299,16 +303,50 @@ function ProviderDashboardContent() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="services">Services Offered (comma separated)</Label>
-              <Input 
-                id="services" 
-                value={services} 
-                onChange={(e) => setServices(e.target.value)} 
-                className="h-12 border-gray-200"
-                placeholder="local_moving, packing, heavy_lifting"
-              />
-              <p className="text-xs text-muted-foreground">Example: local_moving, long_distance, packing</p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Services Offered</Label>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 text-xs font-bold text-accent hover:text-accent hover:bg-accent/10"
+                  onClick={() => setIsEditingServices(!isEditingServices)}
+                >
+                  {isEditingServices ? "Done" : <><Pencil className="w-3 h-3 mr-1" /> Edit</>}
+                </Button>
+              </div>
+              
+              {!isEditingServices ? (
+                <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-xl border border-gray-100 min-h-12 items-center">
+                  {services.length > 0 ? (
+                    services.map(s => <Badge key={s} variant="secondary" className="bg-white shadow-sm border-gray-200 text-slate-700">{s}</Badge>)
+                  ) : (
+                    <span className="text-sm text-muted-foreground italic">No services selected yet.</span>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-top-2 fade-in duration-200">
+                  {AVAILABLE_SERVICES.map((item) => (
+                    <div key={item.id} className="flex flex-row items-center space-x-3 space-y-0 rounded-xl border p-4 bg-white hover:bg-slate-50 transition-colors">
+                      <Checkbox
+                        id={`service-${item.id}`}
+                        checked={services.includes(item.label)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setServices([...services, item.label]);
+                          } else {
+                            setServices(services.filter((s) => s !== item.label));
+                          }
+                        }}
+                      />
+                      <label htmlFor={`service-${item.id}`} className="font-medium text-sm leading-none cursor-pointer flex-1">
+                        {item.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="bio">About Your Business</Label>

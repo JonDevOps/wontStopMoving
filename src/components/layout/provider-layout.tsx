@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   CreditCard,
-  Tags
+  Tags,
+  GraduationCap
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,7 @@ export function ProviderLayout({ children }: { children: React.ReactNode }) {
     { label: "My Jobs", href: "/dashboard/provider/jobs", icon: Briefcase },
     { label: "Services & Pricing", href: "/dashboard/provider/services", icon: Tags },
     { label: "Earnings", href: "/dashboard/provider/earnings", icon: CreditCard },
+    { label: "Training", href: "/dashboard/provider/training", icon: GraduationCap },
     { label: "Settings", href: "/dashboard/provider/settings", icon: Settings },
   ];
 

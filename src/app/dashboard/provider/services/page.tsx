@@ -14,6 +14,7 @@ import { Tags, DollarSign, Loader2, Save } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AVAILABLE_SERVICES } from "@/lib/services";
 
 const pricingSchema = z.object({
   hourlyRate: z.coerce.number().min(15, "Minimum rate is $15/hr"),
@@ -23,14 +24,7 @@ const pricingSchema = z.object({
 
 type PricingFormValues = z.infer<typeof pricingSchema>;
 
-const AVAILABLE_SERVICES = [
-  { id: "loading", label: "Loading / Unloading Help" },
-  { id: "packing", label: "Packing Services" },
-  { id: "driving", label: "Driving Only" },
-  { id: "cleaning", label: "Cleaning (Move in/out)" },
-  { id: "assembly", label: "Furniture Assembly" },
-  { id: "heavy", label: "Heavy Lifting (Safes/Pianos)" }
-];
+
 
 export default function ProviderServicesPage() {
   const { user } = useUser();
