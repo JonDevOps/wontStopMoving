@@ -4,13 +4,14 @@ import { Progress } from "@/components/ui/progress";
 import { ProviderLayout } from "@/components/layout/provider-layout";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
+import { useUser, useFirestore, useDoc, useMemoFirebase, useStorage } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, CheckCircle2, MapPin, DollarSign, ExternalLink, Loader2, TrendingUp, Pencil, User, CreditCard, Shield, FileText, Camera } from "lucide-react";
 import { geohashForLocation } from "geofire-common";
@@ -39,6 +40,14 @@ function ProviderDashboardContent() {
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
   const [geohash, setGeohash] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const storage = useStorage();
+
+  const selfieInputRef = useRef<HTMLInputElement>(null);
+  const frontInputRef = useRef<HTMLInputElement>(null);
+  const backInputRef = useRef<HTMLInputElement>(null);
+  const insuranceInputRef = useRef<HTMLInputElement>(null);
+
+  const [isUploading, setIsUploading] = useState<string | null>(null);
 
   const [stripeStatusLoading, setStripeStatusLoading] = useState(false);
   const [totalEarnings, setTotalEarnings] = useState<number>(0);
@@ -131,27 +140,43 @@ function ProviderDashboardContent() {
     }
   };
 
-  const setDemoCOI = async () => {
-    if (!providerRef) return;
+  const handleFileUpload = async (field: string, file: File) => {
+    if (!providerRef || !storage || !file) return;
+    
+    setIsUploading(field);
     try {
-      await updateDoc(providerRef, {
-        "onboarding.insuranceUploaded": true
-      });
-      toast({ title: "Insurance Uploaded", description: "Demo COI marked as true." });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
-    }
-  };
+      // 1. Create storage reference
+      const fileExtension = file.name.split('.').pop() || 'jpg';
+      const storagePath = `providers/${user?.uid}/dashboard_uploads/${field}_${Date.now()}.${fileExtension}`;
+      const storageRef = ref(storage, storagePath);
 
-  const simulateIdUpload = async (field: string) => {
-    if (!providerRef) return;
-    try {
+      // 2. Upload bytes
+      await uploadBytes(storageRef, file);
+
+      // 3. Get download URL
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // 4. Update Firestore
+      const isInsurance = field === 'insurance';
+      const firestoreField = isInsurance ? "onboarding.insuranceUploaded" : `onboarding.${field}Uploaded`;
+      const urlField = isInsurance ? "onboarding.insuranceUrl" : `onboarding.${field}Url`;
+      
       await updateDoc(providerRef, {
-        [`onboarding.${field}`]: true
+        [firestoreField]: true,
+        [urlField]: downloadURL,
+        [`onboarding.${field}Path`]: storagePath,
+        [`onboarding.${field}UpdatedAt`]: new Date().toISOString()
       });
-      toast({ title: "Document Uploaded", description: `${field.replace(/([A-Z])/g, ' $1')} marked as completed.` });
+
+      toast({ 
+        title: "Upload Successful", 
+        description: `${field.replace(/([A-Z])/g, ' $1').toUpperCase()} has been saved to your secure profile.` 
+      });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
+      console.error("Dashboard Upload Error:", err);
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
+    } finally {
+      setIsUploading(null);
     }
   };
 
@@ -499,14 +524,28 @@ function ProviderDashboardContent() {
                     )}
                   </div>
                 </div>
-                <Button 
-                  onClick={() => simulateIdUpload(doc.id)} 
-                  variant="ghost" 
-                  size="sm"
-                  className="w-full h-10 text-[10px] font-black uppercase tracking-[0.2em] text-accent hover:bg-accent hover:text-white rounded-xl border border-accent/10 transition-all"
-                >
-                  {providerInfo?.onboarding?.[doc.id] ? "Update Photo" : "Upload Now"}
-                </Button>
+                  <div className="flex flex-col items-center gap-2">
+                    <input 
+                      type="file" 
+                      hidden 
+                      accept="image/*"
+                      ref={doc.id === 'selfie' ? selfieInputRef : doc.id === 'idFront' ? frontInputRef : backInputRef}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload(doc.id, file);
+                      }}
+                    />
+                    <Button 
+                      onClick={() => (doc.id === 'selfie' ? selfieInputRef : doc.id === 'idFront' ? frontInputRef : backInputRef).current?.click()} 
+                      variant="ghost" 
+                      size="sm"
+                      disabled={isUploading === doc.id}
+                      className="w-full h-10 text-[10px] font-black uppercase tracking-[0.2em] text-accent hover:bg-accent hover:text-white rounded-xl border border-accent/10 transition-all"
+                    >
+                      {isUploading === doc.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      {providerInfo?.onboarding?.[`${doc.id}Uploaded`] ? "Update Photo" : "Upload Now"}
+                    </Button>
+                  </div>
               </div>
             ))}
           </div>
@@ -533,15 +572,39 @@ function ProviderDashboardContent() {
               </div>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Document must list 'Wont Stop Moving' as additional insured</p>
             </div>
-            {!providerInfo?.onboarding?.insuranceUploaded ? (
-              <Button onClick={setDemoCOI} variant="outline" className="h-12 px-8 rounded-xl border-accent text-accent hover:bg-accent hover:text-white font-black uppercase tracking-widest transition-all duration-300">
-                Upload
-              </Button>
-            ) : (
-              <Button onClick={setDemoCOI} variant="ghost" className="h-12 px-8 rounded-xl border-accent/20 text-slate-400 hover:bg-accent hover:text-white font-black uppercase tracking-widest transition-all duration-300">
-                Update COI
-              </Button>
-            )}
+            <div className="flex flex-col items-end gap-2">
+              <input 
+                type="file" 
+                hidden 
+                accept="application/pdf,image/*"
+                ref={insuranceInputRef}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileUpload('insurance', file);
+                }}
+              />
+              {!providerInfo?.onboarding?.insuranceUploaded ? (
+                <Button 
+                  onClick={() => insuranceInputRef.current?.click()} 
+                  disabled={isUploading === 'insurance'}
+                  variant="outline" 
+                  className="h-12 px-8 rounded-xl border-accent text-accent hover:bg-accent hover:text-white font-black uppercase tracking-widest transition-all duration-300"
+                >
+                  {isUploading === 'insurance' && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Upload
+                </Button>
+              ) : (
+                <Button 
+                  onClick={() => insuranceInputRef.current?.click()} 
+                  disabled={isUploading === 'insurance'}
+                  variant="ghost" 
+                  className="h-12 px-8 rounded-xl border-accent/20 text-slate-400 hover:bg-accent hover:text-white font-black uppercase tracking-widest transition-all duration-300"
+                >
+                  {isUploading === 'insurance' && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Update COI
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

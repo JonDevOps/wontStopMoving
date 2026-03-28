@@ -61,7 +61,7 @@ export default function FAQPage() {
       items: [
         {
           q: "Which regions do you serve?",
-          a: "Wont Stop Moving operates in all 51 US regions—this includes all 50 states plus Puerto Rico. We have dedicated local teams in every region to provide local expertise with nationwide logistics standards."
+          a: "Wont Stop Moving operates in all 50 US states plus Canada. We have dedicated local teams in every region to provide local expertise with nationwide logistics standards."
         },
         {
           q: "Can I track my moving truck in real-time?",
@@ -166,7 +166,7 @@ export default function FAQPage() {
               <MessageSquare className="h-16 w-16 text-accent mx-auto" />
               <h2 className="text-4xl font-black uppercase tracking-tighter">STILL HAVE QUESTIONS?</h2>
               <p className="text-xl text-white/70 max-w-xl mx-auto">
-                Our logistics specialists are available 24/7 to help you plan your perfect move across any of our 51 regions.
+                Our logistics specialists are available 24/7 to help you plan your perfect move across any of our service regions.
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-10 h-14 font-black uppercase tracking-widest text-xs">

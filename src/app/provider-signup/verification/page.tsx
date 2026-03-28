@@ -14,7 +14,7 @@ import {
   ShieldAlert
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useUser, useFirestore } from "@/firebase";
+import { useUser, useFirestore, useStorage } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { 
@@ -24,6 +24,7 @@ import {
   AccordionTrigger 
 } from "@/components/ui/accordion";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { PublicLayout } from "@/components/layout/public-layout";
 
 type UploadStatus = 'idle' | 'uploading' | 'done' | 'error';
@@ -33,6 +34,7 @@ export default function ProviderVerificationPage() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const storage = useStorage();
   
   const [isLoading, setIsLoading] = useState(false);
   const [uploads, setUploads] = useState<Record<string, { status: UploadStatus, preview?: string }>>({
@@ -76,39 +78,50 @@ export default function ProviderVerificationPage() {
     }
   }, [user, isUserLoading, router]);
 
-  const handleFileUpload = async (field: string, file?: File) => {
-    if (!user || !file) return;
+  const handleFileUpload = async (field: string, file: File) => {
+    if (!user || !file || !firestore || !storage) return;
 
-    // Create a local preview
+    // Create a local preview for immediate feedback
     const previewUrl = URL.createObjectURL(file);
     setUploads(prev => ({ ...prev, [field]: { status: 'uploading', preview: previewUrl } }));
 
-    // Simulate upload delay (would be Firebase Storage in production)
-    setTimeout(async () => {
-      try {
-        const providerRef = doc(firestore, "providers", user.uid);
-        const data = {
-          [`onboarding.${field}Uploaded`]: true,
-          [`onboarding.${field}At`]: new Date().toISOString(),
-        };
+    try {
+      // 1. Create a storage reference
+      const fileExtension = file.name.split('.').pop() || 'jpg';
+      const storagePath = `providers/${user.uid}/verification/${field}_${Date.now()}.${fileExtension}`;
+      const storageRef = ref(storage, storagePath);
 
-        await updateDoc(providerRef, data);
+      // 2. Upload the file
+      await uploadBytes(storageRef, file);
 
-        setUploads(prev => ({ ...prev, [field]: { status: 'done' } }));
-        toast({
-          title: "Document Received",
-          description: "Our security team has securely cached your document for review.",
-        });
-      } catch (error: any) {
-        console.error("Upload Error:", error);
-        setUploads(prev => ({ ...prev, [field]: { status: 'error' } }));
-        toast({
-          variant: "destructive",
-          title: "Upload Failed",
-          description: "We couldn't process your file. Please try a different image.",
-        });
-      }
-    }, 2000);
+      // 3. Get the download URL
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // 4. Update Firestore with the real URL and metadata
+      const providerRef = doc(firestore, "providers", user.uid);
+      const data = {
+        [`onboarding.${field}Url`]: downloadURL,
+        [`onboarding.${field}Path`]: storagePath,
+        [`onboarding.${field}Uploaded`]: true,
+        [`onboarding.${field}At`]: new Date().toISOString(),
+      };
+
+      await updateDoc(providerRef, data);
+
+      setUploads(prev => ({ ...prev, [field]: { status: 'done', preview: previewUrl } }));
+      toast({
+        title: "Document Secured",
+        description: "Your document has been safely uploaded to our encrypted vault.",
+      });
+    } catch (error: any) {
+      console.error("Upload Error:", error);
+      setUploads(prev => ({ ...prev, [field]: { status: 'error' } }));
+      toast({
+        variant: "destructive",
+        title: "Upload Failed",
+        description: error.message || "We couldn't process your file. Please try again.",
+      });
+    }
   };
 
   const handleFinish = async () => {

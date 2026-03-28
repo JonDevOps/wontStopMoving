@@ -86,7 +86,7 @@ export default function AccessibilityPage() {
             {/* Footer help */}
             <div className="text-center">
               <p className="text-muted-foreground text-sm">
-                Wont Stop Moving, Inc. is committed to equal opportunity and inclusion in all our 51 US regions.
+                Wont Stop Moving, Inc. is committed to equal opportunity and inclusion in all our service regions.
               </p>
             </div>
           </div>

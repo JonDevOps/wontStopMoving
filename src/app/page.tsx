@@ -43,7 +43,7 @@ export default function Home() {
                 MOVING MADE <span className="text-accent inline-block animate-float">SIMPLE</span>
               </h1>
               <p className="text-xl text-white/80 mb-10 max-w-xl leading-relaxed">
-                Nationwide moving excellence across 50 states + Puerto Rico. 51,000+ professionals ready to handle your journey.
+                Nationwide moving excellence across 50 states + Canada. 51,000+ professionals ready to handle your journey.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-8 h-16 text-lg font-bold shadow-xl shadow-accent/20">
@@ -66,8 +66,8 @@ export default function Home() {
                 <div className="text-sm uppercase tracking-widest opacity-80">Trained Professionals</div>
               </div>
               <div>
-                <div className="text-4xl font-black font-headline">51</div>
-                <div className="text-sm uppercase tracking-widest opacity-80">US Regions</div>
+                <div className="text-4xl font-black font-headline">50+</div>
+                <div className="text-sm uppercase tracking-widest opacity-80">States + Canada Canada</div>
               </div>
               <div>
                 <div className="text-4xl font-black font-headline">1m+</div>
@@ -92,7 +92,7 @@ export default function Home() {
             <div className="grid md:grid-cols-3 gap-8">
               {[
                 { title: "Local Moving", icon: Truck, desc: "Quick and efficient relocation within your city or state.", href: "/services/local-moving" },
-                { title: "Long Distance", icon: MapPin, desc: "Nationwide service connecting all 50 states and Puerto Rico.", href: "/services/long-distance" },
+                { title: "Long Distance", icon: MapPin, desc: "Nationwide service connecting all 50 states and Canada.", href: "/services/long-distance" },
                 { title: "Commercial", icon: Warehouse, desc: "Specialized office and business relocation solutions.", href: "/services/commercial" },
                 { title: "Packing Services", icon: Package, desc: "Professional packing with high-quality materials.", href: "/services/white-glove-packing" },
                 { title: "Secure Storage", icon: ShieldCheck, desc: "Climate-controlled facilities for long or short term.", href: "/services/vaulted-storage" },
@@ -126,12 +126,12 @@ export default function Home() {
           <div className="container mx-auto px-4">
             <div className="flex flex-col lg:flex-row items-center gap-16">
               <div className="lg:w-1/2">
-                <h2 className="text-4xl md:text-5xl font-black mb-6 text-primary leading-tight">WE COVER <span className="text-accent">50 STATES + PUERTO RICO AND CANADA</span></h2>
+                <h2 className="text-4xl md:text-5xl font-black mb-6 text-primary leading-tight">WE COVER <span className="text-accent">50 STATES + CANADA</span></h2>
                 <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-                  From the bustling streets of New York to the scenic landscapes of Puerto Rico, our network is ready. We have a dedicated team of 1,000 movers in every state, ensuring local expertise with nationwide standards.
+                  From the bustling streets of New York to the scenic landscapes of Canada, our network is ready. We have a dedicated team of 1,000 movers in every state, ensuring local expertise with nationwide standards.
                 </p>
                 <ul className="space-y-4 mb-10">
-                  {['50 US States + Puerto Rico & Canada', 'Uniformed, background-checked staff', 'Real-time GPS truck tracking', 'Full valuation protection included'].map((item, i) => (
+                  {['50 US States + Canada', 'Uniformed, background-checked staff', 'Real-time GPS truck tracking', 'Full valuation protection included'].map((item, i) => (
                     <li key={i} className="flex items-center gap-3 font-medium text-primary">
                       <div className="bg-accent rounded-full p-1"><ChevronRight className="h-4 w-4 text-white" /></div>
                       {item}
