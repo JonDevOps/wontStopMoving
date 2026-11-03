@@ -3,16 +3,32 @@
 import { ProviderLayout } from "@/components/layout/provider-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCollection, useMemoFirebase, useUser, useFirestore } from "@/firebase";
-import { collection, query, where, orderBy } from "firebase/firestore";
+import { collection, query, where, orderBy, doc, updateDoc } from "firebase/firestore";
 import { Briefcase, Calendar, MapPin, Package, ChevronRight, Phone, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProviderJobsPage() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const handleToggleStatus = async (jobId: string, currentStatus: string) => {
+    if (!firestore) return;
+    const nextStatus = currentStatus === "in-progress" ? "confirmed" : "in-progress";
+    try {
+      await updateDoc(doc(firestore, "jobs", jobId), { status: nextStatus });
+      toast({
+        title: "Job Status Updated",
+        description: `Job marked as ${nextStatus}. Open Job Details to enter the customer's 6-digit release code when finished.`,
+      });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Update Failed", description: err.message });
+    }
+  };
 
   // Query for provider's assigned jobs
   const jobsQuery = useMemoFirebase(() => {
@@ -51,7 +67,7 @@ export default function ProviderJobsPage() {
                         <div className="space-y-1">
                           <p className="text-[10px] font-black text-accent uppercase tracking-widest">Job ID: {job.id}</p>
                           <h3 className="text-xl font-bold text-slate-800">
-                            {job.pickupZip || 'TBD'} to {job.dropoffZip || 'TBD'}
+                            {job.pickupAddress?.split(',')[0] || job.pickupZip || 'Local Pickup'} to {job.dropoffAddress?.split(',')[0] || job.dropoffZip || 'Local Drop-off'}
                           </h3>
                         </div>
                         <Badge 
@@ -110,9 +126,14 @@ export default function ProviderJobsPage() {
                           Job Details <ChevronRight className="h-4 w-4" />
                         </Link>
                       </Button>
-                      <Button className="rounded-full font-bold bg-slate-900 text-white hover:bg-slate-800 transition-all w-full">
-                        Update Status
-                      </Button>
+                      {job.status !== "completed" && (
+                        <Button
+                          onClick={() => handleToggleStatus(job.id, job.status)}
+                          className="rounded-full font-bold bg-slate-900 text-white hover:bg-slate-800 transition-all w-full"
+                        >
+                          {job.status === "in-progress" ? "Mark Confirmed" : "Start Move (In Progress)"}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>

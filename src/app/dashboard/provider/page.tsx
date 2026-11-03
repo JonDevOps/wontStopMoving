@@ -4,42 +4,79 @@ import { Progress } from "@/components/ui/progress";
 import { ProviderLayout } from "@/components/layout/provider-layout";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUser, useFirestore, useDoc, useMemoFirebase, useStorage } from "@/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import {
+  useUser,
+  useFirestore,
+  useDoc,
+  useMemoFirebase,
+  useStorage,
+} from "@/firebase";
+import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, CheckCircle2, MapPin, DollarSign, ExternalLink, Loader2, TrendingUp, Pencil, User, CreditCard, Shield, FileText, Camera } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Circle,
+  MapPin,
+  DollarSign,
+  ExternalLink,
+  Loader2,
+  TrendingUp,
+  Pencil,
+  CreditCard,
+  Shield,
+  FileText,
+  Camera,
+  ListChecks,
+} from "lucide-react";
 import { geohashForLocation } from "geofire-common";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { AVAILABLE_SERVICES } from "@/lib/services";
+import { TwoFactorCard } from "@/components/security/two-factor-card";
 
 function ProviderDashboardContent() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
-  
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user]);
+
   const providerRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, "providers", user.uid);
   }, [firestore, user]);
 
-  const { data: providerInfo, isLoading, error } = useDoc(providerRef);
-  
+  const { data: userProfile } = useDoc(userProfileRef);
+  const { data: providerInfo, isLoading } = useDoc(providerRef);
+
   const [businessName, setBusinessName] = useState("");
   const [bio, setBio] = useState("");
   const [services, setServices] = useState<string[]>([]);
   const [isEditingServices, setIsEditingServices] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
-  const [geohash, setGeohash] = useState<string | null>(null);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
+    null
+  );
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [idType, setIdType] = useState<string>("drivers_license");
   const storage = useStorage();
 
   const selfieInputRef = useRef<HTMLInputElement>(null);
@@ -48,12 +85,10 @@ function ProviderDashboardContent() {
   const insuranceInputRef = useRef<HTMLInputElement>(null);
 
   const [isUploading, setIsUploading] = useState<string | null>(null);
-
   const [stripeStatusLoading, setStripeStatusLoading] = useState(false);
   const [totalEarnings, setTotalEarnings] = useState<number>(0);
   const [completedJobsCount, setCompletedJobsCount] = useState<number>(0);
 
-  // Calculate Earnings
   useEffect(() => {
     if (!user || !firestore) return;
     const fetchEarnings = async () => {
@@ -66,10 +101,10 @@ function ProviderDashboardContent() {
         const snapshot = await getDocs(q);
         let total = 0;
         let count = 0;
-        snapshot.forEach(doc => {
-          const data = doc.data();
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
           if (data.price) {
-            total += (data.price * 0.85); // 85% payout
+            total += data.price * 0.85;
           }
           count++;
         });
@@ -91,90 +126,136 @@ function ProviderDashboardContent() {
       }
       if (providerInfo.location) {
         setLocation(providerInfo.location);
-        setGeohash(providerInfo.geohash || null);
+      }
+      if (providerInfo.onboarding?.idType) {
+        setIdType(providerInfo.onboarding.idType);
       }
       setTermsAccepted(providerInfo.termsAccepted || false);
     }
   }, [providerInfo]);
 
-  // Check Stripe Status on load if account ID exists
   useEffect(() => {
     const checkStripeStatus = async () => {
-      if (!providerInfo?.stripeAccountId || providerInfo.stripeOnboardingComplete) return;
-      
+      if (
+        !providerInfo?.stripeAccountId ||
+        providerInfo.stripeOnboardingComplete
+      )
+        return;
+
       try {
         const res = await fetch("/api/stripe/account-status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accountId: providerInfo.stripeAccountId })
+          body: JSON.stringify({ accountId: providerInfo.stripeAccountId }),
         });
         const data = await res.json();
-        
-        if (data.chargesEnabled && data.payoutsEnabled) {
-          await updateDoc(providerRef!, { stripeOnboardingComplete: true });
-          toast({ title: "Bank Account Connected!", description: "You are ready to receive payouts." });
+
+        if (data.chargesEnabled && data.payoutsEnabled && providerRef) {
+          await updateDoc(providerRef, { stripeOnboardingComplete: true });
+          toast({
+            title: "Bank Account Connected!",
+            description: "You are ready to receive 85% automated payouts.",
+          });
         }
       } catch (err) {
         console.error("Failed to fetch stripe status", err);
       }
     };
     checkStripeStatus();
-  }, [providerInfo?.stripeAccountId, providerInfo?.stripeOnboardingComplete, providerRef, toast]);
+  }, [
+    providerInfo?.stripeAccountId,
+    providerInfo?.stripeOnboardingComplete,
+    providerRef,
+    toast,
+  ]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!providerRef) return;
+    if (!providerRef || !user) return;
     setSaving(true);
     try {
-      await updateDoc(providerRef, {
-        businessName,
-        bio,
-        services,
-        termsAccepted
+      await setDoc(
+        providerRef,
+        {
+          uid: user.uid,
+          email: user.email,
+          businessName,
+          bio,
+          services,
+          termsAccepted,
+          status: providerInfo?.status || "pending",
+        },
+        { merge: true }
+      );
+      toast({
+        title: "Profile Updated Successfully",
+        description: "Your business details have been saved.",
       });
-      toast({ title: "Profile Updated Successfully", description: "Your details have been saved." });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err.message,
+      });
     } finally {
       setSaving(false);
     }
   };
 
   const handleFileUpload = async (field: string, file: File) => {
-    if (!providerRef || !storage || !file) return;
-    
+    if (!providerRef || !file || !user) return;
+
     setIsUploading(field);
     try {
-      // 1. Create storage reference
-      const fileExtension = file.name.split('.').pop() || 'jpg';
-      const storagePath = `providers/${user?.uid}/dashboard_uploads/${field}_${Date.now()}.${fileExtension}`;
-      const storageRef = ref(storage, storagePath);
+      const { uploadVerificationDocument } = await import("@/lib/storage-upload");
+      const downloadURL = await uploadVerificationDocument(user.uid, field, file);
+      const storagePath = `verifications/${user.uid}/${field}_${Date.now()}_${file.name}`;
 
-      // 2. Upload bytes
-      await uploadBytes(storageRef, file);
+      const isInsurance = field === "insurance";
+      const firestoreField = isInsurance
+        ? "onboarding.insuranceUploaded"
+        : `onboarding.${field}Uploaded`;
+      const urlField = isInsurance
+        ? "onboarding.insuranceUrl"
+        : `onboarding.${field}Url`;
 
-      // 3. Get download URL
-      const downloadURL = await getDownloadURL(storageRef);
+      await setDoc(
+        providerRef,
+        {
+          onboarding: {
+            ...(providerInfo?.onboarding || {}),
+            idType,
+            [isInsurance ? "insuranceUploaded" : `${field}Uploaded`]: true,
+            [isInsurance ? "insuranceUrl" : `${field}Url`]: downloadURL,
+            [`${field}Path`]: storagePath,
+            [`${field}UpdatedAt`]: new Date().toISOString(),
+          },
+        },
+        { merge: true }
+      );
 
-      // 4. Update Firestore
-      const isInsurance = field === 'insurance';
-      const firestoreField = isInsurance ? "onboarding.insuranceUploaded" : `onboarding.${field}Uploaded`;
-      const urlField = isInsurance ? "onboarding.insuranceUrl" : `onboarding.${field}Url`;
-      
-      await updateDoc(providerRef, {
-        [firestoreField]: true,
-        [urlField]: downloadURL,
-        [`onboarding.${field}Path`]: storagePath,
-        [`onboarding.${field}UpdatedAt`]: new Date().toISOString()
-      });
+      // Also update via dot notation if doc exists
+      try {
+        await updateDoc(providerRef, {
+          "onboarding.idType": idType,
+          [firestoreField]: true,
+          [urlField]: downloadURL,
+        });
+      } catch {
+        // merged above
+      }
 
-      toast({ 
-        title: "Upload Successful", 
-        description: `${field.replace(/([A-Z])/g, ' $1').toUpperCase()} has been saved to your secure profile.` 
+      toast({
+        title: "Upload Successful",
+        description: `${file.name} has been saved to your secure profile.`,
       });
     } catch (err: any) {
       console.error("Dashboard Upload Error:", err);
-      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
+      toast({
+        variant: "destructive",
+        title: "Upload Failed",
+        description: err.message,
+      });
     } finally {
       setIsUploading(null);
     }
@@ -182,232 +263,424 @@ function ProviderDashboardContent() {
 
   const handleSetLocation = () => {
     if (!navigator.geolocation) {
-      toast({ variant: "destructive", title: "Not Supported", description: "Geolocation is not supported by your browser." });
+      toast({
+        variant: "destructive",
+        title: "Not Supported",
+        description: "Geolocation is not supported by your browser.",
+      });
       return;
     }
-    
+
     setSaving(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         const hash = geohashForLocation([lat, lng]);
-        
+
         setLocation({ lat, lng });
-        setGeohash(hash);
-        
+
         if (providerRef) {
           try {
-            await updateDoc(providerRef, {
-              location: { lat, lng },
-              geohash: hash
+            await setDoc(
+              providerRef,
+              {
+                location: { lat, lng },
+                geohash: hash,
+              },
+              { merge: true }
+            );
+            toast({
+              title: "Location Saved",
+              description: "Your service radius location has been updated.",
             });
-            toast({ title: "Location Saved", description: "Your service location has been updated." });
           } catch (err: any) {
-            toast({ variant: "destructive", title: "Error", description: err.message });
+            toast({
+              variant: "destructive",
+              title: "Error",
+              description: err.message,
+            });
           }
         }
         setSaving(false);
       },
       (err) => {
-        toast({ variant: "destructive", title: "Location Error", description: err.message });
+        toast({
+          variant: "destructive",
+          title: "Location Error",
+          description: err.message,
+        });
         setSaving(false);
       }
     );
   };
 
   const handleConnectBank = async () => {
-    if (!user || !providerRef || !providerInfo) return;
+    if (!user || !providerRef) return;
     setStripeStatusLoading(true);
-    
+
     try {
-      if (providerInfo.stripeAccountId) {
-        // Resume onboarding
+      if (providerInfo?.stripeAccountId) {
         const res = await fetch("/api/stripe/account-link", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accountId: providerInfo.stripeAccountId })
+          body: JSON.stringify({ accountId: providerInfo.stripeAccountId }),
         });
         const data = await res.json();
         if (data.url) window.location.href = data.url;
+        else throw new Error(data.error || "Could not create onboarding link");
       } else {
-        // Create new account
         const res = await fetch("/api/stripe/account", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            email: user.email, 
-            businessName: providerInfo.businessName || "Independent Provider" 
-          })
+          body: JSON.stringify({
+            email: user.email,
+            businessName:
+              providerInfo?.businessName ||
+              businessName ||
+              "Independent Provider",
+          }),
         });
         const data = await res.json();
         if (data.accountId && data.url) {
-          await updateDoc(providerRef, { stripeAccountId: data.accountId });
+          await setDoc(
+            providerRef,
+            { stripeAccountId: data.accountId },
+            { merge: true }
+          );
           window.location.href = data.url;
         } else {
-          throw new Error(data.error || "Failed to create account");
+          throw new Error(
+            data.error ||
+              "Add your real STRIPE_SECRET_KEY in .env.local to launch Stripe Connect."
+          );
         }
       }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Connection Failed", description: err.message });
+      toast({
+        variant: "destructive",
+        title: "Stripe Connect Notice",
+        description: err.message,
+      });
       setStripeStatusLoading(false);
     }
   };
 
-  if (isLoading) return <div className="p-8 text-center animate-pulse">Loading dashboard...</div>;
-  if (!providerInfo && !isLoading) {
-    return <div className="p-8 text-center text-red-500">Provider record not found. Please contact support.</div>;
+  if (isLoading) {
+    return (
+      <div className="p-12 text-center animate-pulse font-black text-primary uppercase tracking-widest text-xs">
+        Loading Provider Command Center...
+      </div>
+    );
   }
 
-  const isPending = providerInfo?.status === "pending";
+  const requiresBack = idType !== "passport";
+  const idVerified = Boolean(
+    providerInfo?.onboarding?.selfieUploaded &&
+      providerInfo?.onboarding?.idFrontUploaded &&
+      (!requiresBack || providerInfo?.onboarding?.idBackUploaded)
+  );
+  const twoFactorDone = Boolean(userProfile?.twoFactorEnabled);
 
-  const completionStats = [
-    { label: "Business Bio", done: !!bio },
-    { label: "Services Selected", done: services.length > 0 },
-    { label: "Location Set", done: !!location },
-    { label: "Selfie Uploaded", done: !!providerInfo?.onboarding?.selfieUploaded },
-    { label: "ID Front", done: !!providerInfo?.onboarding?.idFrontUploaded },
-    { label: "ID Back", done: !!providerInfo?.onboarding?.idBackUploaded },
-    { label: "Insurance", done: !!providerInfo?.onboarding?.insuranceUploaded },
-    { label: "Bank Account", done: !!providerInfo?.stripeOnboardingComplete },
-    { label: "Terms Accepted", done: termsAccepted }
+  const actionTasks = [
+    {
+      label: "1. Complete Business Bio & Services Offered",
+      done: Boolean(bio && services.length > 0 && termsAccepted),
+      anchor: "#profile-section",
+    },
+    {
+      label: "2. Set Operational Base GPS Location",
+      done: Boolean(location),
+      anchor: "#location-section",
+    },
+    {
+      label:
+        "3. Submit ID Verification (Driver's License, Passport, State or Military ID)",
+      done: idVerified,
+      anchor: "#id-section",
+    },
+    {
+      label: "4. Enable Two-Factor Authentication (2FA)",
+      done: twoFactorDone,
+      anchor: "#two-factor-section",
+    },
+    {
+      label: "5. Upload Certificate of Liability Insurance (COI)",
+      done: Boolean(providerInfo?.onboarding?.insuranceUploaded),
+      anchor: "#insurance-section",
+    },
+    {
+      label: "6. Connect Business Bank Account via Stripe (85% Payouts)",
+      done: Boolean(providerInfo?.stripeOnboardingComplete),
+      anchor: "#stripe-section",
+    },
   ];
-  
-  const completionPercentage = Math.round((completionStats.filter(s => s.done).length / completionStats.length) * 100);
+
+  const completionPercentage = Math.round(
+    (actionTasks.filter((s) => s.done).length / actionTasks.length) * 100
+  );
+
+  const idUploadItems = [
+    {
+      field: "selfie",
+      uploadedKey: "selfieUploaded",
+      label: "1. Selfie Holding ID",
+      icon: Camera,
+      desc: "Face & ID clearly visible",
+      ref: selfieInputRef,
+    },
+    {
+      field: "idFront",
+      uploadedKey: "idFrontUploaded",
+      label:
+        idType === "passport"
+          ? "2. Passport Photo Page"
+          : "2. Government ID - Front",
+      icon: CreditCard,
+      desc: "Full legal name & photo",
+      ref: frontInputRef,
+    },
+    ...(requiresBack
+      ? [
+          {
+            field: "idBack",
+            uploadedKey: "idBackUploaded",
+            label: "3. Government ID - Back",
+            icon: FileText,
+            desc: "Barcode & address details",
+            ref: backInputRef,
+          },
+        ]
+      : []),
+  ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 max-w-4xl pb-20">
-      <header className="relative overflow-hidden p-8 rounded-3xl bg-slate-900 text-white shadow-2xl mb-8">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-accent/20 rounded-full blur-3xl -mr-32 -mt-32 animate-pulse" />
-        <div className="relative z-10">
-          <Badge className="mb-4 bg-accent hover:bg-accent text-white border-none px-3 py-1 text-[10px] font-black uppercase tracking-tighter">
-            {providerInfo?.status || "Member"}
-          </Badge>
-          <h1 className="text-4xl md:text-5xl font-black uppercase leading-tight mb-2">
-            Provider <span className="text-accent underline decoration-4 underline-offset-8">Dashboard</span>
-          </h1>
-          <p className="text-slate-400 font-medium max-w-lg mb-8">Manage your professional presence, identity verification, and earnings in one place.</p>
-          
-          <div className="space-y-3 max-w-md">
+    <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl pb-20">
+      {/* Top Hero & Completion Bar */}
+      <header className="relative overflow-hidden p-8 rounded-3xl bg-slate-900 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-accent/20 rounded-full blur-3xl -mr-32 -mt-32" />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+          <div>
+            <Badge className="mb-3 bg-accent hover:bg-accent text-white border-none px-3 py-1 text-[10px] font-black uppercase tracking-widest">
+              {providerInfo?.status || "Pending Review"} • 85% Payout Tier
+            </Badge>
+            <h1 className="text-3xl md:text-5xl font-black uppercase leading-tight mb-2">
+              Provider <span className="text-accent">Command Center</span>
+            </h1>
+            <p className="text-slate-400 font-medium max-w-lg text-sm">
+              Complete your onboarding tasks at your own pace, manage marketplace jobs, and track your 85% Stripe payouts.
+            </p>
+          </div>
+
+          <div className="space-y-3 min-w-[260px] bg-white/5 p-5 rounded-2xl border border-white/10">
             <div className="flex justify-between items-end">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Profile Completion</span>
-              <span className="text-2xl font-black text-accent">{completionPercentage}%</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                Setup Progress
+              </span>
+              <span className="text-2xl font-black text-accent">
+                {completionPercentage}%
+              </span>
             </div>
             <Progress value={completionPercentage} className="h-2 bg-slate-800" />
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
-              Complete all steps to {providerInfo?.status === 'approved' ? 'maintain' : 'activate'} your account.
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              {actionTasks.filter((t) => t.done).length} of {actionTasks.length}{" "}
+              tasks completed
             </p>
           </div>
         </div>
       </header>
 
-      {isPending && (
-        <div className="bg-amber-100/50 border border-amber-300 rounded-xl p-6 flex items-start gap-4 text-amber-900">
-          <AlertCircle className="h-6 w-6 shrink-0 text-amber-600 mt-0.5" />
-          <div>
-            <h3 className="font-bold text-lg mb-1">Your Account is Pending Review</h3>
-            <p className="text-sm">
-              Please complete your profile below, ensure you have uploaded your identity documents (Selfie & ID), covered your insurance COI, and accepted the terms.
-              Our admin team will review your application shortly. You will not appear in the marketplace until approved.
-            </p>
+      {/* Insights & Earnings Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="border-none shadow-md bg-slate-900 text-white rounded-3xl">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Net Earnings (85% Share)
+              </p>
+              <p className="text-3xl font-black text-accent mt-1">
+                $
+                {totalEarnings.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Direct via Stripe Connect
+              </p>
+            </div>
+            <div className="p-3.5 bg-white/10 rounded-2xl">
+              <TrendingUp className="w-7 h-7 text-accent" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-md bg-white rounded-3xl">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                Completed Moves
+              </p>
+              <p className="text-3xl font-black text-primary mt-1">
+                {completedJobsCount}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Fulfilled marketplace bookings
+              </p>
+            </div>
+            <div className="p-3.5 bg-green-500/10 rounded-2xl">
+              <CheckCircle2 className="w-7 h-7 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-md bg-white rounded-3xl">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                Services Listed
+              </p>
+              <p className="text-3xl font-black text-primary mt-1">
+                {services.length}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Active marketplace specialties
+              </p>
+            </div>
+            <div className="p-3.5 bg-accent/10 rounded-2xl">
+              <FileText className="w-7 h-7 text-accent" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Action Tasks Checklist Card */}
+      <Card className="border-none shadow-md bg-white rounded-3xl">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-primary">
+            <ListChecks className="h-5 w-5 text-accent" />
+            Post-Signup Tasks & Activation Checklist
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            ID verification, 2FA, insurance, and Stripe payout connection can all be completed right on this page at your convenience.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {actionTasks.map((task, idx) => (
+              <a
+                key={idx}
+                href={task.anchor}
+                className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
+                  task.done
+                    ? "bg-green-50/60 border-green-200"
+                    : "bg-slate-50/70 border-slate-100 hover:border-accent"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  {task.done ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+                  ) : (
+                    <Circle className="h-5 w-5 text-accent shrink-0" />
+                  )}
+                  <span
+                    className={`text-xs font-black uppercase tracking-tight ${
+                      task.done ? "text-green-900" : "text-primary"
+                    }`}
+                  >
+                    {task.label}
+                  </span>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={
+                    task.done
+                      ? "bg-green-100 text-green-700 border-none text-[10px] font-black uppercase"
+                      : "text-accent border-accent/30 text-[10px] font-black uppercase"
+                  }
+                >
+                  {task.done ? "Done" : "To Do"}
+                </Badge>
+              </a>
+            ))}
           </div>
-        </div>
-      )}
 
-      {providerInfo?.status === "approved" && (
-        <div className="bg-green-100/50 border border-green-300 rounded-xl p-6 flex items-start gap-4 text-green-900">
-          <CheckCircle2 className="h-6 w-6 shrink-0 text-green-600 mt-0.5" />
-          <div>
-            <h3 className="font-bold text-lg mb-1">You are Live in the Marketplace!</h3>
-            <p className="text-sm">
-              Your profile is visible to customers in your area. Keep your profile updated to win more jobs.
-            </p>
+          <div id="two-factor-section" className="pt-2">
+            <TwoFactorCard userProfile={userProfile} compact />
           </div>
-        </div>
-      )}
+        </CardContent>
+      </Card>
 
-      {/* Earnings Overview */}
-      {(providerInfo?.status === "approved" || completedJobsCount > 0) && (
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden group">
-            <CardContent className="p-8 relative">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-accent/10 rounded-full blur-2xl -mr-16 -mt-16 group-hover:bg-accent/20 transition-colors duration-500" />
-              <div className="flex justify-between items-start relative z-10">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Lifetime Earnings</p>
-                  <p className="text-5xl font-black text-accent tracking-tighter">${totalEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                </div>
-                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 group-hover:scale-110 transition-transform duration-500">
-                  <TrendingUp className="w-8 h-8 text-accent" />
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-600 uppercase tracking-widest font-black mt-6">85% Platform Payout Rate</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-none shadow-xl bg-white/80 backdrop-blur-xl border border-white/20 overflow-hidden group">
-            <CardContent className="p-8 relative">
-              <div className="flex justify-between items-start relative z-10">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Completed Jobs</p>
-                  <p className="text-5xl font-black text-slate-900 tracking-tighter">{completedJobsCount}</p>
-                </div>
-                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl group-hover:rotate-12 transition-transform duration-500">
-                  <CheckCircle2 className="w-8 h-8 text-slate-400" />
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mt-6">Successfully fulfilled bookings</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      <Card className="shadow-2xl border-none bg-white/90 backdrop-blur-xl overflow-hidden">
-        <CardHeader className="bg-slate-50/50 border-b border-gray-100 font-black">
-          <CardTitle className="text-xl font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
-             <div className="w-2 h-8 bg-accent rounded-full" />
-             Public Profile Details
+      {/* Section 1: Public Profile Details */}
+      <Card
+        id="profile-section"
+        className="shadow-lg border-none bg-white rounded-3xl overflow-hidden"
+      >
+        <CardHeader className="bg-slate-50/50 border-b border-gray-100">
+          <CardTitle className="text-lg font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
+            <div className="w-2 h-6 bg-accent rounded-full" />
+            1. Public Business Profile & Services
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <form onSubmit={handleUpdate} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="businessName">Business Name / Display Name</Label>
-              <Input 
-                id="businessName" 
-                value={businessName} 
-                onChange={(e) => setBusinessName(e.target.value)} 
-                className="h-12 border-gray-200"
+              <Input
+                id="businessName"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                className="h-12 border-gray-200 rounded-xl"
                 placeholder="Bay Area Quick Movers"
                 required
               />
             </div>
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Services Offered</Label>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
                   className="h-8 text-xs font-bold text-accent hover:text-accent hover:bg-accent/10"
                   onClick={() => setIsEditingServices(!isEditingServices)}
                 >
-                  {isEditingServices ? "Done" : <><Pencil className="w-3 h-3 mr-1" /> Edit</>}
+                  {isEditingServices ? (
+                    "Done"
+                  ) : (
+                    <>
+                      <Pencil className="w-3 h-3 mr-1" /> Select Services
+                    </>
+                  )}
                 </Button>
               </div>
-              
+
               {!isEditingServices ? (
                 <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-xl border border-gray-100 min-h-12 items-center">
                   {services.length > 0 ? (
-                    services.map(s => <Badge key={s} variant="secondary" className="bg-white shadow-sm border-gray-200 text-slate-700">{s}</Badge>)
+                    services.map((s) => (
+                      <Badge
+                        key={s}
+                        variant="secondary"
+                        className="bg-white shadow-sm border-gray-200 text-slate-700"
+                      >
+                        {s}
+                      </Badge>
+                    ))
                   ) : (
-                    <span className="text-sm text-muted-foreground italic">No services selected yet.</span>
+                    <span className="text-sm text-muted-foreground italic">
+                      No services selected yet — click &quot;Select Services&quot; to choose.
+                    </span>
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-top-2 fade-in duration-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {AVAILABLE_SERVICES.map((item) => (
-                    <div key={item.id} className="flex flex-row items-center space-x-3 space-y-0 rounded-xl border p-4 bg-white hover:bg-slate-50 transition-colors">
+                    <div
+                      key={item.id}
+                      className="flex flex-row items-center space-x-3 rounded-xl border p-3.5 bg-white hover:bg-slate-50"
+                    >
                       <Checkbox
                         id={`service-${item.id}`}
                         checked={services.includes(item.label)}
@@ -415,11 +688,16 @@ function ProviderDashboardContent() {
                           if (checked) {
                             setServices([...services, item.label]);
                           } else {
-                            setServices(services.filter((s) => s !== item.label));
+                            setServices(
+                              services.filter((s) => s !== item.label)
+                            );
                           }
                         }}
                       />
-                      <label htmlFor={`service-${item.id}`} className="font-medium text-sm leading-none cursor-pointer flex-1">
+                      <label
+                        htmlFor={`service-${item.id}`}
+                        className="font-medium text-sm leading-none cursor-pointer flex-1"
+                      >
                         {item.label}
                       </label>
                     </div>
@@ -427,228 +705,322 @@ function ProviderDashboardContent() {
                 </div>
               )}
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="bio">About Your Business</Label>
-              <Textarea 
-                id="bio" 
-                value={bio} 
-                onChange={(e) => setBio(e.target.value)} 
-                className="min-h-[120px] border-gray-200"
-                placeholder="Tell customers about your experience and expertise..."
+              <Textarea
+                id="bio"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                className="min-h-[110px] border-gray-200 rounded-xl"
+                placeholder="Tell customers about your moving crew, fleet, and experience..."
               />
             </div>
 
-            <div className="pt-6 border-t flex flex-col gap-4">
-              <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                <Checkbox 
-                  id="terms" 
-                  checked={termsAccepted} 
+            <div className="pt-4 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="terms"
+                  checked={termsAccepted}
                   onCheckedChange={(checked) => setTermsAccepted(!!checked)}
                 />
-                <Label htmlFor="terms" className="text-sm font-medium leading-none cursor-pointer">
-                  I agree to the <Link href="/terms" className="text-accent hover:underline">Terms and Conditions</Link> and <Link href="/privacy" className="text-accent hover:underline">Privacy Policy</Link>
+                <Label htmlFor="terms" className="text-xs font-medium cursor-pointer">
+                  I agree to the{" "}
+                  <Link href="/terms" className="text-accent hover:underline">
+                    Terms and Conditions
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" className="text-accent hover:underline">
+                    Privacy Policy
+                  </Link>
                 </Label>
               </div>
-              <div className="flex justify-end">
-                <Button type="submit" disabled={saving || !termsAccepted} className="bg-accent hover:bg-accent/90 text-white font-bold h-12 px-8 uppercase tracking-wider rounded-xl shadow-lg shadow-accent/20">
-                  {saving ? "Saving..." : "Save Profile"}
-                </Button>
-              </div>
+              <Button
+                type="submit"
+                disabled={saving || !termsAccepted}
+                className="bg-accent hover:bg-accent/90 text-white font-bold h-12 px-8 uppercase tracking-wider rounded-xl shadow-lg shadow-accent/20"
+              >
+                {saving ? "Saving..." : "Save Profile"}
+              </Button>
             </div>
           </form>
         </CardContent>
       </Card>
 
-      <Card className="shadow-2xl border-none bg-white/90 backdrop-blur-xl mt-8 overflow-hidden">
-         <CardHeader className="bg-slate-50/50 border-b border-gray-100 flex flex-row items-center justify-between">
-          <CardTitle className="text-xl font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
-            <div className="p-2 bg-accent/10 rounded-lg"><MapPin className="h-5 w-5 text-accent" /></div>
-            Service Location
+      {/* Section 2: Service Location */}
+      <Card
+        id="location-section"
+        className="shadow-lg border-none bg-white rounded-3xl overflow-hidden"
+      >
+        <CardHeader className="bg-slate-50/50 border-b border-gray-100">
+          <CardTitle className="text-lg font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
+            <MapPin className="h-5 w-5 text-accent" />
+            2. Service Dispatch Location
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-8">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-accent/20 transition-all duration-500">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-5 bg-slate-50 rounded-2xl border border-slate-100">
             <div className="space-y-1">
-              <p className="font-black text-slate-900 uppercase tracking-tight">Your Base Location</p>
+              <p className="font-black text-slate-900 uppercase tracking-tight">
+                Your Base Coordinates
+              </p>
               <div className="flex items-center gap-2">
                 {location ? (
-                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[10px] font-black uppercase">Active</Badge>
+                  <Badge className="bg-green-100 text-green-700 border-none text-[10px] font-black uppercase">
+                    Active ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
+                  </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-amber-600 border-amber-200 text-[10px] font-black uppercase">Not Set</Badge>
+                  <Badge
+                    variant="outline"
+                    className="text-amber-600 border-amber-200 text-[10px] font-black uppercase"
+                  >
+                    Not Set Yet
+                  </Badge>
                 )}
-                <span className="text-xs text-slate-400 font-medium">
-                  {location ? `(${location.lat.toFixed(4)}, ${location.lng.toFixed(4)})` : 'Requires GPS access'}
-                </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Connected to local customer radius</p>
             </div>
-            
-            <Button 
-              onClick={handleSetLocation} 
+            <Button
+              type="button"
+              onClick={handleSetLocation}
               disabled={saving}
-              variant={location ? "outline" : "default"} 
-              className={`h-12 px-8 rounded-xl font-black uppercase tracking-widest transition-all duration-300 ${location ? "border-accent text-accent hover:bg-accent hover:text-white" : "bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/20"}`}
+              className="h-12 px-8 rounded-xl bg-accent hover:bg-accent/90 text-white font-black uppercase tracking-widest text-xs"
             >
-              {saving ? "Locating..." : (location ? "Update Location" : "Share My Location")}
+              {saving
+                ? "Locating..."
+                : location
+                ? "Update GPS Location"
+                : "Set My Location"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="shadow-2xl border-none bg-white/90 backdrop-blur-xl mt-8 overflow-hidden">
-         <CardHeader className="bg-slate-50/50 border-b border-gray-100 flex flex-row items-center justify-between">
-          <CardTitle className="text-xl font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
-            <div className="p-2 bg-accent/10 rounded-lg"><Shield className="h-5 w-5 text-accent" /></div>
-            Identity & KYC Verification
+      {/* Section 3: Identity & KYC Verification (Fixed Upload Refs + ID Type Selector) */}
+      <Card
+        id="id-section"
+        className="shadow-lg border-none bg-white rounded-3xl overflow-hidden"
+      >
+        <CardHeader className="bg-slate-50/50 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <CardTitle className="text-lg font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
+            <Shield className="h-5 w-5 text-accent" />
+            3. Identity Verification (Post-Signup Task)
           </CardTitle>
+          <div className="w-full sm:w-72">
+            <Select value={idType} onValueChange={setIdType}>
+              <SelectTrigger className="h-10 rounded-xl text-xs font-bold bg-white">
+                <SelectValue placeholder="Choose ID Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="drivers_license" className="text-xs font-bold">
+                  Driver&apos;s License (Front & Back)
+                </SelectItem>
+                <SelectItem value="state_id" className="text-xs font-bold">
+                  State ID Card (Front & Back)
+                </SelectItem>
+                <SelectItem value="passport" className="text-xs font-bold">
+                  Passport (Photo Page Only)
+                </SelectItem>
+                <SelectItem value="military_cdl" className="text-xs font-bold">
+                  Military ID / CDL (Front & Back)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
-        <CardContent className="p-8 space-y-6">
+        <CardContent className="p-6 space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Accepted formats: JPG, PNG, WEBP, HEIC photos, or PDF documents.
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {[
-              { id: 'selfieUploaded', label: 'Selfie with ID', icon: Camera, desc: 'Face clearly visible' },
-              { id: 'idFrontUploaded', label: 'ID Front', icon: CreditCard, desc: 'Full legal name and photo' },
-              { id: 'idBackUploaded', label: 'ID Back', icon: FileText, desc: 'Barcode and address' }
-            ].map((doc) => (
-              <div key={doc.id} className="group p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-accent/20 transition-all duration-500 flex flex-col items-center text-center gap-4">
-                <div className={`p-5 rounded-2xl transition-all duration-500 ${providerInfo?.onboarding?.[doc.id] ? 'bg-green-50 text-green-500 scale-110' : 'bg-slate-50 text-slate-300 group-hover:bg-accent/5 group-hover:text-accent'}`}>
-                  <doc.icon className="w-8 h-8" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-black uppercase tracking-wider text-slate-900">{doc.label}</p>
-                  <p className="text-[10px] font-medium text-slate-400 italic">{doc.desc}</p>
-                  <div className="pt-2">
-                    {providerInfo?.onboarding?.[doc.id] ? (
-                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[9px] font-black uppercase px-2 py-0.5">Verified</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-slate-300 border-slate-200 text-[9px] font-black uppercase px-2 py-0.5">Pending</Badge>
-                    )}
+            {idUploadItems.map((docItem) => {
+              const isUploaded = Boolean(
+                providerInfo?.onboarding?.[docItem.uploadedKey]
+              );
+              return (
+                <div
+                  key={docItem.field}
+                  className="p-6 bg-slate-50/70 rounded-2xl border border-slate-100 flex flex-col items-center text-center gap-4"
+                >
+                  <div
+                    className={`p-4 rounded-2xl ${
+                      isUploaded
+                        ? "bg-green-100 text-green-600"
+                        : "bg-white text-slate-400"
+                    }`}
+                  >
+                    <docItem.icon className="w-7 h-7" />
                   </div>
-                </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <input 
-                      type="file" 
-                      hidden 
-                      accept="image/*"
-                      ref={doc.id === 'selfie' ? selfieInputRef : doc.id === 'idFront' ? frontInputRef : backInputRef}
+                  <div className="space-y-1">
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-900">
+                      {docItem.label}
+                    </p>
+                    <p className="text-[11px] text-slate-500">{docItem.desc}</p>
+                    <div className="pt-1">
+                      {isUploaded ? (
+                        <Badge className="bg-green-100 text-green-700 border-none text-[10px] font-black uppercase">
+                          Uploaded
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="text-amber-700 border-amber-200 text-[10px] font-black uppercase"
+                        >
+                          Pending Task
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="w-full">
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.pdf"
+                      ref={docItem.ref}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleFileUpload(doc.id, file);
+                        if (file) handleFileUpload(docItem.field, file);
                       }}
                     />
-                    <Button 
-                      onClick={() => (doc.id === 'selfie' ? selfieInputRef : doc.id === 'idFront' ? frontInputRef : backInputRef).current?.click()} 
-                      variant="ghost" 
+                    <Button
+                      type="button"
+                      onClick={() => docItem.ref.current?.click()}
+                      variant={isUploaded ? "outline" : "default"}
                       size="sm"
-                      disabled={isUploading === doc.id}
-                      className="w-full h-10 text-[10px] font-black uppercase tracking-[0.2em] text-accent hover:bg-accent hover:text-white rounded-xl border border-accent/10 transition-all"
+                      disabled={isUploading === docItem.field}
+                      className={`w-full h-10 text-[10px] font-black uppercase tracking-widest rounded-xl ${
+                        isUploaded
+                          ? ""
+                          : "bg-accent hover:bg-accent/90 text-white"
+                      }`}
                     >
-                      {isUploading === doc.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      {providerInfo?.onboarding?.[`${doc.id}Uploaded`] ? "Update Photo" : "Upload Now"}
+                      {isUploading === docItem.field ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      {isUploaded ? "Replace File" : "Upload File"}
                     </Button>
                   </div>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
 
-      <Card className="shadow-2xl border-none bg-white/90 backdrop-blur-xl mt-8 overflow-hidden">
-         <CardHeader className="bg-slate-50/50 border-b border-gray-100">
-          <CardTitle className="text-xl font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
-             <div className="p-2 bg-accent/10 rounded-lg"><FileText className="h-5 w-5 text-accent" /></div>
-             Insurance & Compliance
+      {/* Section 4: Insurance COI */}
+      <Card
+        id="insurance-section"
+        className="shadow-lg border-none bg-white rounded-3xl overflow-hidden"
+      >
+        <CardHeader className="bg-slate-50/50 border-b border-gray-100">
+          <CardTitle className="text-lg font-black uppercase tracking-tight text-slate-800 flex items-center gap-3">
+            <FileText className="h-5 w-5 text-accent" />
+            4. Insurance & Compliance (COI)
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-8">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 bg-slate-50 rounded-3xl border border-slate-100 transition-all duration-500 hover:border-accent/20">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-5 bg-slate-50 rounded-2xl border border-slate-100">
             <div className="space-y-1">
-              <p className="font-black text-slate-900 uppercase tracking-tight">Certificate of Liability (COI)</p>
+              <p className="font-black text-slate-900 uppercase tracking-tight">
+                Certificate of Liability Insurance (PDF or Image)
+              </p>
               <div className="flex items-center gap-2">
                 {providerInfo?.onboarding?.insuranceUploaded ? (
-                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[10px] font-black uppercase">Verified</Badge>
+                  <Badge className="bg-green-100 text-green-700 border-none text-[10px] font-black uppercase">
+                    Uploaded
+                  </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-amber-600 border-amber-200 text-[10px] font-black uppercase">Required</Badge>
+                  <Badge
+                    variant="outline"
+                    className="text-amber-600 border-amber-200 text-[10px] font-black uppercase"
+                  >
+                    Pending Task
+                  </Badge>
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Document must list 'Wont Stop Moving' as additional insured</p>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <input 
-                type="file" 
-                hidden 
-                accept="application/pdf,image/*"
+            <div>
+              <input
+                type="file"
+                hidden
+                accept="application/pdf,image/*,.pdf"
                 ref={insuranceInputRef}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleFileUpload('insurance', file);
+                  if (file) handleFileUpload("insurance", file);
                 }}
               />
-              {!providerInfo?.onboarding?.insuranceUploaded ? (
-                <Button 
-                  onClick={() => insuranceInputRef.current?.click()} 
-                  disabled={isUploading === 'insurance'}
-                  variant="outline" 
-                  className="h-12 px-8 rounded-xl border-accent text-accent hover:bg-accent hover:text-white font-black uppercase tracking-widest transition-all duration-300"
-                >
-                  {isUploading === 'insurance' && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  Upload
-                </Button>
-              ) : (
-                <Button 
-                  onClick={() => insuranceInputRef.current?.click()} 
-                  disabled={isUploading === 'insurance'}
-                  variant="ghost" 
-                  className="h-12 px-8 rounded-xl border-accent/20 text-slate-400 hover:bg-accent hover:text-white font-black uppercase tracking-widest transition-all duration-300"
-                >
-                  {isUploading === 'insurance' && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  Update COI
-                </Button>
-              )}
+              <Button
+                type="button"
+                onClick={() => insuranceInputRef.current?.click()}
+                disabled={isUploading === "insurance"}
+                variant={
+                  providerInfo?.onboarding?.insuranceUploaded
+                    ? "outline"
+                    : "default"
+                }
+                className="h-12 px-8 rounded-xl font-black uppercase tracking-widest text-xs"
+              >
+                {isUploading === "insurance" && (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                )}
+                {providerInfo?.onboarding?.insuranceUploaded
+                  ? "Update COI"
+                  : "Upload COI"}
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Stripe Connect Section */}
-      <Card className="shadow-2xl border-none bg-slate-900 text-white mt-8 overflow-hidden group">
-        <div className="bg-white/5 border-b border-white/5 p-8 relative">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#635BFF]/10 rounded-full blur-3xl -mr-32 -mt-32" />
-          <CardTitle className="text-xl font-black uppercase tracking-tighter text-white flex items-center gap-3 relative z-10">
-            <div className="p-2 bg-[#635BFF]/20 rounded-lg"><DollarSign className="h-5 w-5 text-[#635BFF]" /></div>
-            Payments & Payouts
-          </CardTitle>
-          <p className="text-slate-500 text-xs font-medium mt-2 max-w-md relative z-10 uppercase tracking-widest leading-loose">Connect your bank account securely via Stripe to receive automated payouts directly to your bank.</p>
-        </div>
-        <CardContent className="p-8">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 bg-white/5 rounded-3xl border border-white/5 transition-all duration-500 hover:border-[#635BFF]/30 group">
-            <div className="space-y-1">
-              <p className="font-black text-white uppercase tracking-tight">Bank Account Status</p>
-              <div className="flex items-center gap-2">
-                {providerInfo?.stripeOnboardingComplete ? (
-                  <Badge className="bg-green-500 text-white border-none text-[10px] font-black uppercase">Verified & Active</Badge>
-                ) : providerInfo?.stripeAccountId ? (
-                  <Badge className="bg-amber-500 text-white border-none text-[10px] font-black uppercase">Action Required</Badge>
-                ) : (
-                  <Badge className="bg-slate-700 text-slate-400 border-none text-[10px] font-black uppercase">Not Connected</Badge>
-                )}
-              </div>
+      {/* Section 5: Stripe Connect Bank Payouts */}
+      <Card
+        id="stripe-section"
+        className="shadow-xl border-none bg-slate-900 text-white rounded-3xl overflow-hidden"
+      >
+        <CardContent className="p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-[#635BFF]" />
+              <h3 className="text-xl font-black uppercase tracking-tight">
+                5. Business Bank & Stripe Payouts
+              </h3>
             </div>
-            
-            <Button 
-              onClick={handleConnectBank} 
-              disabled={stripeStatusLoading}
-              className={`h-12 px-8 rounded-xl font-black uppercase tracking-widest transition-all duration-300 ${providerInfo?.stripeOnboardingComplete 
-                ? "bg-slate-800 text-slate-300 hover:bg-slate-700" 
-                : "bg-[#635BFF] hover:bg-[#4f46e5] text-white shadow-lg shadow-[#635BFF]/20"}`}
-            >
-              {stripeStatusLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              {providerInfo?.stripeOnboardingComplete ? "Update Payout Details" : (providerInfo?.stripeAccountId ? "Resume Onboarding" : "Connect Stripe")}
-              {!stripeStatusLoading && <ExternalLink className="w-4 h-4 ml-2" />}
-            </Button>
+            <p className="text-xs text-slate-400 max-w-lg leading-relaxed">
+              Connect your business bank account via Stripe Connect Express to receive automated 85% payouts upon job completion.
+            </p>
+            <div>
+              {providerInfo?.stripeOnboardingComplete ? (
+                <Badge className="bg-green-500 text-white border-none text-[10px] font-black uppercase">
+                  Bank Connected & Verified
+                </Badge>
+              ) : (
+                <Badge className="bg-slate-800 text-slate-300 border-none text-[10px] font-black uppercase">
+                  {providerInfo?.stripeAccountId
+                    ? "Onboarding Started"
+                    : "Not Connected Yet"}
+                </Badge>
+              )}
+            </div>
           </div>
+
+          <Button
+            type="button"
+            onClick={handleConnectBank}
+            disabled={stripeStatusLoading}
+            className="h-12 px-8 rounded-xl bg-[#635BFF] hover:bg-[#4f46e5] text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-[#635BFF]/20 shrink-0"
+          >
+            {stripeStatusLoading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : null}
+            {providerInfo?.stripeOnboardingComplete
+              ? "Update Bank Details"
+              : providerInfo?.stripeAccountId
+              ? "Resume Stripe Onboarding"
+              : "Connect Business Bank"}
+            {!stripeStatusLoading && <ExternalLink className="w-4 h-4 ml-2" />}
+          </Button>
         </CardContent>
       </Card>
-      
     </div>
   );
 }

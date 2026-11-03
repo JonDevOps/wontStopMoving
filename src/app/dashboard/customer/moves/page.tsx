@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, Suspense } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 function MovesContent() {
   const { user } = useUser();
@@ -35,6 +35,8 @@ function MovesContent() {
   const { toast } = useToast();
   const sessionId = searchParams.get("session_id");
   const jobId = searchParams.get("job_id");
+  const demoQuoteId = searchParams.get("demo_quote_id");
+  const demoAmount = searchParams.get("amount");
 
   useEffect(() => {
     if (sessionId && jobId && firestore) {
@@ -54,8 +56,10 @@ function MovesContent() {
               stripeCustomerId: data.customerId || null
             });
             toast({
-              title: "Payment Successful! 🎉",
-              description: "Your moving job has been fully confirmed and is held in escrow.",
+              title: data.demo ? "Demo Booking Confirmed! 🎉" : "Payment Successful! 🎉",
+              description: data.demo
+                ? "Your moving job has been confirmed in sandbox mode (add your live Stripe key in Banking & Stripe Setup when ready)."
+                : "Your moving job has been fully confirmed and is held in escrow.",
             });
             router.replace("/dashboard/customer/moves", { scroll: false });
           }
@@ -64,8 +68,120 @@ function MovesContent() {
         }
       };
       verifySession();
+    } else if (sessionId && !jobId && firestore && user) {
+      const verifyQuoteSession = async () => {
+        try {
+          const res = await fetch("/api/stripe/verify-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId }),
+          });
+          const data = await res.json();
+          const quoteId = data.metadata?.quoteId;
+          if (data.paymentStatus === "paid" && quoteId) {
+            const quoteRef = doc(firestore, "quotes", quoteId);
+            const quoteSnap = await getDoc(quoteRef);
+            const quoteData = quoteSnap.exists() ? quoteSnap.data() : {};
+            let details: any = {};
+            try {
+              details = typeof quoteData.details === "string" ? JSON.parse(quoteData.details) : quoteData.details || {};
+            } catch {}
+
+            const deterministicJobId = `job_quote_${quoteId}`;
+            const newJobRef = doc(firestore, "jobs", deterministicJobId);
+            const existingSnap = await getDoc(newJobRef);
+            const releaseCode =
+              existingSnap.exists() && existingSnap.data()?.releaseCode
+                ? existingSnap.data().releaseCode
+                : Math.floor(100000 + Math.random() * 900000).toString();
+
+            await setDoc(
+              newJobRef,
+              {
+                id: deterministicJobId,
+                customerId: user.uid,
+                quoteId,
+                status: "confirmed",
+                state: quoteData.state || details.state || "California",
+                moveDate: quoteData.moveDate || details.moveDate || new Date().toISOString().split("T")[0],
+                pickupAddress: quoteData.pickupZip || details.pickupZip || "Local Pickup",
+                dropoffAddress: quoteData.dropoffZip || details.dropoffZip || "Local Drop-off",
+                moveSize: data.metadata?.moveSize || quoteData.moveSize || details.moveSize || "studio",
+                price: data.amountTotal || quoteData.estimatedTotal || 550,
+                employeeIds: [],
+                providerIds: quoteData.preferredProviderId ? [quoteData.preferredProviderId] : [],
+                releaseCode,
+                stripeCustomerId: data.customerId || null,
+                paymentIntentId: data.paymentIntentId || null,
+                paymentId: sessionId,
+                createdAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+
+            try {
+              await updateDoc(quoteRef, { status: "processed" });
+            } catch {}
+
+            toast({
+              title: "Payment Successful & Move Confirmed! 🎉",
+              description: `Your move is confirmed in escrow. Your 6-digit release code is ${releaseCode}.`,
+            });
+            router.replace("/dashboard/customer/moves", { scroll: false });
+          }
+        } catch (err) {
+          console.error("Quote session verification failed", err);
+        }
+      };
+      verifyQuoteSession();
+    } else if (demoQuoteId && firestore && user) {
+      const createDemoJobFromQuote = async () => {
+        try {
+          const quoteRef = doc(firestore, "quotes", demoQuoteId);
+          const quoteSnap = await getDoc(quoteRef);
+          const quoteData = quoteSnap.exists() ? quoteSnap.data() : {};
+          let details: any = {};
+          try {
+            details = typeof quoteData.details === "string" ? JSON.parse(quoteData.details) : quoteData.details || {};
+          } catch {}
+
+          const newJobRef = doc(collection(firestore, "jobs"));
+          const releaseCode = Math.floor(100000 + Math.random() * 900000).toString();
+          await setDoc(newJobRef, {
+            id: newJobRef.id,
+            customerId: user.uid,
+            quoteId: demoQuoteId,
+            status: "confirmed",
+            state: quoteData.state || details.state || "California",
+            moveDate: quoteData.moveDate || details.moveDate || new Date().toISOString().split("T")[0],
+            pickupAddress: quoteData.pickupZip || details.pickupZip || "Local Pickup",
+            dropoffAddress: quoteData.dropoffZip || details.dropoffZip || "Local Drop-off",
+            moveSize: quoteData.moveSize || details.moveSize || "studio",
+            price: Number(demoAmount) || quoteData.estimatedTotal || 550,
+            employeeIds: [],
+            providerIds: quoteData.preferredProviderId ? [quoteData.preferredProviderId] : [],
+            releaseCode,
+            stripeCustomerId: `cus_demo_${Date.now()}`,
+            paymentIntentId: `pi_demo_${Date.now()}`,
+            createdAt: serverTimestamp(),
+          });
+
+          try {
+            await updateDoc(quoteRef, { status: "processed" });
+          } catch {}
+
+          toast({
+            title: "Move Booked (Sandbox Mode)! 🎉",
+            description: "Your quote has been converted into a confirmed move with a 6-digit escrow release code.",
+          });
+          router.replace("/dashboard/customer/moves", { scroll: false });
+        } catch (err) {
+          console.error("Demo quote booking failed", err);
+        }
+      };
+      createDemoJobFromQuote();
     }
-  }, [sessionId, jobId, firestore, router, toast]);
+  }, [sessionId, jobId, demoQuoteId, demoAmount, firestore, user, router, toast]);
 
   return (
     <div className="space-y-8 animate-fade-in">

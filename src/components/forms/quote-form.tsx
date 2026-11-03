@@ -33,8 +33,9 @@ import {
 } from "lucide-react";
 import { useFirestore, useUser, useAuth } from "@/firebase";
 import { collection, serverTimestamp, doc, setDoc, addDoc, getDoc } from "firebase/firestore";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
+import { calculateMoveTotal } from "@/lib/pricing";
 import Link from "next/link";
 
 const formSchema = z.object({
@@ -73,10 +74,10 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, setValue, watch, trigger, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      moveSize: "1br",
+      moveSize: "studio",
       packingService: false,
       cratingService: false,
       cleaningService: false,
@@ -88,6 +89,22 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
       isStudent: false,
       isMilitary: false,
     }
+  });
+
+  const selectedAddOnKeys = [
+    watch("packingService") && "packing",
+    watch("cratingService") && "crating",
+    watch("cleaningService") && "cleaning",
+    watch("junkRemoval") && "junkRemoval",
+    watch("assemblyService") && "assembly",
+    watch("storageService") && "storage",
+    watch("pianoMoving") && "piano",
+  ].filter(Boolean) as string[];
+
+  const estimatedTotal = calculateMoveTotal(watch("moveSize") || "studio", selectedAddOnKeys, {
+    isStudent: !!watch("isStudent"),
+    isMilitary: !!watch("isMilitary"),
+    isExpress: !!watch("expressMoving"),
   });
 
   // Pre-fill fields if user is logged in
@@ -124,20 +141,29 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
           return;
         }
 
-        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-        const newUser = userCredential.user;
-        currentUserId = newUser.uid;
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+          const newUser = userCredential.user;
+          currentUserId = newUser.uid;
 
-        // Create the user profile in Firestore
-        await setDoc(doc(firestore, "users", currentUserId), {
-          id: currentUserId,
-          email: data.email,
-          name: data.name,
-          phone: data.phone,
-          role: 'customer',
-          state: "New",
-          createdAt: serverTimestamp(),
-        });
+          // Create the user profile in Firestore
+          await setDoc(doc(firestore, "users", currentUserId), {
+            id: currentUserId,
+            email: data.email,
+            name: data.name,
+            phone: data.phone,
+            role: 'customer',
+            state: "New",
+            createdAt: serverTimestamp(),
+          });
+        } catch (authErr: any) {
+          if (authErr.code === "auth/email-already-in-use") {
+            const signInCred = await signInWithEmailAndPassword(auth, data.email, data.password);
+            currentUserId = signInCred.user.uid;
+          } else {
+            throw authErr;
+          }
+        }
       }
 
       // 2. Save the Quote
@@ -151,6 +177,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
         moveDate: data.moveDate,
         moveSize: data.moveSize,
         specialItems: data.specialItems || "",
+        estimatedTotal,
         customerId: currentUserId,
         preferredProviderId: providerId || null,
         status: 'new',
@@ -163,6 +190,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
           specialItems: data.specialItems,
           isStudent: data.isStudent,
           isMilitary: data.isMilitary,
+          estimatedTotal,
           addOns: {
             packing: data.packingService,
             crating: data.cratingService,
@@ -189,7 +217,23 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
     }
   };
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, totalSteps));
+  const nextStep = async () => {
+    let fieldsToValidate: (keyof FormValues)[] = [];
+    if (step === 1) {
+      fieldsToValidate = ["pickupZip", "dropoffZip", "moveDate"];
+    } else if (step === 2) {
+      fieldsToValidate = ["moveSize"];
+    } else if (step === 4) {
+      fieldsToValidate = user ? ["name", "phone", "email"] : ["name", "phone", "email", "password"];
+    }
+
+    if (fieldsToValidate.length > 0) {
+      const isValid = await trigger(fieldsToValidate);
+      if (!isValid) return;
+    }
+
+    setStep(prev => Math.min(prev + 1, totalSteps));
+  };
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
   const progress = (step / totalSteps) * 100;
@@ -211,14 +255,23 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
         <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
           <Check className="h-10 w-10" />
         </div>
-        <h2 className="text-3xl font-black text-primary mb-4 uppercase tracking-tighter">Estimate Ready!</h2>
+        <h2 className="text-3xl font-black text-primary mb-2 uppercase tracking-tighter">Estimate Ready!</h2>
+        <div className="my-6 inline-block bg-primary/5 border border-primary/10 rounded-2xl px-8 py-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Instant Estimated Total</p>
+          <p className="text-4xl font-black text-accent mt-1">${estimatedTotal.toLocaleString()}</p>
+        </div>
         <p className="text-muted-foreground mb-8 text-balance">
           Thank you, {watch("name")}! {user ? "Your quote has been added to your account." : "We've created your secure account and saved your quote."} 
           You can now review your price and book your move directly from your dashboard.
         </p>
-        <Button asChild className="bg-primary rounded-full px-12 h-12 font-bold uppercase tracking-widest text-xs">
-          <Link href="/dashboard/customer">Go to My Dashboard</Link>
-        </Button>
+        <div className="flex flex-wrap justify-center gap-4">
+          <Button asChild className="bg-primary rounded-full px-10 h-12 font-bold uppercase tracking-widest text-xs">
+            <Link href="/dashboard/customer/quotes">Review & Book Move</Link>
+          </Button>
+          <Button asChild variant="outline" className="rounded-full px-8 h-12 font-bold uppercase tracking-widest text-xs">
+            <Link href="/dashboard/customer">Go to My Dashboard</Link>
+          </Button>
+        </div>
       </Card>
     );
   }
@@ -396,9 +449,15 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
           {/* Step 5: Review */}
           {step === 5 && (
             <div className="space-y-6 animate-fade-in">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="bg-primary/10 p-2 rounded-lg text-primary"><Package className="h-5 w-5" /></div>
-                <h3 className="text-xl font-bold">Review Details</h3>
+              <div className="flex items-center justify-between gap-3 mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 p-2 rounded-lg text-primary"><Package className="h-5 w-5" /></div>
+                  <h3 className="text-xl font-bold">Review Details</h3>
+                </div>
+                <div className="text-right bg-accent/10 border border-accent/20 px-4 py-2 rounded-xl">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-accent">Instant Estimate</p>
+                  <p className="text-2xl font-black text-primary">${estimatedTotal.toLocaleString()}</p>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-6 text-sm">
                 <div className="space-y-1">

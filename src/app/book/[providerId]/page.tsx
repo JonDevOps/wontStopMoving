@@ -92,7 +92,7 @@ export default function DirectBookingPage() {
         title: "Authentication Required",
         description: "Please log in or sign up to book a provider.",
       });
-      router.push(`/login?redirect=/book/${providerId}`);
+      router.push(`/login?role=customer&redirect=/book/${providerId}`);
       return;
     }
     

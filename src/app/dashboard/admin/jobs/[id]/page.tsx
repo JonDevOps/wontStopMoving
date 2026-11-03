@@ -29,26 +29,50 @@ export default function AdminJobDetailsPage() {
 
   const providersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, "users"), where("role", "==", "provider"));
+    return query(collection(firestore, "providers"));
+  }, [firestore]);
+
+  const employeesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "users"), where("role", "==", "employee"));
   }, [firestore]);
 
   const { data: providers, isLoading: providersLoading } = useCollection(providersQuery);
+  const { data: employees, isLoading: employeesLoading } = useCollection(employeesQuery);
 
   const handleAssignProvider = async (providerId: string) => {
     if (!jobRef || !job) return;
     setUpdating(true);
     try {
-      // Toggle assignment: If already assigned, remove it (reassignment logic)
       const currentProviders = job.providerIds || [];
       const newProviders = currentProviders.includes(providerId)
         ? currentProviders.filter((id: string) => id !== providerId)
         : [...currentProviders, providerId];
 
       await updateDoc(jobRef, { providerIds: newProviders });
-      toast({ title: "Provider Assigned", description: "The provider has been attached to this job." });
+      toast({ title: "Provider Updated", description: "Provider assignment updated for this job." });
     } catch (error) {
       console.error("Error assigning provider:", error);
       toast({ variant: "destructive", title: "Assignment Failed", description: "Failed to assign provider. Check permissions." });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleAssignEmployee = async (employeeId: string) => {
+    if (!jobRef || !job) return;
+    setUpdating(true);
+    try {
+      const currentEmployees = job.employeeIds || [];
+      const newEmployees = currentEmployees.includes(employeeId)
+        ? currentEmployees.filter((id: string) => id !== employeeId)
+        : [...currentEmployees, employeeId];
+
+      await updateDoc(jobRef, { employeeIds: newEmployees });
+      toast({ title: "Crew Member Updated", description: "Employee crew assignment updated for this job." });
+    } catch (error) {
+      console.error("Error assigning employee:", error);
+      toast({ variant: "destructive", title: "Assignment Failed", description: "Failed to assign employee." });
     } finally {
       setUpdating(false);
     }
@@ -58,8 +82,6 @@ export default function AdminJobDetailsPage() {
     if (!jobRef || !job) return;
     setUpdating(true);
     try {
-      // In a real app this would call an API route to trigger Stripe payouts.
-      // For now we simulate an override completion.
       await updateDoc(jobRef, { status: "completed" });
       toast({ title: "Job Force Completed", description: "Escrow funds manually released to provider." });
     } catch (error) {
@@ -69,7 +91,20 @@ export default function AdminJobDetailsPage() {
     }
   };
 
-  if (jobLoading || providersLoading) {
+  const handleRefundJob = async () => {
+    if (!jobRef || !job) return;
+    setUpdating(true);
+    try {
+      await updateDoc(jobRef, { status: "cancelled" });
+      toast({ title: "Job Cancelled & Refunded", description: "Escrow hold has been cancelled and marked for customer refund." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Action Failed", description: "Could not refund job." });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  if (jobLoading || providersLoading || employeesLoading) {
     return (
       <EmployeeLayout isAdmin>
         <div className="p-20 text-center animate-pulse font-black text-muted-foreground uppercase tracking-widest text-xs">
@@ -94,7 +129,7 @@ export default function AdminJobDetailsPage() {
           <Button variant="ghost" size="icon" asChild>
             <Link href="/dashboard/admin/jobs"><ArrowLeft className="h-5 w-5" /></Link>
           </Button>
-          h1 <h1 className="text-3xl font-black text-primary uppercase">Job <span className="text-accent">{job.id.slice(0, 8)}</span></h1>
+          <h1 className="text-3xl font-black text-primary uppercase">Job <span className="text-accent">{job.id.slice(0, 8)}</span></h1>
           <Badge className="uppercase text-[10px] font-black">{job.status}</Badge>
         </div>
 
@@ -177,6 +212,7 @@ export default function AdminJobDetailsPage() {
                   <Button 
                     variant="destructive" 
                     className="flex-1 uppercase tracking-widest text-[10px] font-black"
+                    onClick={handleRefundJob}
                     disabled={updating}
                   >
                     <ShieldAlert className="w-4 h-4 mr-2" /> Refund
@@ -187,35 +223,37 @@ export default function AdminJobDetailsPage() {
           </Card>
         </div>
 
-        <div className="grid md:grid-cols-1 gap-6">
+        <div className="grid md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><User className="h-5 w-5 text-accent" /> Assignment / God Mode</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Truck className="h-5 w-5 text-accent" /> Marketplace Providers</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
                 {job.preferredProviderId 
                   ? `Customer requested provider ID: ${job.preferredProviderId}` 
-                  : "No specific provider requested by customer."}
+                  : "Assign an independent service provider to fulfill this move."}
               </p>
               <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-primary mb-2">Available Providers</h4>
                 {providers && providers.length > 0 ? (
                   providers.map((p) => {
                     const isAssigned = job.providerIds?.includes(p.id);
                     const isPreferred = job.preferredProviderId === p.id;
+                    const displayName = p.businessName || p.name || "Provider";
                     return (
                       <div key={p.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${isAssigned ? 'bg-green-500' : 'bg-slate-300'}`}>
-                            {p.name?.[0] || 'P'}
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${isAssigned ? 'bg-green-500' : 'bg-slate-800'}`}>
+                            {displayName[0]?.toUpperCase() || 'P'}
                           </div>
                           <div>
                             <p className="font-bold text-sm text-primary flex items-center gap-2">
-                              {p.name || "Unnamed"}
-                              {isPreferred && <Badge variant="outline" className="text-[10px] bg-yellow-50 text-yellow-700 border-yellow-200">Customer Preferred</Badge>}
+                              {displayName}
+                              {isPreferred && <Badge variant="outline" className="text-[10px] bg-yellow-50 text-yellow-700 border-yellow-200">Preferred</Badge>}
                             </p>
-                            <p className="text-xs text-muted-foreground">{p.email}</p>
+                            <p className="text-xs text-muted-foreground">
+                              ${p.hourlyRate || 50}/hr • {p.status || "pending"}
+                            </p>
                           </div>
                         </div>
                         <Button
@@ -225,13 +263,55 @@ export default function AdminJobDetailsPage() {
                           onClick={() => handleAssignProvider(p.id)}
                           className={isAssigned ? "border-green-500 text-green-600 hover:bg-green-50" : ""}
                         >
-                          {isAssigned ? <><Check className="w-4 h-4 mr-2" /> Assigned</> : "Assign"}
+                          {isAssigned ? <><Check className="w-4 h-4 mr-1" /> Assigned</> : "Assign"}
                         </Button>
                       </div>
                     );
                   })
                 ) : (
                   <p className="text-xs text-muted-foreground italic">No providers available.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><User className="h-5 w-5 text-accent" /> Internal W-2 Crew</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Assign internal Wont Stop Moving employees to this job dispatch.
+              </p>
+              <div className="space-y-3">
+                {employees && employees.length > 0 ? (
+                  employees.map((emp) => {
+                    const isAssigned = job.employeeIds?.includes(emp.id);
+                    return (
+                      <div key={emp.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${isAssigned ? 'bg-green-500' : 'bg-primary'}`}>
+                            {emp.name?.[0]?.toUpperCase() || 'E'}
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm text-primary">{emp.name || "Employee"}</p>
+                            <p className="text-xs text-muted-foreground">{emp.email} • {emp.state || "US"}</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant={isAssigned ? "outline" : "default"}
+                          size="sm"
+                          disabled={updating}
+                          onClick={() => handleAssignEmployee(emp.id)}
+                          className={isAssigned ? "border-green-500 text-green-600 hover:bg-green-50" : ""}
+                        >
+                          {isAssigned ? <><Check className="w-4 h-4 mr-1" /> Dispatched</> : "Dispatch"}
+                        </Button>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">No employees available.</p>
                 )}
               </div>
             </CardContent>

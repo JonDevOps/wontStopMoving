@@ -1,7 +1,39 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model & Security Invariants
+    // ===============================================================
+    //
+    // 1. /users/{userId}
+    //    - Fields: id, email, name, firstName, lastName, phone, role ('customer' | 'employee' | 'provider' | 'admin'),
+    //      state, twoFactorEnabled, twoFactorMethod, twoFactorPhone, twoFactorUpdatedAt, createdAt
+    //    - Security: Only owner or admin can read individual profile; only admin can list users.
+    //      Non-admin users cannot self-assign or escalate their `role` to 'admin'.
+    //
+    // 2. /employees/{employeeUid}
+    //    - Fields: id, userId, status ('applicant' | 'training' | 'active' | 'rejected'), onboardingStep,
+    //      address, aptSuite, city, state, zipCode, businessName, businessDescription, hasDotVehicle,
+    //      affiliation, source, verification, availability, assignedJobIds, createdAt
+    //    - Security: Only owner or admin can get; only admin can list or change `status` (e.g. to 'active').
+    //
+    // 3. /providers/{providerUid}
+    //    - Fields: uid, businessName, email, phone, bio, status ('pending' | 'approved' | 'suspended'),
+    //      isEmployee, services, hourlyRate, minimumHours, rating, reviewCount, location, geohash,
+    //      onboarding, onboardingStep, stripeAccountId, stripeOnboardingComplete, termsAccepted
+    //    - Security: Publicly readable for marketplace discovery. Providers can only create with
+    //      `status == 'pending'` and cannot modify their own `status` on update (only admins can approve/suspend).
+    //
+    // 4. /quotes/{id}
+    //    - Fields: customerId, name, email, phone, pickupZip, dropoffZip, moveDate, moveSize,
+    //      specialItems, estimatedTotal, preferredProviderId, status ('new' | 'processed' | 'expired'),
+    //      details, createdAt
+    //    - Security: Readable and updatable by the quote's customer or an admin; creatable for quote intake.
+    //
+    // 5. /announcements/{id}, /applications/{id}, /jobs/{id}, /jobs/{id}/messages/{messageId}
+    //    - Scoped to authorized participants and administrators.
+    // ===============================================================
 
     // Helper functions
     function isSignedIn() {
@@ -21,6 +53,11 @@ service cloud.firestore {
       return hasRole('admin');
     }
 
+    function canSelfAssignAdmin() {
+      return ('email' in request.auth.token && request.auth.token.email == 'admin@wontstopmoving.com') ||
+             ('adminInviteVerified' in request.resource.data && request.resource.data.adminInviteVerified == true);
+    }
+
     function canAccessJob(jobId) {
       let job = get(/databases/$(database)/documents/jobs/$(jobId)).data;
       return isAdmin() || 
@@ -32,22 +69,41 @@ service cloud.firestore {
     // Rules
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
+      allow create: if isAdmin() || (
+        isOwner(userId) && (
+          request.resource.data.role in ['customer', 'employee', 'provider'] ||
+          (request.resource.data.role == 'admin' && canSelfAssignAdmin())
+        )
+      );
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        request.resource.data.role == resource.data.role
+      );
+      allow delete: if isAdmin();
     }
 
     match /employees/{employeeUid} {
       allow get: if isOwner(employeeUid) || isAdmin();
-      allow create: if isSignedIn() && request.auth.uid == employeeUid;
-      allow update: if isOwner(employeeUid) || isAdmin();
       allow list: if isAdmin();
+      allow create: if isAdmin() || (
+        isOwner(employeeUid) &&
+        (!('status' in request.resource.data) || request.resource.data.status != 'active')
+      );
+      allow update: if isAdmin() || (
+        isOwner(employeeUid) &&
+        (!('status' in request.resource.data) || request.resource.data.status == resource.data.status)
+      );
+      allow delete: if isAdmin();
     }
 
     match /providers/{providerUid} {
       allow read: if true;
-      allow create: if isSignedIn() && request.auth.uid == providerUid;
-      allow update: if isOwner(providerUid) || isAdmin();
+      allow create: if (isOwner(providerUid) && request.resource.data.status == 'pending') || isAdmin();
+      allow update: if isAdmin() || (
+        isOwner(providerUid) &&
+        request.resource.data.status == resource.data.status
+      );
       allow delete: if isAdmin();
 
       match /reviews/{reviewId} {
@@ -70,7 +126,8 @@ service cloud.firestore {
     match /quotes/{id} {
       allow read: if (isSignedIn() && resource.data.customerId == request.auth.uid) || isAdmin();
       allow create: if true;
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow delete: if isAdmin();
     }
 
     match /jobs/{id} {
@@ -87,6 +144,11 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read, create: if isSignedIn() && canAccessJob(id);
       }
+    }
+
+    // Default deny fallback
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -27,6 +27,7 @@ export default function DashboardRootRedirect() {
           const role = userDoc.data().role;
           if (role === 'admin') router.replace('/dashboard/admin');
           else if (role === 'employee') router.replace('/dashboard/employee');
+          else if (role === 'provider') router.replace('/dashboard/provider');
           else router.replace('/dashboard/customer');
         } else {
           router.replace("/login");

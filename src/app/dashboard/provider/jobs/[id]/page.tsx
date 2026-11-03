@@ -48,19 +48,52 @@ export default function ProviderJobDetailsPage() {
       toast({ variant: "destructive", title: "Invalid Code", description: "Please enter a 6-digit code." });
       return;
     }
-    if (!job) return;
+    if (!job || !firestore) return;
+    if (job.releaseCode && releaseCode.trim() !== String(job.releaseCode).trim()) {
+      toast({
+        variant: "destructive",
+        title: "Incorrect Release Code",
+        description: "The 6-digit code entered does not match the customer's escrow release code.",
+      });
+      return;
+    }
     setSubmittingCode(true);
     try {
+      let stripeAccountId: string | undefined;
+      if (user) {
+        const providerSnap = await getDoc(doc(firestore, "providers", user.uid));
+        if (providerSnap.exists()) {
+          stripeAccountId = providerSnap.data()?.stripeAccountId;
+        }
+      }
+
       const res = await fetch("/api/jobs/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId: job.id, code: releaseCode }),
+        body: JSON.stringify({
+          jobId: job.id,
+          code: releaseCode,
+          price: job.price || 0,
+          stripeAccountId,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to complete job");
+
+      await updateDoc(doc(firestore, "jobs", job.id), {
+        status: "completed",
+        completedAt: new Date().toISOString(),
+        releasedToProvider: true,
+        transferId: data.transferId || null,
+      });
       
-      toast({ title: "Job Completed! 🎉", description: "Funds have been submitted for payout to your connected Stripe account." });
-      setJob({ ...job, status: "completed" });
+      toast({
+        title: "Job Completed! 🎉",
+        description: data.transferId
+          ? "70% payout transfer initiated to your connected Stripe account!"
+          : "Job marked complete and 70% payout queued for your connected Stripe account.",
+      });
+      setJob({ ...job, status: "completed", releasedToProvider: true });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Completion Failed", description: err.message });
     } finally {

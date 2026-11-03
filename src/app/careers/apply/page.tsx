@@ -136,7 +136,7 @@ export default function EmployeeSignUpPage() {
             </div>
             <div className="flex items-center justify-center gap-3 mb-2">
               <span className="bg-accent text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Phase 1</span>
-              <h1 className="text-3xl sm:text-4xl font-black text-primary uppercase">Provider <span className="text-accent">Sign Up</span></h1>
+              <h1 className="text-3xl sm:text-4xl font-black text-primary uppercase">Employee <span className="text-accent">Sign Up</span></h1>
             </div>
             <p className="text-muted-foreground font-medium">Create your secure account to join our 51,000+ member network.</p>
           </div>
@@ -290,6 +290,15 @@ export default function EmployeeSignUpPage() {
                   {isLoading ? "Processing..." : "Create Account & Continue"}
                 </Button>
               </form>
+
+              <div className="mt-8 pt-8 border-t border-gray-100 flex flex-col items-center gap-3">
+                <p className="text-center font-bold text-muted-foreground uppercase text-[10px] tracking-widest">
+                  Already have an employee account?
+                </p>
+                <Link href="/login?role=employee" className="text-primary font-black uppercase tracking-widest text-xs hover:text-accent transition-colors flex items-center gap-2">
+                  Back to Employee Sign In <ArrowLeft className="h-3 w-3 rotate-180" />
+                </Link>
+              </div>
             </CardContent>
           </Card>
         </div>

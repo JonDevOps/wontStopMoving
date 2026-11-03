@@ -8,14 +8,18 @@ import { DollarSign, Clock, CheckCircle2, Loader2, ArrowUpRight } from "lucide-r
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ProviderLayout } from "@/components/layout/provider-layout";
+import Link from "next/link";
 
 type Job = {
   id: string;
   customerId: string;
   status: string;
   price: number;
-  scheduledDate: Timestamp;
-  location: { address: string };
+  moveDate?: string;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  scheduledDate?: Timestamp;
+  location?: { address: string };
   releasedToProvider?: boolean;
 };
 
@@ -114,9 +118,9 @@ export default function ProviderEarningsPage() {
              <CardContent className="pt-6 relative z-10">
                <h3 className="font-semibold text-lg text-slate-800">Ready to Cash Out?</h3>
                <p className="text-sm text-slate-500 mb-4 mt-1">Connect your bank account to withdraw your available balance instantly via Stripe Connect.</p>
-               <button className="w-full py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors flex items-center justify-center">
+               <Link href="/dashboard/provider" className="w-full py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors flex items-center justify-center">
                  Setup Payouts <ArrowUpRight className="w-4 h-4 ml-1 opacity-70" />
-               </button>
+               </Link>
              </CardContent>
           </Card>
         </div>
@@ -148,9 +152,15 @@ export default function ProviderEarningsPage() {
                          )}
                       </div>
                       <div>
-                        <p className="font-medium text-slate-900">Job: {job.location?.address?.split(',')[0] || "Local Move"}</p>
+                        <p className="font-medium text-slate-900">
+                          Job: {job.pickupAddress?.split(',')[0] || job.location?.address?.split(',')[0] || "Local Move"}
+                        </p>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                          {job.scheduledDate ? format(job.scheduledDate.toDate(), "MMM d, yyyy") : "Date TBD"}
+                          {job.moveDate
+                            ? format(new Date(job.moveDate), "MMM d, yyyy")
+                            : job.scheduledDate?.toDate
+                            ? format(job.scheduledDate.toDate(), "MMM d, yyyy")
+                            : "Date TBD"}
                         </p>
                       </div>
                     </div>

@@ -7,15 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
+import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
 import { User, Mail, Phone, MapPin, Save, ShieldCheck, ShieldAlert } from "lucide-react";
+import { TwoFactorCard } from "@/components/security/two-factor-card";
 
 function AdminProfileContent() {
   const { user } = useUser();
+  const auth = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -173,11 +176,22 @@ function AdminProfileContent() {
               <p className="text-sm opacity-80 leading-relaxed">
                 As a System Administrator, you are required to use strong authentication. Password resets require verification from the root security hub.
               </p>
-              <Button variant="ghost" className="w-full text-white hover:bg-white/10 border border-white/20 rounded-xl font-bold uppercase tracking-widest text-[10px] h-10">
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  if (user?.email) {
+                    await sendPasswordResetEmail(auth, user.email);
+                    toast({ title: "Reset Email Sent", description: `Password reset instructions sent to ${user.email}.` });
+                  }
+                }}
+                className="w-full text-white hover:bg-white/10 border border-white/20 rounded-xl font-bold uppercase tracking-widest text-[10px] h-10"
+              >
                 Reset Master Password
               </Button>
             </CardContent>
           </Card>
+
+          <TwoFactorCard roleLabel="Admin" />
 
           <Card className="border-none shadow-sm">
             <CardHeader className="pb-2">

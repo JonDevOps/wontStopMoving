@@ -6,6 +6,18 @@ export async function POST(req: Request) {
     const { accountId } = await req.json();
     if (!accountId) throw new Error("Missing accountId");
 
+    const secretKey = process.env.STRIPE_SECRET_KEY || "";
+    const isPlaceholder = !secretKey || secretKey.includes("placeholder");
+
+    if (accountId.startsWith("acct_demo_") || isPlaceholder) {
+      return NextResponse.json({
+        chargesEnabled: true,
+        payoutsEnabled: true,
+        detailsSubmitted: true,
+        demo: true,
+      });
+    }
+
     const account = await stripe.accounts.retrieve(accountId);
 
     return NextResponse.json({ 

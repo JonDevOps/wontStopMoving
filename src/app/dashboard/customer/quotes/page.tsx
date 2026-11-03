@@ -9,12 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import Link from "next/link";
+import { useState } from "react";
 import { calculateMoveTotal } from "@/lib/pricing";
 import { createCheckoutSession } from "@/app/actions/stripe";
 
 export default function MyQuotesPage() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
 
   // Query for all quotes requested by the current user
   const quotesQuery = useMemoFirebase(() => {
@@ -157,11 +159,34 @@ export default function MyQuotesPage() {
                             <Link href="/dashboard/customer/moves">View Scheduled Move</Link>
                           </Button>
                         )}
-                        <Button variant="ghost" className="rounded-full font-bold text-primary hover:text-accent transition-all gap-2 group-hover:translate-x-1">
-                          Full Details <ChevronRight className="h-4 w-4" />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setExpandedQuoteId(expandedQuoteId === quote.id ? null : quote.id)}
+                          className="rounded-full font-bold text-primary hover:text-accent transition-all gap-2 group-hover:translate-x-1"
+                        >
+                          {expandedQuoteId === quote.id ? "Hide Details" : "Full Details"} <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
+                    {expandedQuoteId === quote.id && (
+                      <div className="bg-slate-50 border-t border-slate-100 p-6 text-xs space-y-2 animate-fade-in">
+                        <div className="flex flex-wrap gap-6">
+                          <div>
+                            <span className="font-black uppercase text-muted-foreground">Selected Add-ons: </span>
+                            <span className="font-bold text-primary capitalize">
+                              {selectedAddOns.length > 0 ? selectedAddOns.join(", ") : "Standard Move Only"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-black uppercase text-muted-foreground">Special Items: </span>
+                            <span className="font-bold text-primary">
+                              {quote.specialItems || details?.specialItems || "None listed"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );

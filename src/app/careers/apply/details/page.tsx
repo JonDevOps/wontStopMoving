@@ -83,10 +83,10 @@ export default function EmployeeDetailsPage() {
 
       toast({
         title: "Details Saved",
-        description: "Moving to Phase 3: Verification.",
+        description: "Your profile is saved! ID verification & 2FA are added to your dashboard tasks.",
       });
       
-      router.push('/careers/apply/verification');
+      router.push('/dashboard/employee');
 
     } catch (error: any) {
       console.error("Update Error:", error);
@@ -278,13 +278,33 @@ export default function EmployeeDetailsPage() {
                   </div>
                 </div>
 
-                <Button 
-                  type="submit" 
-                  disabled={isLoading}
-                  className="w-full bg-accent hover:bg-accent/90 min-h-14 text-lg font-black rounded-xl uppercase tracking-widest shadow-xl shadow-accent/20 mt-8"
-                >
-                  {isLoading ? "Saving Details..." : "Save & Continue to Phase 3"}
-                </Button>
+                <div className="space-y-3 pt-4">
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading}
+                    className="w-full bg-accent hover:bg-accent/90 min-h-14 text-lg font-black rounded-xl uppercase tracking-widest shadow-xl shadow-accent/20"
+                  >
+                    {isLoading ? "Saving Details..." : "Save & Go to Dashboard (Verify ID Later)"}
+                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push('/careers/apply/verification')}
+                      className="flex-1 h-12 rounded-xl font-bold uppercase tracking-wider text-xs border-gray-200"
+                    >
+                      Upload ID Now Instead
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => router.push('/dashboard/employee')}
+                      className="flex-1 h-12 rounded-xl font-bold uppercase tracking-wider text-xs text-muted-foreground hover:text-primary"
+                    >
+                      Skip for Now → Dashboard
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </form>

@@ -7,16 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
+import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
 import { User, Mail, Phone, MapPin, Save, ShieldCheck, Briefcase, Calendar, IdCard, Star, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
+import { TwoFactorCard } from "@/components/security/two-factor-card";
 
 export default function EmployeeProfilePage() {
   const { user } = useUser();
+  const auth = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -237,11 +240,22 @@ export default function EmployeeProfilePage() {
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Need to change your access credentials? A secure reset link will be sent to your verified work email address.
                 </p>
-                <Button variant="outline" className="w-full rounded-xl font-bold text-[10px] uppercase tracking-widest border-gray-200 h-10">
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (user?.email) {
+                      await sendPasswordResetEmail(auth, user.email);
+                      toast({ title: "Reset Email Sent", description: `Password reset instructions sent to ${user.email}.` });
+                    }
+                  }}
+                  className="w-full rounded-xl font-bold text-[10px] uppercase tracking-widest border-gray-200 h-10"
+                >
                   Reset System Password
                 </Button>
               </CardContent>
             </Card>
+
+            <TwoFactorCard roleLabel="Employee" />
           </div>
         </div>
       </div>

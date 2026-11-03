@@ -15,7 +15,9 @@ import {
   ShieldCheck,
   FileText,
   Calculator,
-  UserCheck
+  UserCheck,
+  PhoneCall,
+  Landmark
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -65,9 +67,11 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     if (!isProfileLoading && profile) {
       if (isAdmin && profile.role !== 'admin') {
         if (profile.role === 'employee') router.replace("/dashboard/employee");
+        else if (profile.role === 'provider') router.replace("/dashboard/provider");
         else router.replace("/dashboard/customer");
       } else if (!isAdmin && profile.role !== 'employee' && profile.role !== 'admin') {
-        router.replace("/dashboard/customer");
+        if (profile.role === 'provider') router.replace("/dashboard/provider");
+        else router.replace("/dashboard/customer");
       }
     }
   }, [user, isUserLoading, profile, isProfileLoading, isAdmin, router]);
@@ -81,11 +85,14 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Dashboard", href: "/dashboard/employee", icon: LayoutDashboard },
     { label: "My Jobs", href: "/dashboard/employee/jobs", icon: Truck },
     { label: "Calendar", href: "/dashboard/employee/calendar", icon: Calendar },
+    { label: "Sales Call Script", href: "/dashboard/employee/sales-script", icon: PhoneCall },
     { label: "Profile", href: "/dashboard/employee/profile", icon: User },
   ];
 
   const adminNav: NavItem[] = [
     { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Sales Call Script", href: "/dashboard/admin/sales-script", icon: PhoneCall },
+    { label: "Stripe & Banking", href: "/dashboard/admin/banking", icon: Landmark },
     { label: "Customers", href: "/dashboard/admin/customers", icon: User },
     { label: "Quotes", href: "/dashboard/admin/quotes", icon: Calculator },
     { label: "Jobs", href: "/dashboard/admin/jobs", icon: Truck },

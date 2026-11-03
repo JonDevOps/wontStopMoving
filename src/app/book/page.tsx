@@ -25,20 +25,20 @@ export default function BookingPage() {
             </div>
 
             {/* Booking Options Grid */}
-            <div className="grid md:grid-cols-2 gap-8 mt-16">
+            <div className="grid md:grid-cols-3 gap-6 mt-16">
               <Card className="border-none shadow-2xl bg-white overflow-hidden group hover:-translate-y-1 transition-all duration-300">
                 <div className="h-2 bg-primary" />
-                <CardContent className="p-10 space-y-6">
+                <CardContent className="p-8 space-y-6">
                   <div className="bg-primary/5 p-4 rounded-2xl w-fit text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                     <Calendar className="h-8 w-8" />
                   </div>
                   <div className="space-y-2">
                     <h3 className="text-2xl font-black text-primary uppercase tracking-tight">Schedule Your Date</h3>
-                    <p className="text-muted-foreground leading-relaxed">
+                    <p className="text-muted-foreground leading-relaxed text-sm">
                       Select your moving window and get an instant professional quote based on your specific inventory and distance.
                     </p>
                   </div>
-                  <Button asChild className="w-full bg-primary hover:bg-primary/90 rounded-xl h-14 text-lg font-bold group-hover:gap-4 transition-all">
+                  <Button asChild className="w-full bg-primary hover:bg-primary/90 rounded-xl h-14 text-base font-bold group-hover:gap-4 transition-all">
                     <Link href="/quote">
                       Start My Quote <ArrowRight className="h-5 w-5" />
                     </Link>
@@ -48,8 +48,28 @@ export default function BookingPage() {
 
               <Card className="border-none shadow-2xl bg-white overflow-hidden group hover:-translate-y-1 transition-all duration-300">
                 <div className="h-2 bg-accent" />
-                <CardContent className="p-10 space-y-6">
+                <CardContent className="p-8 space-y-6">
                   <div className="bg-accent/5 p-4 rounded-2xl w-fit text-accent group-hover:bg-accent group-hover:text-white transition-colors">
+                    <Truck className="h-8 w-8" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-black text-primary uppercase tracking-tight">Provider Marketplace</h3>
+                    <p className="text-muted-foreground leading-relaxed text-sm">
+                      Browse independent, background-checked moving crews in your area and book them directly by the hour with escrow protection.
+                    </p>
+                  </div>
+                  <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl h-14 text-base font-bold group-hover:gap-4 transition-all">
+                    <Link href="/marketplace">
+                      Browse Movers <ArrowRight className="h-5 w-5" />
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-2xl bg-white overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+                <div className="h-2 bg-slate-900" />
+                <CardContent className="p-8 space-y-6">
+                  <div className="bg-slate-100 p-4 rounded-2xl w-fit text-slate-900 group-hover:bg-slate-900 group-hover:text-white transition-colors">
                     <ShieldCheck className="h-8 w-8" />
                   </div>
                   <div className="space-y-2">
@@ -61,12 +81,12 @@ export default function BookingPage() {
                       <Star className="h-4 w-4 fill-current" />
                       <Star className="h-4 w-4 fill-current" />
                     </div>
-                    <p className="text-muted-foreground leading-relaxed">
+                    <p className="text-muted-foreground leading-relaxed text-sm">
                       Need a full-service transition? We'll handle every box, wrap every antique, and assemble every bed.
                     </p>
                   </div>
-                  <Button asChild variant="outline" className="w-full rounded-xl h-14 text-lg font-bold border-accent text-accent hover:bg-accent hover:text-white transition-all">
-                    <Link href="/services">Explore Premium Add-ons</Link>
+                  <Button asChild variant="outline" className="w-full rounded-xl h-14 text-base font-bold border-accent text-accent hover:bg-accent hover:text-white transition-all">
+                    <Link href="/services">Explore Add-ons</Link>
                   </Button>
                 </CardContent>
               </Card>

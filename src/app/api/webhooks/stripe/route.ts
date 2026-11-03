@@ -59,30 +59,35 @@ export async function POST(req: Request) {
 
       await updateDoc(quoteRef, { status: 'processed' });
 
-      // 2. Create the official Job entity for the dispatch board
-      const jobsCollection = collection(firestore, 'jobs');
-      const newJobRef = doc(jobsCollection);
+      // 2. Create the official Job entity for the dispatch board (deterministic ID to avoid duplicates)
+      const deterministicJobId = `job_quote_${quoteId}`;
+      const newJobRef = doc(firestore, 'jobs', deterministicJobId);
+      const releaseCode = Math.floor(100000 + Math.random() * 900000).toString();
       
       const jobData = {
-        id: newJobRef.id,
+        id: deterministicJobId,
         customerId: customerId,
         quoteId: quoteId,
-        status: 'scheduled',
-        state: quoteData.state || details.state || 'TX', // Defaulting to TX if not found
+        status: 'confirmed',
+        state: quoteData.state || details.state || 'California',
         moveDate: quoteData.moveDate || details.moveDate || '',
-        pickupAddress: quoteData.pickupAddress || details.pickupZip || '',
-        dropoffAddress: quoteData.dropoffAddress || details.dropoffZip || '',
+        pickupAddress: quoteData.pickupAddress || quoteData.pickupZip || details.pickupZip || '',
+        dropoffAddress: quoteData.dropoffAddress || quoteData.dropoffZip || details.dropoffZip || '',
         moveSize: moveSize || quoteData.moveSize || 'studio',
         price: session.amount_total / 100, // Convert from cents to dollars
         employeeIds: [], // Initially unassigned
+        providerIds: quoteData.preferredProviderId ? [quoteData.preferredProviderId] : [],
+        releaseCode,
         specialItems: quoteData.specialItems || details.specialItems || '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         paymentId: session.id,
+        paymentIntentId: session.payment_intent || null,
+        stripeCustomerId: session.customer || null,
         customerEmail: session.customer_details?.email || quoteData.email || ''
       };
 
-      await setDoc(newJobRef, jobData);
+      await setDoc(newJobRef, jobData, { merge: true });
 
       console.log(`Successfully created Job ${newJobRef.id} from Quote ${quoteId}`);
     } catch (dbError: any) {

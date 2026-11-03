@@ -9,6 +9,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid modification request. Required fields missing." }, { status: 400 });
     }
 
+    const secretKey = process.env.STRIPE_SECRET_KEY || "";
+    const isPlaceholder = !secretKey || secretKey.includes("placeholder");
+
+    if (stripeCustomerId.startsWith("cus_demo_") || isPlaceholder) {
+      return NextResponse.json({
+        success: true,
+        paymentIntentId: `pi_demo_mod_${Date.now()}`,
+        demo: true,
+      });
+    }
+
     // List the customer's payment methods
     const paymentMethods = await stripe.paymentMethods.list({
       customer: stripeCustomerId,

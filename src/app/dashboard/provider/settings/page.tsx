@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useUser } from "@/firebase";
+import { useUser, useAuth } from "@/firebase";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { ProviderLayout } from "@/components/layout/provider-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -10,9 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Bell, Lock, User, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { TwoFactorCard } from "@/components/security/two-factor-card";
 
 export default function ProviderSettingsPage() {
   const { user } = useUser();
+  const auth = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 
@@ -125,17 +128,24 @@ export default function ProviderSettingsPage() {
                 Manage your password and authentication security preferences.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               <Button 
                 type="button" 
                 variant="outline" 
                 className="bg-white border-gray-200"
-                onClick={() => toast({ title: "Reset link sent!", description: "Check your email for instructions to reset your password." })}
+                onClick={async () => {
+                  if (user?.email) {
+                    await sendPasswordResetEmail(auth, user.email);
+                    toast({ title: "Reset link sent!", description: `Check ${user.email} for instructions to reset your password.` });
+                  }
+                }}
               >
                 Send Password Reset Email
               </Button>
             </CardContent>
           </Card>
+
+          <TwoFactorCard roleLabel="Provider" />
 
           <div className="flex justify-end pt-2">
             <Button type="submit" className="bg-slate-900 text-white min-w-[150px] shadow-sm hover:bg-slate-800" disabled={saving}>

@@ -118,8 +118,6 @@ export default function ProviderSignUpPage() {
       
       router.push('/provider-signup/details');
 
-      router.push('/provider-signup/details');
-
     } catch (error: any) {
       console.error("Signup Error:", error);
       if (error.code === 'auth/email-already-in-use') {
@@ -305,8 +303,8 @@ export default function ProviderSignUpPage() {
                   <p className="text-center font-bold text-slate-400 uppercase text-[10px] tracking-[0.2em]">
                     Already part of the network?
                   </p>
-                  <Link href="/login" className="text-primary font-black uppercase tracking-widest text-xs hover:text-accent transition-colors flex items-center gap-2">
-                    Back to Sign In <ArrowLeft className="h-3 w-3 rotate-180" />
+                  <Link href="/login?role=provider" className="text-primary font-black uppercase tracking-widest text-xs hover:text-accent transition-colors flex items-center gap-2">
+                    Back to Provider Sign In <ArrowLeft className="h-3 w-3 rotate-180" />
                   </Link>
                 </div>
               </CardContent>

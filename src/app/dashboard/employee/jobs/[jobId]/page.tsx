@@ -19,26 +19,81 @@ import {
   CheckCircle
 } from "lucide-react";
 import Link from "next/link";
-import { useState, use } from "react";
+import { useState, use, useEffect } from "react";
 import { aiJobNoteAssistant } from "@/ai/flows/ai-job-note-assistant";
+import { useFirestore } from "@/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
 export default function JobDetailPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = use(params);
+  const firestore = useFirestore();
+  const { toast } = useToast();
   const [status, setStatus] = useState("In Progress");
   const [rawNotes, setRawNotes] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [liveJob, setLiveJob] = useState<any>(null);
+
+  useEffect(() => {
+    const loadJob = async () => {
+      if (!firestore || !jobId || jobId === "demo-move-1") return;
+      try {
+        const snap = await getDoc(doc(firestore, "jobs", jobId));
+        if (snap.exists()) {
+          const data = snap.data();
+          setLiveJob({ id: snap.id, ...data });
+          if (data.employeeNotes) setRawNotes(data.employeeNotes);
+          if (data.crewStatus) setStatus(data.crewStatus);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadJob();
+  }, [firestore, jobId]);
 
   const jobDetails = {
-    id: jobId,
-    customer: "Robert Wilson",
-    phone: "(555) 123-4567",
-    pickup: "123 Momentum Way, Dallas, TX 75201",
-    dropoff: "456 Skyline Drive, Plano, TX 75024",
-    date: "May 24, 2024",
+    id: liveJob?.id || jobId,
+    customer: liveJob?.customerName || liveJob?.customerEmail || "Robert Wilson (Demo)",
+    phone: liveJob?.phone || "(555) 123-4567",
+    pickup: liveJob?.pickupAddress || "123 Momentum Way, Dallas, TX 75201",
+    dropoff: liveJob?.dropoffAddress || "456 Skyline Drive, Plano, TX 75024",
+    date: liveJob?.moveDate || "Upcoming Move",
     time: "08:00 AM",
-    size: "3 Bedroom Home",
-    specialItems: "Upright Piano, Large Glass Table",
-    notes: "Please park in the rear loading dock. Customer has 3 large dogs that will be in a kennel."
+    size: liveJob?.moveSize ? `${liveJob.moveSize.toUpperCase()} Move` : "3 Bedroom Home",
+    specialItems: liveJob?.specialItems || "Standard Household Inventory",
+    notes: liveJob?.notes || "Confirm parking clearance upon arrival and walk the customer through the pre-move checklist."
+  };
+
+  const handleSaveNotes = async () => {
+    if (liveJob && firestore) {
+      try {
+        await updateDoc(doc(firestore, "jobs", jobId), {
+          employeeNotes: rawNotes,
+          crewStatus: status,
+        });
+      } catch {}
+    }
+    toast({
+      title: "Field Notes Saved",
+      description: "Your job notes and crew status have been recorded.",
+    });
+  };
+
+  const handleCompleteJob = async () => {
+    setStatus("Delivered");
+    if (liveJob && firestore) {
+      try {
+        await updateDoc(doc(firestore, "jobs", jobId), {
+          status: "completed",
+          crewStatus: "Delivered",
+        });
+      } catch {}
+    }
+    toast({
+      title: "Job Marked Complete! 🎉",
+      description: "Dispatch has been updated with final delivery confirmation.",
+    });
   };
 
   const handleAiNotes = async () => {
@@ -78,9 +133,26 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" className="rounded-full gap-2"><Navigation className="h-4 w-4" /> Directions</Button>
-            <Button variant="outline" className="rounded-full gap-2"><Phone className="h-4 w-4" /> Contact</Button>
-            <Button className="rounded-full bg-green-500 hover:bg-green-600 gap-2"><CheckCircle className="h-4 w-4" /> Complete Job</Button>
+            <Button
+              variant="outline"
+              className="rounded-full gap-2"
+              onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(jobDetails.pickup)}&destination=${encodeURIComponent(jobDetails.dropoff)}`, "_blank")}
+            >
+              <Navigation className="h-4 w-4" /> Directions
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-full gap-2"
+              onClick={() => window.location.href = `tel:${jobDetails.phone}`}
+            >
+              <Phone className="h-4 w-4" /> Contact
+            </Button>
+            <Button
+              onClick={handleCompleteJob}
+              className="rounded-full bg-green-500 hover:bg-green-600 gap-2"
+            >
+              <CheckCircle className="h-4 w-4" /> Complete Job
+            </Button>
           </div>
         </header>
 
@@ -148,7 +220,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   className="min-h-[200px] border-gray-200 focus:ring-accent"
                 />
                 <div className="flex justify-end">
-                  <Button className="bg-primary hover:bg-primary/90 rounded-full px-8">Save Notes</Button>
+                  <Button onClick={handleSaveNotes} className="bg-primary hover:bg-primary/90 rounded-full px-8">Save Notes</Button>
                 </div>
               </CardContent>
             </Card>

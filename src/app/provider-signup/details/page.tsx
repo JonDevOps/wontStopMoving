@@ -83,10 +83,10 @@ export default function ProviderDetailsPage() {
 
       toast({
         title: "Details Saved",
-        description: "Moving to Phase 3: Verification.",
+        description: "Your business details are saved! ID verification & 2FA are in your dashboard tasks.",
       });
       
-      router.push('/provider-signup/verification');
+      router.push('/dashboard/provider');
 
     } catch (error: any) {
       console.error("Update Error:", error);
@@ -262,13 +262,33 @@ export default function ProviderDetailsPage() {
                     </div>
                   </div>
 
-                  <Button 
-                    type="submit" 
-                    disabled={isLoading}
-                    className="w-full bg-accent hover:bg-accent/90 min-h-[4rem] text-xl font-black rounded-[1.5rem] uppercase tracking-[0.2em] shadow-2xl shadow-accent/30 mt-4 transition-all hover:scale-[1.02] active:scale-95"
-                  >
-                    {isLoading ? "Saving Data..." : "Continue to Verification"}
-                  </Button>
+                  <div className="space-y-4 pt-4">
+                    <Button 
+                      type="submit" 
+                      disabled={isLoading}
+                      className="w-full bg-accent hover:bg-accent/90 min-h-[4rem] text-lg sm:text-xl font-black rounded-[1.5rem] uppercase tracking-[0.15em] shadow-2xl shadow-accent/30 transition-all hover:scale-[1.01] active:scale-95"
+                    >
+                      {isLoading ? "Saving Data..." : "Save & Go to Dashboard (Verify ID Later)"}
+                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => router.push('/provider-signup/verification')}
+                        className="flex-1 h-12 rounded-xl font-bold uppercase tracking-wider text-xs border-gray-200"
+                      >
+                        Upload ID Documents Now
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => router.push('/dashboard/provider')}
+                        className="flex-1 h-12 rounded-xl font-bold uppercase tracking-wider text-xs text-muted-foreground hover:text-primary"
+                      >
+                        Skip for Now → Dashboard
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </form>

@@ -128,7 +128,7 @@ export default function MarketplacePage() {
 
   return (
     <PublicLayout>
-      <div className="bg-slate-50 min-h-screen py-12">
+      <div className="bg-slate-50 min-h-screen pt-32 pb-24">
         <div className="container max-w-6xl mx-auto px-4">
           <header className="mb-12 text-center max-w-2xl mx-auto animate-fade-in-up">
             <h1 className="text-4xl md:text-5xl font-black text-slate-900 uppercase tracking-tight">

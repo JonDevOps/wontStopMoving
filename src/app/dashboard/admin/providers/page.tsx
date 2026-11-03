@@ -66,31 +66,46 @@ function ProviderManagementContent() {
                     <div>
                       <h3 className="text-xl font-black text-primary uppercase tracking-tight">{provider.businessName || provider.name}</h3>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 font-medium">
-                        <MapPin className="w-4 h-4" /> {provider.address?.city || "Unknown City"}, {provider.address?.state || "Unknown State"}
+                        <MapPin className="w-4 h-4" /> {provider.city || provider.address?.city || "Regional Hub"}, {provider.state || provider.address?.state || "US"}
                       </div>
                     </div>
                     <div>
                       {provider.status === "approved" && <Badge className="bg-green-500 hover:bg-green-600 text-white gap-1"><CheckCircle2 className="w-3 h-3" /> APPROVED</Badge>}
-                      {provider.status === "pending_approval" && <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1"><Clock className="w-3 h-3" /> PENDING</Badge>}
+                      {(provider.status === "pending" || provider.status === "pending_approval") && <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1"><Clock className="w-3 h-3" /> PENDING</Badge>}
                       {provider.status === "suspended" && <Badge variant="destructive" className="gap-1"><ShieldAlert className="w-3 h-3" /> SUSPENDED</Badge>}
                     </div>
                   </div>
 
                   <div className="space-y-2 mb-6">
-                    <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Email:</span> {provider.email}</p>
-                    <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Phone:</span> {provider.phone}</p>
+                    <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Email:</span> {provider.email || "See Auth Registry"}</p>
+                    <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Phone:</span> {provider.phone || "On File"}</p>
+                    <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Hourly Rate:</span> ${provider.hourlyRate || 50}/hr ({provider.minimumHours || 2} hr min)</p>
                     <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Services:</span> {provider.services?.join(", ") || "None specified"}</p>
                   </div>
 
-                  <div className="flex flex-wrap gap-4">
-                    {provider.insuranceDocs ? (
-                      <Button variant="outline" size="sm" className="gap-2 font-bold uppercase tracking-widest text-xs" onClick={() => window.open(provider.insuranceDocs, '_blank')}>
+                  <div className="flex flex-wrap gap-3 items-center">
+                    {(provider.onboarding?.insuranceUrl || provider.insuranceDocs) ? (
+                      <Button variant="outline" size="sm" className="gap-2 font-bold uppercase tracking-widest text-xs" onClick={() => window.open(provider.onboarding?.insuranceUrl || provider.insuranceDocs, '_blank')}>
                         <FileText className="w-4 h-4" /> View COI
                       </Button>
+                    ) : provider.onboarding?.insuranceUploaded ? (
+                      <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">
+                        COI Uploaded
+                      </Badge>
                     ) : (
-                      <p className="text-xs text-red-500 font-bold flex items-center gap-1 uppercase tracking-widest bg-red-50 px-3 py-2 rounded-md">
+                      <p className="text-xs text-red-500 font-bold flex items-center gap-1 uppercase tracking-widest bg-red-50 px-3 py-1.5 rounded-md">
                         <ShieldAlert className="w-4 h-4" /> Missing COI
                       </p>
+                    )}
+                    {provider.onboarding?.idFrontUrl && (
+                      <Button variant="outline" size="sm" className="gap-2 font-bold uppercase tracking-widest text-xs" onClick={() => window.open(provider.onboarding.idFrontUrl, '_blank')}>
+                        <FileText className="w-4 h-4" /> View ID ({provider.onboarding?.idType?.replace(/_/g, " ") || "Gov ID"})
+                      </Button>
+                    )}
+                    {provider.onboarding?.idFrontUploaded && !provider.onboarding?.idFrontUrl && (
+                      <Badge variant="outline" className="text-blue-700 border-blue-200 bg-blue-50 uppercase text-[10px]">
+                        ID Verified ({provider.onboarding?.idType?.replace(/_/g, " ") || "Gov ID"})
+                      </Badge>
                     )}
                     {provider.stripeAccountId && (
                       <Badge variant="outline" className="text-accent border-accent bg-accent/5">
@@ -123,10 +138,10 @@ function ProviderManagementContent() {
                     </Button>
                   )}
 
-                  {provider.status !== "pending_approval" && (
+                  {provider.status !== "pending" && (
                     <Button 
                       variant="outline"
-                      onClick={() => updateStatus(provider.id, "pending_approval")}
+                      onClick={() => updateStatus(provider.id, "pending")}
                       className="w-full font-black uppercase tracking-widest text-xs border-amber-200 text-amber-600 hover:bg-amber-50"
                     >
                       <Clock className="w-4 h-4 mr-2" /> Set Pending

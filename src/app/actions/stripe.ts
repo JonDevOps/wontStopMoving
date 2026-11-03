@@ -22,7 +22,15 @@ export async function createCheckoutSession(formData: FormData) {
   const addOns = JSON.parse(addOnsJson || '[]');
   const totalAmount = calculateMoveTotal(moveSize, addOns, { isStudent, isMilitary, isExpress });
 
-  const origin = (await headers()).get('origin');
+  const origin = (await headers()).get('origin') || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
+  const secretKey = process.env.STRIPE_SECRET_KEY || '';
+  const isPlaceholder = !secretKey || secretKey.includes('placeholder');
+
+  if (isPlaceholder) {
+    redirect(
+      `${origin}/dashboard/customer/moves?demo_quote_id=${encodeURIComponent(quoteId)}&move_size=${encodeURIComponent(moveSize)}&amount=${encodeURIComponent(String(totalAmount))}`
+    );
+  }
 
   const session = await stripe.checkout.sessions.create({
     customer_email: customerEmail,

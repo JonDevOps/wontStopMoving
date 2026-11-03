@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from 'react';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,10 +14,23 @@ import {
   MessageSquare, 
   Clock, 
   ChevronRight,
-  Globe
+  Globe,
+  CheckCircle2
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ContactPage() {
+  const { toast } = useToast();
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleInquirySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitted(true);
+    toast({
+      title: "Inquiry Received! 🚚",
+      description: "A logistics specialist will reply within 60 minutes.",
+    });
+  };
   const offices = [
     { name: "Global Headquarters", address: "855 Maude Ave, Mountain View CA 94043", type: "HQ" },
     { name: "Texas Regional Hub", address: "123 Dallas Logistics Way, Dallas TX 75201", type: "Regional" },
@@ -56,33 +72,48 @@ export default function ContactPage() {
                 
                 <Card className="border-none shadow-xl bg-gray-50">
                   <CardContent className="p-8">
-                    <form className="space-y-6">
-                      <div className="grid md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="name">Full Name</Label>
-                          <Input id="name" placeholder="John Doe" className="bg-white border-gray-200 h-12" />
+                    {submitted ? (
+                      <div className="py-12 text-center space-y-4">
+                        <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
+                          <CheckCircle2 className="h-8 w-8" />
+                        </div>
+                        <h3 className="text-2xl font-black text-primary uppercase">Message Sent!</h3>
+                        <p className="text-muted-foreground max-w-md mx-auto">
+                          Thank you for reaching out to Wont Stop Moving. Our 24/7 dispatch desk has received your inquiry and will respond within 60 minutes.
+                        </p>
+                        <Button variant="outline" onClick={() => setSubmitted(false)} className="rounded-full font-bold">
+                          Send Another Message
+                        </Button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleInquirySubmit} className="space-y-6">
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="name">Full Name</Label>
+                            <Input id="name" required placeholder="John Doe" className="bg-white border-gray-200 h-12" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="email">Email Address</Label>
+                            <Input id="email" type="email" required placeholder="john@example.com" className="bg-white border-gray-200 h-12" />
+                          </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="email">Email Address</Label>
-                          <Input id="email" type="email" placeholder="john@example.com" className="bg-white border-gray-200 h-12" />
+                          <Label htmlFor="phone">Phone Number</Label>
+                          <Input id="phone" type="tel" placeholder="(555) 000-0000" className="bg-white border-gray-200 h-12" />
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Phone Number</Label>
-                        <Input id="phone" type="tel" placeholder="(555) 000-0000" className="bg-white border-gray-200 h-12" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="subject">Subject</Label>
-                        <Input id="subject" placeholder="Question about my quote" className="bg-white border-gray-200 h-12" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="message">Message</Label>
-                        <Textarea id="message" placeholder="How can we help you today?" className="bg-white border-gray-200 min-h-[150px]" />
-                      </div>
-                      <Button className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest">
-                        Submit Inquiry
-                      </Button>
-                    </form>
+                        <div className="space-y-2">
+                          <Label htmlFor="subject">Subject</Label>
+                          <Input id="subject" required placeholder="Question about my quote" className="bg-white border-gray-200 h-12" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="message">Message</Label>
+                          <Textarea id="message" required placeholder="How can we help you today?" className="bg-white border-gray-200 min-h-[150px]" />
+                        </div>
+                        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest">
+                          Submit Inquiry
+                        </Button>
+                      </form>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -155,7 +186,11 @@ export default function ContactPage() {
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Need immediate assistance? Our AI-powered chat and live human agents are ready to help you in any of our 51 regions.
             </p>
-            <Button size="lg" className="rounded-full bg-accent hover:bg-accent/90 px-12 h-16 text-xl font-bold">
+            <Button
+              size="lg"
+              onClick={() => window.location.href = "mailto:support@wontstopmoving.com?subject=Live%20Support%20Request"}
+              className="rounded-full bg-accent hover:bg-accent/90 px-12 h-16 text-xl font-bold"
+            >
               Start Live Chat
             </Button>
           </div>

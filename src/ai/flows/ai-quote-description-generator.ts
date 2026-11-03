@@ -51,7 +51,25 @@ export type GenerateQuoteDescriptionOutput = z.infer<
 export async function generateQuoteDescription(
   input: GenerateQuoteDescriptionInput
 ): Promise<GenerateQuoteDescriptionOutput> {
-  return generateQuoteDescriptionFlow(input);
+  try {
+    return await generateQuoteDescriptionFlow(input);
+  } catch (err) {
+    console.warn('AI Quote Description Generator fallback used:', err);
+    return {
+      description: [
+        `Thank you for choosing Wont Stop Moving for your upcoming ${input.moveSize.toUpperCase()} relocation from ${input.pickupAddress} to ${input.dropoffAddress}.`,
+        ``,
+        `Included in Your $${input.price.toLocaleString()} Protected Proposal (${input.estimatedHours} Estimated Hours):`,
+        `• Professional Moving Crew & Equipped Moving Truck`,
+        `• Full Furniture Padding, Stretch-Wrapping & Floor/Doorway Protection`,
+        `• Disassembly & Reassembly of Standard Bed Frames and Dining Tables`,
+        input.specialItems
+          ? `• Specialty Handling Included: ${input.specialItems}`
+          : `• Standard Cargo & Valuation Protection Included`,
+        `• 100% Escrow-Backed Payment Protection (Funds are held safely until move completion and your 6-digit release code confirmation).`,
+      ].join('\n'),
+    };
+  }
 }
 
 const prompt = ai.definePrompt({

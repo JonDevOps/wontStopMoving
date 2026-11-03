@@ -39,6 +39,9 @@ export default function SignupPage() {
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
+    defaultValues: {
+      accountType: 'customer',
+    },
   });
 
   const onSubmit = async (data: SignupValues) => {
@@ -109,8 +112,8 @@ export default function SignupPage() {
               <UserPlus className="h-8 w-8" />
             </div>
             <div>
-              <h1 className="text-3xl font-black text-primary uppercase tracking-tighter">Create <span className="text-accent">Account</span></h1>
-              <p className="text-muted-foreground text-sm">Join Wont Stop Moving today</p>
+              <h1 className="text-3xl font-black text-primary uppercase tracking-tighter">Customer <span className="text-accent">Sign Up</span></h1>
+              <p className="text-muted-foreground text-sm">Create your customer account to book and track moves</p>
             </div>
           </CardHeader>
           <CardContent className="p-8 space-y-6">
@@ -142,31 +145,25 @@ export default function SignupPage() {
                 {errors.state && <p className="text-xs text-destructive">{errors.state.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="accountType">Account Type</Label>
-                <Select defaultValue="customer" onValueChange={(val: any) => setValue("accountType", val)}>
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Select account type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="customer">Customer (Booking a Move)</SelectItem>
-                    <SelectItem value="provider">Service Provider (Movers/Contractors)</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.accountType && <p className="text-xs text-destructive">{errors.accountType.message}</p>}
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input id="password" type="password" {...register("password")} className="h-12 border-gray-200" required />
                 {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
               </div>
               <Button type="submit" disabled={isLoading} className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl text-lg uppercase">
-                {isLoading ? "Creating Account..." : "Sign Up"}
+                {isLoading ? "Creating Account..." : "Create Customer Account"}
               </Button>
             </form>
 
-            <p className="text-center text-sm text-muted-foreground">
-              Already have an account? <Link href="/login" className="text-accent font-bold hover:underline">Sign In</Link>
-            </p>
+            <div className="space-y-2 text-center">
+              <p className="text-sm text-muted-foreground">
+                Already have an account? <Link href="/login?role=customer" className="text-accent font-bold hover:underline">Customer Sign In</Link>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Joining the team? <Link href="/careers/apply" className="text-primary font-bold hover:underline">Employee Sign Up</Link>
+                {" • "}
+                <Link href="/provider-signup" className="text-primary font-bold hover:underline">Provider Sign Up</Link>
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

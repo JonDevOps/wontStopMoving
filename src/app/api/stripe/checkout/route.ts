@@ -10,6 +10,15 @@ export async function POST(req: Request) {
     }
 
     const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:9002";
+    const secretKey = process.env.STRIPE_SECRET_KEY || "";
+    const isPlaceholder = !secretKey || secretKey.includes("placeholder");
+
+    if (isPlaceholder) {
+      return NextResponse.json({
+        url: `${origin}/dashboard/customer/moves?session_id=demo_session_${Date.now()}&job_id=${jobId}&demo=true`,
+        demo: true,
+      });
+    }
 
     // Create Checkout Session
     // We capture the initial amount to the platform (Wont Stop Moving).

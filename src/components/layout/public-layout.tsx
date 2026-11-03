@@ -92,8 +92,12 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       ]
     },
     {
-      title: "Customer Support",
+      title: "Portal Sign In",
       links: [
+        { label: "Customer Login", href: "/login?role=customer" },
+        { label: "Provider Login", href: "/login?role=provider" },
+        { label: "Employee Login", href: "/login?role=employee" },
+        { label: "Admin Sign In", href: "/login?role=admin" },
         { label: "Contact Us", href: "/contact" },
       ]
     }
