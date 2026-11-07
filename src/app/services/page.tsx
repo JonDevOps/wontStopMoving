@@ -40,7 +40,7 @@ export default function ServicesPage() {
       title: "Long Distance",
       desc: "Crossing state lines or moving across the country? Our nationwide network handles the logistics of your long-haul journey with precision.",
       icon: MapPin,
-      features: ["Dedicated moving coordinators", "GPS tracking on all trucks", "Full valuation protection"],
+      features: ["Dedicated moving coordinators", "Move status in your dashboard", "Full valuation protection"],
       href: "/services/long-distance"
     },
     {

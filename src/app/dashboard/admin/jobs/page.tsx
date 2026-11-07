@@ -105,7 +105,7 @@ function AdminJobsContent() {
         <h1 className="text-3xl md:text-4xl font-black text-primary uppercase leading-tight">
           Nationwide <span className="text-accent">Job</span> Board
         </h1>
-        <p className="text-muted-foreground text-sm md:text-base">Monitor logistics and move status across all 51 regions</p>
+        <p className="text-muted-foreground text-sm md:text-base">Monitor logistics and move status across the country</p>
       </header>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">

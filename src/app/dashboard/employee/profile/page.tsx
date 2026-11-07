@@ -220,7 +220,7 @@ export default function EmployeeProfilePage() {
                 </div>
                 <h3 className="font-black uppercase tracking-tight text-xl leading-none">Service Excellence</h3>
                 <p className="text-sm opacity-80 leading-relaxed">
-                  You are part of a nationwide network of 51,000 professionals. Maintain your profile accuracy to ensure correct regional dispatching.
+                  Keep your profile accurate so dispatch can assign you the right jobs.
                 </p>
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-white/10 p-3 rounded-xl border border-white/10">
                   <CheckCircle className="h-4 w-4 text-accent" />

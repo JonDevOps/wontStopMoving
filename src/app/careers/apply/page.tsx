@@ -138,7 +138,7 @@ export default function EmployeeSignUpPage() {
               <span className="bg-accent text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Phase 1</span>
               <h1 className="text-3xl sm:text-4xl font-black text-primary uppercase">Employee <span className="text-accent">Sign Up</span></h1>
             </div>
-            <p className="text-muted-foreground font-medium">Create your secure account to join our 51,000+ member network.</p>
+            <p className="text-muted-foreground font-medium">Create your secure account to apply.</p>
           </div>
 
           {existingAccountError && (

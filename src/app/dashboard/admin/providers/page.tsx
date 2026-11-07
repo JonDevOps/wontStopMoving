@@ -66,7 +66,7 @@ function ProviderManagementContent() {
                     <div>
                       <h3 className="text-xl font-black text-primary uppercase tracking-tight">{provider.businessName || provider.name}</h3>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1 font-medium">
-                        <MapPin className="w-4 h-4" /> {provider.city || provider.address?.city || "Regional Hub"}, {provider.state || provider.address?.state || "US"}
+                        <MapPin className="w-4 h-4" /> {provider.city || provider.address?.city || "City not set"}, {provider.state || provider.address?.state || "US"}
                       </div>
                     </div>
                     <div>

@@ -106,7 +106,7 @@ export default function WorkplaceSolutionsPage() {
             <Boxes className="h-16 w-16 mx-auto text-accent" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">FUTURE-PROOF YOUR OFFICE</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-80 leading-relaxed">
-              Our 51 regions provide the scale and flexibility needed for global workplace rollouts.
+              Our network provides the flexibility needed for multi-site workplace moves.
             </p>
             <div className="flex justify-center">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">

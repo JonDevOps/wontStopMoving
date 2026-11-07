@@ -44,7 +44,7 @@ export default function ExpressMovingPage() {
               {[
                 { title: "Guaranteed Dates", desc: "Non-stop transit options with firm arrival windows.", icon: Clock },
                 { title: "Priority Dispatch", desc: "Bypass the standard queue with our dedicated express fleet.", icon: Zap },
-                { title: "24/7 Tracking", desc: "Real-time GPS telematics monitored by our dispatch center.", icon: Navigation },
+                { title: "Status Updates", desc: "Follow your move's status in your customer dashboard.", icon: Navigation },
                 { title: "Last Minute", desc: "Emergency availability for same-day and next-day relocations.", icon: Truck },
               ].map((feature, i) => (
                 <div key={i} className="space-y-4 group">
@@ -76,7 +76,7 @@ export default function ExpressMovingPage() {
               <div className="lg:w-1/2 space-y-8">
                 <h2 className="text-4xl font-black text-primary uppercase">SPEED & <span className="text-accent">CERTAINTY</span></h2>
                 <p className="text-lg text-muted-foreground leading-relaxed">
-                  In our express service, your belongings are the only priority. We utilize dedicated vehicles and two-person driver teams to ensure your shipment moves non-stop from origin to destination across our 51 regions.
+                  In our express service, your belongings are the only priority. We utilize dedicated vehicles and two-person driver teams to ensure your shipment moves non-stop from origin to destination across the country.
                 </p>
                 <div className="grid gap-4">
                   {[
@@ -106,7 +106,7 @@ export default function ExpressMovingPage() {
             <Zap className="h-16 w-16 mx-auto" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">MOTION AT SCALE</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-90">
-              When your move can't wait, our express teams are ready in all 51 regions to bridge the distance.
+              When your move can't wait, our express teams are ready across the country to bridge the distance.
             </p>
             <div className="flex justify-center">
               <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">

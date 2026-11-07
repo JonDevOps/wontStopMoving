@@ -38,7 +38,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
   useEffect(() => {
     const loadJob = async () => {
-      if (!firestore || !jobId || jobId === "demo-move-1") return;
+      if (!firestore || !jobId) return;
       try {
         const snap = await getDoc(doc(firestore, "jobs", jobId));
         if (snap.exists()) {
@@ -56,15 +56,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
   const jobDetails = {
     id: liveJob?.id || jobId,
-    customer: liveJob?.customerName || liveJob?.customerEmail || "Robert Wilson (Demo)",
-    phone: liveJob?.phone || "(555) 123-4567",
-    pickup: liveJob?.pickupAddress || "123 Momentum Way, Dallas, TX 75201",
-    dropoff: liveJob?.dropoffAddress || "456 Skyline Drive, Plano, TX 75024",
-    date: liveJob?.moveDate || "Upcoming Move",
-    time: "08:00 AM",
-    size: liveJob?.moveSize ? `${liveJob.moveSize.toUpperCase()} Move` : "3 Bedroom Home",
-    specialItems: liveJob?.specialItems || "Standard Household Inventory",
-    notes: liveJob?.notes || "Confirm parking clearance upon arrival and walk the customer through the pre-move checklist."
+    customer: liveJob?.customerName || liveJob?.customerEmail || "Customer",
+    phone: liveJob?.phone || "Not provided",
+    pickup: liveJob?.pickupAddress || "Not provided",
+    dropoff: liveJob?.dropoffAddress || "Not provided",
+    date: liveJob?.moveDate || "Date not set",
+    time: liveJob?.moveTime || "To be confirmed",
+    size: liveJob?.moveSize ? `${liveJob.moveSize.toUpperCase()} Move` : "Size not specified",
+    specialItems: liveJob?.specialItems || "None listed",
+    notes: liveJob?.notes || "No notes yet."
   };
 
   const handleSaveNotes = async () => {
@@ -115,6 +115,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     }
   };
 
+  if (!liveJob) {
+    return (
+      <EmployeeLayout>
+        <div className="max-w-3xl mx-auto py-24 text-center space-y-4">
+          <h1 className="text-2xl font-black text-primary uppercase">Job not found</h1>
+          <p className="text-muted-foreground">This job doesn't exist or isn't assigned to you.</p>
+          <Link href="/dashboard/employee/jobs" className="text-accent font-bold hover:underline">Back to My Jobs</Link>
+        </div>
+      </EmployeeLayout>
+    );
+  }
+
   return (
     <EmployeeLayout>
       <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
@@ -132,7 +144,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 <span className="text-[10px] font-black bg-primary text-white px-2 py-0.5 rounded uppercase">{jobDetails.id}</span>
                 <h1 className="text-3xl font-black text-primary uppercase">{jobDetails.customer}</h1>
               </div>
-              <p className="text-muted-foreground">{jobDetails.size} • Moving Today</p>
+              <p className="text-muted-foreground">{jobDetails.size} • {jobDetails.date}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-3">

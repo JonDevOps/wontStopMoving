@@ -74,17 +74,17 @@ export default async function CityPage({ params }: { params: Promise<{ stateSlug
                 <div className="space-y-2">
                   <Clock className="h-8 w-8 text-accent mx-auto mb-4" />
                   <h4 className="text-2xl font-black uppercase">24/7</h4>
-                  <p className="text-xs font-bold uppercase tracking-widest opacity-60">Local Support</p>
+                  <p className="text-xs font-bold uppercase tracking-widest opacity-60">Online Booking</p>
                 </div>
                 <div className="space-y-2">
                   <MapPin className="h-8 w-8 text-accent mx-auto mb-4" />
-                  <h4 className="text-2xl font-black uppercase">GPS</h4>
-                  <p className="text-xs font-bold uppercase tracking-widest opacity-60">Real-Time Tracking</p>
+                  <h4 className="text-2xl font-black uppercase">Status</h4>
+                  <p className="text-xs font-bold uppercase tracking-widest opacity-60">Updates In Your Dashboard</p>
                 </div>
                 <div className="space-y-2">
                   <ShieldCheck className="h-8 w-8 text-accent mx-auto mb-4" />
-                  <h4 className="text-2xl font-black uppercase">100%</h4>
-                  <p className="text-xs font-bold uppercase tracking-widest opacity-60">Bonded & Insured</p>
+                  <h4 className="text-2xl font-black uppercase">Escrow</h4>
+                  <p className="text-xs font-bold uppercase tracking-widest opacity-60">Payment Protection</p>
                 </div>
               </div>
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32" />
@@ -92,7 +92,7 @@ export default async function CityPage({ params }: { params: Promise<{ stateSlug
 
             <div className="text-center space-y-4">
               <p className="text-muted-foreground text-sm leading-relaxed max-w-3xl mx-auto">
-                Moving to or from {cityName}? Our {stateName} regional hub provides full-service packing, 
+                Moving to or from {cityName}? Our {stateName} movers provide full-service packing, 
                 secure storage, and nationwide transit for any scale of residential or commercial relocation.
               </p>
             </div>

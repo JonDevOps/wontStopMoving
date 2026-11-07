@@ -213,13 +213,13 @@ function EmployeeDetailContent({ id }: { id: string }) {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-bold opacity-80">Jobs Completed</span>
+                <span className="text-sm font-bold opacity-80">Jobs Assigned</span>
                 <span className="text-2xl font-black">{profile.assignedJobIds?.length || 0}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm font-bold opacity-80">System Rating</span>
+                <span className="text-sm font-bold opacity-80">Status</span>
                 <div className="flex items-center gap-1">
-                  <span className="text-2xl font-black">5.0</span>
+                  <span className="text-2xl font-black capitalize">{profile.status || "applicant"}</span>
                   <ShieldCheck className="h-4 w-4" />
                 </div>
               </div>

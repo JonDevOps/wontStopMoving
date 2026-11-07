@@ -77,7 +77,7 @@ export default function AccessibilityPage() {
                 <section className="space-y-4">
                   <h2 className="text-2xl font-black text-primary uppercase tracking-tight">Ongoing Efforts</h2>
                   <p className="text-muted-foreground leading-relaxed">
-                    We view accessibility as an ongoing effort and are currently in the process of auditing and implementing additional improvements to our digital platforms. Our team of 51,000 professionals is trained to be inclusive and helpful in every service region we serve.
+                    We view accessibility as an ongoing effort and are currently in the process of auditing and implementing additional improvements to our digital platforms. Our team is committed to being inclusive and helpful wherever we serve.
                   </p>
                 </section>
               </div>

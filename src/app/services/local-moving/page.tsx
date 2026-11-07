@@ -18,7 +18,7 @@ export default function LocalMovingPage() {
   const features = [
     {
       title: "Same-Day Availability",
-      desc: "Need to move fast? In many of our 51 regions, we offer same-day service for local relocations.",
+      desc: "Need to move fast? Same-day service is available in some areas for local relocations.",
       icon: Clock
     },
     {
@@ -28,7 +28,7 @@ export default function LocalMovingPage() {
     },
     {
       title: "Local Knowledge",
-      desc: "With 1,000 movers per region, we know your neighborhood's parking rules, traffic patterns, and building requirements.",
+      desc: "Local movers who know your neighborhood's parking rules, traffic patterns, and building requirements.",
       icon: MapPin
     },
     {
@@ -97,14 +97,14 @@ export default function LocalMovingPage() {
                   />
                 </div>
                 <div className="absolute -bottom-6 -right-6 bg-accent p-8 rounded-3xl text-white shadow-xl">
-                  <div className="text-4xl font-black">1M+</div>
-                  <div className="text-xs font-bold uppercase tracking-widest">Local Moves Done</div>
+                  <div className="text-4xl font-black">Local</div>
+                  <div className="text-xs font-bold uppercase tracking-widest">Movers Near You</div>
                 </div>
               </div>
               <div className="lg:w-1/2 space-y-8">
                 <h2 className="text-4xl font-black text-primary uppercase">THE <span className="text-accent">PRECISION</span> OF LOCAL LOGISTICS</h2>
                 <p className="text-lg text-muted-foreground leading-relaxed">
-                  A local move might seem simple, but the logistics of navigating urban density or suburban schedules requires expertise. Our teams in all 51 regions are background-checked, uniformed professionals trained in the specific challenges of their territory.
+                  A local move might seem simple, but the logistics of navigating urban density or suburban schedules requires expertise. Our teams across the country are background-checked, uniformed professionals trained in the specific challenges of their territory.
                 </p>
                 <div className="grid gap-4">
                   {[
@@ -134,7 +134,7 @@ export default function LocalMovingPage() {
           <div className="container mx-auto px-4">
             <div className="text-center mb-16 max-w-2xl mx-auto">
               <h2 className="text-4xl font-black uppercase mb-4">OUR LOCAL FLEET</h2>
-              <p className="opacity-60">Equipped with air-ride suspension and GPS tracking, our local vehicles are designed to navigate tight city streets without compromising the safety of your assets.</p>
+              <p className="opacity-60">Our movers use vehicles suited to tight city streets, so your belongings arrive safely.</p>
             </div>
             
             <div className="grid md:grid-cols-3 gap-8">
@@ -164,7 +164,7 @@ export default function LocalMovingPage() {
             <Navigation className="h-16 w-16 mx-auto animate-bounce" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">READY FOR YOUR LOCAL JOURNEY?</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-90">
-              Join over 1 million happy customers who have moved across town with Wont Stop Moving.
+              Get an instant quote and book your local move online.
             </p>
             <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
               <Link href="/book">Book Now</Link>

@@ -43,7 +43,7 @@ export default function Home() {
                 MOVING MADE <span className="text-accent inline-block animate-float">SIMPLE</span>
               </h1>
               <p className="text-xl text-white/80 mb-10 max-w-xl leading-relaxed">
-                Nationwide moving excellence across 50 states + Canada. 51,000+ professionals ready to handle your journey.
+                Moving made simple across the US, Puerto Rico and Canada. Vetted professionals, upfront pricing and payment held in escrow until the job is done.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-8 h-16 text-lg font-bold shadow-xl shadow-accent/20">
@@ -62,20 +62,20 @@ export default function Home() {
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white">
               <div>
-                <div className="text-4xl font-black font-headline">51,000+</div>
-                <div className="text-sm uppercase tracking-widest opacity-80">Trained Professionals</div>
+                <div className="text-4xl font-black font-headline">Vetted</div>
+                <div className="text-sm uppercase tracking-widest opacity-80">Independent Professionals</div>
               </div>
               <div>
-                <div className="text-4xl font-black font-headline">50+</div>
-                <div className="text-sm uppercase tracking-widest opacity-80">States + Canada Canada</div>
+                <div className="text-4xl font-black font-headline">US · PR · CA</div>
+                <div className="text-sm uppercase tracking-widest opacity-80">Service Area</div>
               </div>
               <div>
-                <div className="text-4xl font-black font-headline">1m+</div>
-                <div className="text-sm uppercase tracking-widest opacity-80">Moves Completed</div>
+                <div className="text-4xl font-black font-headline">Escrow</div>
+                <div className="text-sm uppercase tracking-widest opacity-80">Protected Payments</div>
               </div>
               <div>
                 <div className="text-4xl font-black font-headline">24/7</div>
-                <div className="text-sm uppercase tracking-widest opacity-80">Support Availability</div>
+                <div className="text-sm uppercase tracking-widest opacity-80">Online Booking</div>
               </div>
             </div>
           </div>
@@ -128,10 +128,10 @@ export default function Home() {
               <div className="lg:w-1/2">
                 <h2 className="text-4xl md:text-5xl font-black mb-6 text-primary leading-tight">WE COVER <span className="text-accent">50 STATES + CANADA</span></h2>
                 <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-                  From the bustling streets of New York to the scenic landscapes of Canada, our network is ready. We have a dedicated team of 1,000 movers in every state, ensuring local expertise with nationwide standards.
+                  From the bustling streets of New York to the scenic landscapes of Canada, our network is ready. We connect you with vetted local movers, backed by one consistent standard everywhere we operate.
                 </p>
                 <ul className="space-y-4 mb-10">
-                  {['50 US States + Canada', 'Uniformed, background-checked staff', 'Real-time GPS truck tracking', 'Full valuation protection included'].map((item, i) => (
+                  {['50 US States + Canada', 'Uniformed, background-checked staff', 'Move status in your dashboard', 'Full valuation protection included'].map((item, i) => (
                     <li key={i} className="flex items-center gap-3 font-medium text-primary">
                       <div className="bg-accent rounded-full p-1"><ChevronRight className="h-4 w-4 text-white" /></div>
                       {item}
@@ -174,7 +174,7 @@ export default function Home() {
           <div className="container mx-auto px-4 relative z-10 text-center">
             <h2 className="text-4xl md:text-6xl font-black mb-8">READY TO START YOUR JOURNEY?</h2>
             <p className="text-xl opacity-80 mb-12 max-w-2xl mx-auto">
-              Get an instant quote in minutes or join our growing team of 51,000 professionals.
+              Get an instant quote in minutes or join our growing team of professionals.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-6">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-12 h-16 text-xl font-black shadow-xl shadow-accent/20">

@@ -14,7 +14,7 @@ export default function BookingPage() {
             <div className="text-center space-y-6">
               <div className="inline-flex items-center gap-2 bg-accent/10 text-accent px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">
                 <Star className="h-3 w-3 fill-current" />
-                Guaranteed Availability in 51 Regions
+                Book Vetted Movers Online
               </div>
               <h1 className="text-5xl md:text-8xl font-black text-primary uppercase tracking-tighter leading-tight">
                 SECURE YOUR <span className="text-accent">MOVE</span>
@@ -96,16 +96,16 @@ export default function BookingPage() {
             <div className="bg-primary text-white p-12 rounded-3xl shadow-2xl shadow-primary/20 relative overflow-hidden">
               <div className="relative z-10 grid md:grid-cols-3 gap-12 text-center">
                 <div className="space-y-3">
-                  <h4 className="text-accent text-4xl font-black">51,000</h4>
-                  <p className="text-sm font-bold uppercase tracking-widest opacity-60">Vetted Professionals</p>
+                  <h4 className="text-accent text-4xl font-black">Vetted</h4>
+                  <p className="text-sm font-bold uppercase tracking-widest opacity-60">Independent Professionals</p>
                 </div>
                 <div className="space-y-3">
-                  <h4 className="text-accent text-4xl font-black">24/7</h4>
-                  <p className="text-sm font-bold uppercase tracking-widest opacity-60">Logistics Support</p>
+                  <h4 className="text-accent text-4xl font-black">Upfront</h4>
+                  <p className="text-sm font-bold uppercase tracking-widest opacity-60">Pricing</p>
                 </div>
                 <div className="space-y-3">
-                  <h4 className="text-accent text-4xl font-black">100%</h4>
-                  <p className="text-sm font-bold uppercase tracking-widest opacity-60">Bonded & Insured</p>
+                  <h4 className="text-accent text-4xl font-black">Escrow</h4>
+                  <p className="text-sm font-bold uppercase tracking-widest opacity-60">Payment Protection</p>
                 </div>
               </div>
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32" />

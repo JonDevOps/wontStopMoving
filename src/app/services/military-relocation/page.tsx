@@ -26,7 +26,7 @@ export default function MilitaryRelocationPage() {
                 MILITARY <span className="text-accent">PCS SUPPORT</span>
               </h1>
               <p className="text-xl opacity-80 mb-10 leading-relaxed">
-                Relocating on orders requires a partner who understands the protocol. Wont Stop Moving provides specialized support for PCS moves across all 51 regions.
+                Relocating on orders requires a partner who understands the protocol. Wont Stop Moving provides specialized support for PCS moves.
               </p>
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-10 h-16 text-lg font-bold">
                 <Link href="/quote">Start PCS Quote</Link>
@@ -45,7 +45,7 @@ export default function MilitaryRelocationPage() {
                 { title: "PCS Compliant", desc: "Documentation and invoicing designed for military reimbursement.", icon: FileText },
                 { title: "Base Access", desc: "Teams vetted and approved for entry into secure military installations.", icon: ShieldCheck },
                 { title: "Flexible Dates", desc: "We adjust our schedule to accommodate changing report dates.", icon: Calendar },
-                { title: "Coast to Coast", desc: "Seamless coordination for moves between any of our 51 regional hubs.", icon: MapPin },
+                { title: "Coast to Coast", desc: "Seamless coordination for moves across the country.", icon: MapPin },
               ].map((feature, i) => (
                 <div key={i} className="space-y-4 group">
                   <div className="bg-primary/5 p-4 rounded-2xl w-fit group-hover:bg-accent group-hover:text-white transition-colors">
@@ -106,7 +106,7 @@ export default function MilitaryRelocationPage() {
             <Shield className="h-16 w-16 mx-auto" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">THANK YOU FOR YOUR SERVICE</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-90">
-              We are proud to serve the men and women who serve our country. Our teams are ready in all 51 regions.
+              We are proud to serve the men and women who serve our country. Our teams are ready across the country.
             </p>
             <div className="flex justify-center">
               <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">

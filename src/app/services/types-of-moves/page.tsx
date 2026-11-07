@@ -109,12 +109,12 @@ export default function TypesOfMovesPage() {
               <div className="lg:w-1/2 w-full space-y-8">
                 <h2 className="text-3xl sm:text-4xl font-black text-primary uppercase leading-tight">NATIONWIDE <span className="text-accent">VERSATILITY</span></h2>
                 <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                  With 51,000 movers across all 51 regions, we have the specialized talent required for any scenario. Whether you're moving a single piano across town or relocating an entire corporate headquarters across state lines, our standards remain consistent.
+                  Our network of professional movers has the specialized skills for almost any scenario. Whether you're moving a single piano across town or relocating an entire corporate headquarters across state lines, our standards remain consistent.
                 </p>
                 <div className="space-y-4">
                   {[
-                    { title: "Local Relocation", desc: "Short-distance moves within our 51 regional zones." },
-                    { title: "Long-Distance Transit", desc: "Cross-country logistics with real-time GPS tracking." },
+                    { title: "Local Relocation", desc: "Short-distance moves within your area." },
+                    { title: "Long-Distance Transit", desc: "Cross-country moves with status updates in your dashboard." },
                     { title: "White-Glove Handling", desc: "Premium packing and organization for delicate estates." }
                   ].map((item, i) => (
                     <div key={i} className="flex gap-4">

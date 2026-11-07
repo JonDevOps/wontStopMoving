@@ -135,23 +135,9 @@ function EmployeeJobsContent() {
                 ? "You don't have any active jobs assigned at the moment."
                 : "No completed jobs in your history yet."}
             </p>
-            <div className="flex flex-wrap justify-center gap-3">
-              <Button
-                variant="outline"
-                className="rounded-full font-bold"
-                onClick={() =>
-                  toast({
-                    title: "Dispatch Requested",
-                    description: "Your regional dispatcher has been notified that you are available for immediate crew assignment.",
-                  })
-                }
-              >
-                Request Assignment
-              </Button>
-              <Button asChild className="bg-accent hover:bg-accent/90 text-white rounded-full font-bold">
-                <Link href="/dashboard/employee/jobs/demo-move-1">Preview Sample Dispatch Sheet</Link>
-              </Button>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              New jobs appear here as soon as an admin assigns you to a move.
+            </p>
           </div>
         </div>
       )}

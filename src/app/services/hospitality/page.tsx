@@ -106,7 +106,7 @@ export default function HospitalityServicesPage() {
             <Building2 className="h-16 w-16 mx-auto text-accent" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">NATIONWIDE HOSPITALITY SCALE</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-80 leading-relaxed">
-              With 1,000 movers in every state, we have the volume and regional expertise to handle your largest resort rollout.
+              Our network of professional movers can scale to handle your largest property rollout.
             </p>
             <div className="flex justify-center">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">

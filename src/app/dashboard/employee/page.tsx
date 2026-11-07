@@ -381,7 +381,7 @@ function EmployeeDashboardContent() {
                     <div key={ann.id} className="p-5 space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[10px] font-black text-accent uppercase tracking-widest">
-                          {ann.authorName || "Regional Hub"}
+                          {ann.authorName || "Wont Stop Moving"}
                         </span>
                         <span className="text-[10px] text-muted-foreground font-bold uppercase">
                           {ann.createdAt?.toDate

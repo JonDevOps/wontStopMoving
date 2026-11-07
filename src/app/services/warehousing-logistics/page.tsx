@@ -43,8 +43,8 @@ export default function WarehousingLogisticsPage() {
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
               {[
                 { title: "Inventory Mgmt", desc: "Real-time barcode tracking and advanced reporting for all assets.", icon: ClipboardList },
-                { title: "Secure Storage", desc: "Climate-controlled facilities with 24/7 monitoring in 51 regions.", icon: Warehouse },
-                { title: "Last-Mile Delivery", desc: "Precision transit from our regional hubs directly to your customer.", icon: Truck },
+                { title: "Secure Storage", desc: "Storage arranged through vetted, climate-controlled partner facilities.", icon: Warehouse },
+                { title: "Last-Mile Delivery", desc: "Precision transit from storage directly to your customer.", icon: Truck },
                 { title: "Custom Packaging", desc: "Specialized kitting and distribution solutions for any scale.", icon: Boxes },
               ].map((feature, i) => (
                 <div key={i} className="space-y-4 group">
@@ -83,7 +83,7 @@ export default function WarehousingLogisticsPage() {
                     "Advanced WMS integration for all clients",
                     "Dedicated account managers for enterprise scale",
                     "Cross-docking and transloading services",
-                    "Bonded and insured facilities nationwide"
+                    "Storage through vetted partner facilities"
                   ].map((item, i) => (
                     <div key={i} className="flex items-center gap-3 font-bold text-primary">
                       <CheckCircle2 className="h-5 w-5 text-accent" />
@@ -106,7 +106,7 @@ export default function WarehousingLogisticsPage() {
             <Boxes className="h-16 w-16 mx-auto text-accent" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">SCALE YOUR OPERATIONS</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-80 leading-relaxed">
-              With facilities in all 51 regions, we provide the physical infrastructure needed for your business to grow nationwide.
+              We coordinate storage and delivery through vetted partners so your business can grow.
             </p>
             <div className="flex justify-center">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">

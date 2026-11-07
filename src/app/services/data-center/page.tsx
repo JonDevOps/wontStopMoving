@@ -106,7 +106,7 @@ export default function DataCenterMovingPage() {
             <Navigation className="h-16 w-16 mx-auto animate-pulse" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">SECURE CHAIN OF CUSTODY</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-90">
-              Our nationwide network provides secure, tech-ready logistics in all 51 regions.
+              Our nationwide network provides secure, tech-ready logistics across the country.
             </p>
             <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
               <Link href="/book">Book Now</Link>

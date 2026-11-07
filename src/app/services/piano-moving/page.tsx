@@ -82,7 +82,7 @@ export default function PianoMovingPage() {
                     "Expert disassembly and assembly of piano components",
                     "Industrial floor protection for heavy instrument weights",
                     "Custom wooden crating available for nationwide transit",
-                    "24/7 GPS tracking for your most valuable asset"
+                    "Status updates in your dashboard"
                   ].map((item, i) => (
                     <div key={i} className="flex items-center gap-3 font-bold text-primary">
                       <CheckCircle2 className="h-5 w-5 text-accent" />
@@ -105,7 +105,7 @@ export default function PianoMovingPage() {
             <Music className="h-16 w-16 mx-auto animate-pulse" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">PERFECT PITCH LOGISTICS</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-90">
-              Our 51 regions feature specialized instrument teams trained in museum-quality handling.
+              Our specialized instrument movers are trained in museum-quality handling.
             </p>
             <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
               <Link href="/book">Book Now</Link>

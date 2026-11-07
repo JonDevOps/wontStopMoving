@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 export default function AboutPage() {
   const values = [
-    { title: "Nationwide Reliability", desc: "With 51,000 movers across 51 regions, we provide consistent, high-quality service from coast to coast.", icon: Globe },
+    { title: "Nationwide Reliability", desc: "We connect you with vetted, independent movers and hold your payment in escrow until the job is done.", icon: Globe },
     { title: "Transparency First", desc: "No hidden fees, no surprises. Our AI-driven quoting system ensures you know exactly what to expect.", icon: Shield },
     { title: "Customer Centric", desc: "Every move is unique. We tailor our logistics to fit your specific timeline and requirements.", icon: Heart },
     { title: "Professional Excellence", desc: "Our teams undergo rigorous training to handle everything from fine art to heavy industrial equipment.", icon: Award },
@@ -39,11 +39,11 @@ export default function AboutPage() {
                   Founded on the principle that moving shouldn't be a source of stress, Wont Stop Moving began as a local operation with a single truck and a big vision. We saw an industry plagued by fragmentation and lack of accountability.
                 </p>
                 <p className="text-lg text-muted-foreground leading-relaxed">
-                  Today, we have grown into a logistics powerhouse covering all 50 states and Puerto Rico. Our 51 regions are managed by local experts who understand the unique challenges of their geography, backed by the standards and technology of a national leader.
+                  Today, we connect customers with independent, vetted moving professionals across the United States, Puerto Rico and Canada, with online booking, upfront pricing and payments held in escrow until the job is done.
                 </p>
                 <div className="pt-4">
                   <Button asChild className="rounded-full bg-primary px-8 h-12 font-bold">
-                    <Link href="/careers">Join Our 51,000 Strong Team</Link>
+                    <Link href="/careers">Join Our Team</Link>
                   </Button>
                 </div>
               </div>
@@ -94,10 +94,10 @@ export default function AboutPage() {
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-12">
               {[
-                { label: "Active Movers", value: "51,000+" },
-                { label: "Service Regions", value: "51" },
-                { label: "States Covered", value: "50 + PR" },
-                { label: "Happy Customers", value: "1M+" },
+                { label: "Service Area", value: "US · PR · CA" },
+                { label: "Online Booking", value: "24/7" },
+                { label: "Payment Held In", value: "Escrow" },
+                { label: "Upfront", value: "Pricing" },
               ].map((stat, i) => (
                 <div key={i} className="text-center">
                   <div className="text-5xl font-black text-accent mb-2">{stat.value}</div>

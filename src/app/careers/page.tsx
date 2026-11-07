@@ -19,10 +19,10 @@ export default function CareersPage() {
   const benefits = [
     { title: "Competitive Pay", desc: "Top-tier hourly rates + generous tips from customers. We believe in rewarding hard work.", icon: DollarSign },
     { title: "Flexible Schedule", icon: Calendar, desc: "Choose your own shifts and work when it suits you via our dynamic dispatch app." },
-    { title: "Nationwide Growth", icon: MapPin, desc: "Opportunities to transfer to any of our 51 regions across 50 states and PR." },
+    { title: "Nationwide Growth", icon: MapPin, desc: "Opportunities across the United States, Puerto Rico and Canada as we grow." },
     { title: "Full Benefits", icon: Heart, desc: "Comprehensive health, dental, and vision packages for all full-time employees." },
     { title: "Career Training", icon: Award, desc: "Paid training programs for leadership, CDL licensing, and logistics management." },
-    { title: "Team Culture", icon: Briefcase, desc: "Join a supportive community of 51,000 movers committed to excellence." }
+    { title: "Team Culture", icon: Briefcase, desc: "Join a supportive team of movers committed to excellence." }
   ];
 
   return (
@@ -32,13 +32,13 @@ export default function CareersPage() {
         <section className="bg-primary pt-32 pb-16 md:pt-48 md:pb-24 text-white relative overflow-hidden">
           <div className="container mx-auto px-4 relative z-10 text-center">
             <div className="inline-block bg-accent text-white px-4 py-1 rounded-full text-[10px] md:text-xs font-black mb-6 tracking-widest uppercase animate-pulse">
-              HIRING IN 51 REGIONS
+              NOW HIRING
             </div>
             <h1 className="text-3xl sm:text-5xl md:text-8xl font-black mb-6 uppercase tracking-tighter leading-[0.9] text-balance break-words">
               JOIN THE <span className="text-accent">MOVEMENT</span>
             </h1>
             <p className="text-lg md:text-xl opacity-80 max-w-2xl mx-auto mb-10 leading-relaxed px-4">
-              Build your career with the nation's fastest-growing logistics network. With 51,000 professionals, we're setting a new standard for moving.
+              Build your career with a growing moving network that's setting a new standard for how moves get booked, done and paid.
             </p>
             <div className="px-4">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-8 md:px-12 h-14 md:h-16 text-lg md:text-xl font-black shadow-xl shadow-accent/20 w-full sm:w-auto">
@@ -58,7 +58,7 @@ export default function CareersPage() {
                   <TrendingUp className="h-10 w-10" />
                 </div>
                 <h3 className="text-2xl font-black text-primary uppercase">GROWTH</h3>
-                <p className="text-sm md:text-base text-muted-foreground leading-relaxed">85% of our regional managers started as entry-level movers. We promote from within.</p>
+                <p className="text-sm md:text-base text-muted-foreground leading-relaxed">We believe in promoting from within and growing our team's skills.</p>
               </div>
               <div className="text-center space-y-4 px-4">
                 <div className="bg-accent/5 p-6 rounded-3xl w-fit mx-auto text-accent">
@@ -113,7 +113,7 @@ export default function CareersPage() {
                 <label className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2 block">Select Your Region</label>
                 <div className="relative">
                   <select className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-accent appearance-none pr-10">
-                    <option value="" className="bg-secondary text-white">All 51 Regions</option>
+                    <option value="" className="bg-secondary text-white">All Locations</option>
                     <option value="TX" className="bg-secondary text-white">Texas Regional Center</option>
                     <option value="NY" className="bg-secondary text-white">New York Operations</option>
                     <option value="CA" className="bg-secondary text-white">California Hub</option>
@@ -134,7 +134,7 @@ export default function CareersPage() {
 
             <div className="grid gap-4">
               {[
-                { title: "Professional Mover", region: "All 51 Regions", type: "FT / PT", pay: "$20-28/hr + Tips" },
+                { title: "Professional Mover", region: "Multiple Locations", type: "FT / PT", pay: "$20-28/hr + Tips" },
                 { title: "Moving Crew Lead", region: "TX, NY, CA, FL", type: "Full Time", pay: "$25-35/hr + Tips" },
                 { title: "CDL Logistics Driver", region: "National Fleet", type: "Full Time", pay: "$38-50/hr" },
                 { title: "Regional Manager", region: "Dallas / Toronto", type: "Full Time", pay: "Salary DOE" }

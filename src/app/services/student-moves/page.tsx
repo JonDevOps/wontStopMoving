@@ -83,7 +83,7 @@ export default function StudentMovesPage() {
                     "Small load specialists for studio and dorm sizes",
                     "Flexible scheduling around finals and start dates",
                     "Vetted, uniformed crews for student safety",
-                    "GPS tracking for parents' peace of mind"
+                    "Move status updates for peace of mind"
                   ].map((item, i) => (
                     <div key={i} className="flex items-center gap-3 font-bold text-primary">
                       <CheckCircle2 className="h-5 w-5 text-accent" />
@@ -106,7 +106,7 @@ export default function StudentMovesPage() {
             <GraduationCap className="h-16 w-16 mx-auto text-accent" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">SMARTER STUDENT MOVING</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-80 leading-relaxed">
-              Serving every major university town across all 51 regions. Your academic journey starts here.
+              Serving university towns across the country. Your academic journey starts here.
             </p>
             <div className="flex justify-center">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">

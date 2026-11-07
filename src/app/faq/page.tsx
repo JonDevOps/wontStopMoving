@@ -61,15 +61,15 @@ export default function FAQPage() {
       items: [
         {
           q: "Which regions do you serve?",
-          a: "Wont Stop Moving operates in all 50 US states plus Canada. We have dedicated local teams in every region to provide local expertise with nationwide logistics standards."
+          a: "We serve customers across the United States, Puerto Rico and Canada through vetted, independent local movers."
         },
         {
-          q: "Can I track my moving truck in real-time?",
-          a: "Yes. Every 26-foot vehicle in our national fleet is equipped with GPS telematics. You can log in to your Customer Portal to see the real-time location and estimated arrival time of your shipment."
+          q: "How do I follow my move?",
+          a: "Log in to your customer dashboard to see your move's status, from confirmed to in progress to completed, and message your mover directly."
         },
         {
           q: "What happens if there is bad weather on moving day?",
-          a: "Our 51,000 professionals are trained in 'Adverse Weather Protocols.' We use specialized floor runners, industrial shrink-wrap, and canopy systems to keep your items dry and your floors clean during rain or snow. Your safety and the protection of your assets are our priority."
+          a: "Our movers follow adverse-weather practices. We use specialized floor runners, industrial shrink-wrap, and canopy systems to keep your items dry and your floors clean during rain or snow. Your safety and the protection of your assets are our priority."
         }
       ]
     },

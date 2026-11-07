@@ -159,7 +159,7 @@ function AdminProfileContent() {
               <div className="space-y-1">
                 <h4 className="font-bold text-primary uppercase text-sm">Privileged Access</h4>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Your account has global read/write permissions for all 51 regions. Ensure your contact information is accurate for system logs and audit trails.
+                  Your account has full admin access to the platform. Ensure your contact information is accurate for system logs and audit trails.
                 </p>
               </div>
             </CardContent>
@@ -204,7 +204,7 @@ function AdminProfileContent() {
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-muted-foreground">Access Scope</span>
-                <span className="font-bold">51 Regions</span>
+                <span className="font-bold">Entire Platform</span>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-muted-foreground">Last Login</span>

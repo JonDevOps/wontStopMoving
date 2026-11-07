@@ -216,9 +216,9 @@ function CustomerDetailContent({ id }: { id: string }) {
                 <span className="text-2xl font-black">{quotes?.filter(q => q.status === 'new').length || 0}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm font-bold opacity-80">Account Health</span>
+                <span className="text-sm font-bold opacity-80">Completed Moves</span>
                 <div className="flex items-center gap-1">
-                  <span className="text-2xl font-black">100%</span>
+                  <span className="text-2xl font-black">{jobs?.filter((j: any) => j.status === 'completed').length || 0}</span>
                 </div>
               </div>
             </CardContent>

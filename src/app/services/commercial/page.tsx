@@ -106,7 +106,7 @@ export default function CommercialMovingPage() {
             <Navigation className="h-16 w-16 mx-auto" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">READY TO EVOLVE YOUR SPACE?</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-90">
-              Our commercial teams are active in all 51 regions, ready to scale with your business growth.
+              Our commercial teams are active across the country, ready to scale with your business growth.
             </p>
             <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">
               <Link href="/book">Book Now</Link>

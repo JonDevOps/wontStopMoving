@@ -26,7 +26,7 @@ export default function JunkRemovalPage() {
                 JUNK <span className="text-accent">REMOVAL</span>
               </h1>
               <p className="text-xl opacity-80 mb-10 leading-relaxed">
-                Declutter your life before or after the move. We'll haul away unwanted items and ensure they're donated or recycled responsibly across our 51 regions.
+                Declutter your life before or after the move. We'll haul away unwanted items and ensure they're donated or recycled responsibly across the country.
               </p>
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-10 h-16 text-lg font-bold">
                 <Link href="/quote">Request Removal</Link>
@@ -106,7 +106,7 @@ export default function JunkRemovalPage() {
             <Leaf className="h-16 w-16 mx-auto text-accent" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">CLEAR THE CLUTTER</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-80 leading-relaxed">
-              Our removal experts ensure your home is light, organized, and ready for its next chapter. Available in all 51 regions.
+              Our removal experts ensure your home is light, organized, and ready for its next chapter. Available in many areas.
             </p>
             <div className="flex justify-center">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">

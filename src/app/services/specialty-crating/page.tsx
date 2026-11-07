@@ -106,7 +106,7 @@ export default function SpecialtyCratingPage() {
             <Lock className="h-16 w-16 mx-auto text-accent" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">PROTECTING THE PRICELESS</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-80 leading-relaxed">
-              Our specialized crating teams are active in all 51 regions, bringing museum-quality standards to your home or gallery.
+              Our specialized crating teams are active across the country, bringing museum-quality standards to your home or gallery.
             </p>
             <div className="flex justify-center">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">

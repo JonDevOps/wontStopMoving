@@ -85,6 +85,19 @@ function AdminDashboardContent() {
     pendingProvidersQuery
   );
 
+  // Real totals from Firestore (admins can read all jobs).
+  const jobsQuery = useMemoFirebase(() => query(collection(firestore, "jobs")), [firestore]);
+  const { data: allJobs } = useCollection(jobsQuery);
+  const pendingProviderCountQuery = useMemoFirebase(
+    () => query(collection(firestore, "providers"), where("status", "==", "pending")),
+    [firestore]
+  );
+  const { data: pendingProviderCount } = useCollection(pendingProviderCountQuery);
+  const paidJobs = (allJobs || []).filter((j: any) => j.paymentStatus === "paid");
+  const platformRevenue = paidJobs.reduce((sum: number, j: any) => sum + (Number(j.amountPaid) || 0), 0);
+  const activeJobs = (allJobs || []).filter((j: any) => ["confirmed", "in-progress"].includes(j.status));
+  const completedJobs = (allJobs || []).filter((j: any) => j.status === "completed");
+
   const handleSendAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!announcementTitle || !announcementContent) return;
@@ -121,16 +134,16 @@ function AdminDashboardContent() {
   const kpis = [
     {
       label: "Platform Revenue",
-      value: "$42,850",
-      trend: "+12.5% MoM",
+      value: `$${platformRevenue.toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
+      trend: `${paidJobs.length} paid move${paidJobs.length === 1 ? "" : "s"}`,
       icon: TrendingUp,
       color: "text-green-600",
       bg: "bg-green-500/10",
     },
     {
       label: "Active Moves",
-      value: "32",
-      trend: "100% On-Time",
+      value: String(activeJobs.length),
+      trend: `${completedJobs.length} completed`,
       icon: Truck,
       color: "text-blue-600",
       bg: "bg-blue-500/10",
@@ -145,7 +158,7 @@ function AdminDashboardContent() {
     },
     {
       label: "Pending Providers",
-      value: String(pendingProviders?.length || 0),
+      value: String(pendingProviderCount?.length || 0),
       trend: "Awaiting KYC Review",
       icon: UserCheck,
       color: "text-amber-600",

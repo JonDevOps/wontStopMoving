@@ -23,26 +23,25 @@ export default function ContactPage() {
   const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
 
-  const handleInquirySubmit = (e: React.FormEvent) => {
+  const handleInquirySubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Opens the visitor's email app with their message to our support inbox.
+    const form = e.currentTarget;
+    const field = (id: string) => (form.elements.namedItem(id) as HTMLInputElement | null)?.value?.trim() || "";
+    const body = [
+      `Name: ${field("name")}`,
+      `Email: ${field("email")}`,
+      field("phone") ? `Phone: ${field("phone")}` : "",
+      "",
+      field("message"),
+    ].filter((line, i) => line !== "" || i === 3).join("\n");
+    window.location.href = `mailto:support@wontstopmoving.com?subject=${encodeURIComponent(field("subject") || "Website inquiry")}&body=${encodeURIComponent(body)}`;
     setSubmitted(true);
     toast({
-      title: "Inquiry Received! 🚚",
-      description: "A logistics specialist will reply within 60 minutes.",
+      title: "Opening your email app",
+      description: "Send the email to reach our support team. We'll reply as soon as we can.",
     });
   };
-  const offices = [
-    { name: "Global Headquarters", address: "855 Maude Ave, Mountain View CA 94043", type: "HQ" },
-    { name: "Texas Regional Hub", address: "123 Dallas Logistics Way, Dallas TX 75201", type: "Regional" },
-    { name: "New York Operations", address: "456 Manhattan Ave, New York NY 10001", type: "Regional" },
-    { name: "Puerto Rico Center", address: "789 San Juan Blvd, San Juan PR 00901", type: "Regional" },
-    { name: "Ohio Logistics Hub", address: "100 E Broad St, Columbus, OH 43215", type: "Regional" },
-    { name: "Ontario Operations", address: "100 Queen St W, Toronto, ON M5H 2N2", type: "Regional" },
-    { name: "British Columbia Hub", address: "453 W 12th Ave, Vancouver, BC V5Y 1V4", type: "Regional" },
-    { name: "Alberta Regional Center", address: "800 Macleod Trail SE, Calgary, AB T2G 2M3", type: "Regional" },
-    { name: "PEI Service Center", address: "165 Queen St, Charlottetown, PE C1A 4B4", type: "Regional" },
-    { name: "Yukon Territory Hub", address: "2121 2nd Ave, Whitehorse, YT Y1A 1C2", type: "Regional" },
-  ];
 
   return (
     <PublicLayout>
@@ -54,7 +53,7 @@ export default function ContactPage() {
               GET IN <span className="text-accent">TOUCH</span>
             </h1>
             <p className="text-xl opacity-80 max-w-2xl mx-auto leading-relaxed">
-              Have questions about your upcoming move or want to learn more about our 51,000 strong mover network? We're here to help 24/7.
+              Have questions about your upcoming move or about working with us? We're here to help.
             </p>
           </div>
         </section>
@@ -67,7 +66,7 @@ export default function ContactPage() {
               <div className="space-y-8">
                 <div>
                   <h2 className="text-3xl font-black text-primary uppercase mb-4">SEND A MESSAGE</h2>
-                  <p className="text-muted-foreground">Fill out the form below and one of our logistics specialists will get back to you within 60 minutes.</p>
+                  <p className="text-muted-foreground">Fill out the form below and it will open an email to our support team.</p>
                 </div>
                 
                 <Card className="border-none shadow-xl bg-gray-50">
@@ -77,9 +76,9 @@ export default function ContactPage() {
                         <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
                           <CheckCircle2 className="h-8 w-8" />
                         </div>
-                        <h3 className="text-2xl font-black text-primary uppercase">Message Sent!</h3>
+                        <h3 className="text-2xl font-black text-primary uppercase">Almost Done!</h3>
                         <p className="text-muted-foreground max-w-md mx-auto">
-                          Thank you for reaching out to Wont Stop Moving. Our 24/7 dispatch desk has received your inquiry and will respond within 60 minutes.
+                          Your email app should have opened with your message to support@wontstopmoving.com. Press send there and we'll get back to you as soon as we can.
                         </p>
                         <Button variant="outline" onClick={() => setSubmitted(false)} className="rounded-full font-bold">
                           Send Another Message
@@ -129,7 +128,7 @@ export default function ContactPage() {
                         <Phone className="h-6 w-6" />
                       </div>
                       <div>
-                        <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">Call Us 24/7</p>
+                        <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">Call Us</p>
                         <p className="text-xl font-bold text-primary">(650) 569-0584</p>
                       </div>
                     </div>
@@ -150,29 +149,12 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">Business Hours</p>
-                        <p className="text-xl font-bold text-primary">Always Open. 24/7/365</p>
+                        <p className="text-xl font-bold text-primary">Email any time. We reply as soon as we can.</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  <h3 className="text-xl font-black text-primary uppercase">REGIONAL OFFICES</h3>
-                  <div className="grid gap-4 max-h-[600px] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-accent">
-                    {offices.map((office, i) => (
-                      <div key={i} className="p-4 bg-gray-50 rounded-2xl flex items-start gap-4 hover:bg-gray-100 transition-colors border border-transparent hover:border-accent/10">
-                        <MapPin className="h-5 w-5 text-accent shrink-0 mt-1" />
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-bold text-primary">{office.name}</p>
-                            <span className="text-[10px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded uppercase">{office.type}</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{office.address}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -182,16 +164,16 @@ export default function ContactPage() {
         <section className="py-24 bg-gray-50">
           <div className="container mx-auto px-4 text-center space-y-8">
             <MessageSquare className="h-16 w-16 text-accent mx-auto" />
-            <h2 className="text-4xl font-black text-primary uppercase">LIVE CHAT AVAILABLE</h2>
+            <h2 className="text-4xl font-black text-primary uppercase">NEED HELP?</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Need immediate assistance? Our AI-powered chat and live human agents are ready to help you in any of our 51 regions.
+              Email our support team and we'll get back to you as soon as we can.
             </p>
             <Button
               size="lg"
               onClick={() => window.location.href = "mailto:support@wontstopmoving.com?subject=Live%20Support%20Request"}
               className="rounded-full bg-accent hover:bg-accent/90 px-12 h-16 text-xl font-bold"
             >
-              Start Live Chat
+              Email Support
             </Button>
           </div>
         </section>

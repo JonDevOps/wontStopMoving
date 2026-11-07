@@ -26,7 +26,7 @@ export default function VaultedStoragePage() {
                 VAULTED <span className="text-accent">STORAGE</span>
               </h1>
               <p className="text-xl opacity-80 mb-10 leading-relaxed">
-                Climate-controlled, secure storage in individual wooden vaults. Your belongings stay protected, clean, and safe for as long as you need in our 51 regional facilities.
+                Climate-controlled, secure storage in individual wooden vaults. Your belongings stay protected, clean, and safe for as long as you need with our vetted storage partners.
               </p>
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-10 h-16 text-lg font-bold">
                 <Link href="/quote">Start Storage Quote</Link>
@@ -106,7 +106,7 @@ export default function VaultedStoragePage() {
             <Warehouse className="h-16 w-16 mx-auto text-accent" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">YOUR ASSETS, SECURED</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-80 leading-relaxed">
-              Our 51 regional hubs provide professional storage solutions that bridge the gap between moves.
+              We arrange professional storage that bridges the gap between moves.
             </p>
             <div className="flex justify-center">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">

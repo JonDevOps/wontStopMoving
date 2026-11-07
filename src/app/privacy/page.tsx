@@ -34,7 +34,7 @@ export default function PrivacyPolicyPage() {
                   </div>
                   <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                     <h3 className="font-bold text-primary mb-2">Technical Data</h3>
-                    <p className="text-sm text-muted-foreground">IP address, browser type, operating system, and GPS location data (for real-time shipment tracking functionality).</p>
+                    <p className="text-sm text-muted-foreground">IP address, browser type and operating system.</p>
                   </div>
                 </div>
               </section>
@@ -46,8 +46,8 @@ export default function PrivacyPolicyPage() {
                 </p>
                 <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
                   <li>Generating accurate AI-driven moving quotes.</li>
-                  <li>Scheduling and coordinating your relocation with our 51,000 professional movers.</li>
-                  <li>Providing real-time GPS tracking of your shipment.</li>
+                  <li>Scheduling and coordinating your relocation with our professional movers.</li>
+                  <li>Sending you updates about your move's status.</li>
                   <li>Processing payments and managing account history.</li>
                   <li>Communicating updates, safety alerts, and promotional offers.</li>
                 </ul>

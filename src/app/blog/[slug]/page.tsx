@@ -115,7 +115,7 @@ export default async function BlogPostDetail({ params }: { params: Promise<{ slu
                 <div className="bg-accent text-white p-8 rounded-3xl shadow-xl shadow-accent/20">
                   <h4 className="font-black uppercase tracking-tighter text-2xl mb-4">Moving Soon?</h4>
                   <p className="text-white/80 mb-8 text-sm leading-relaxed">
-                    Our 51,000 professional movers across 51 regions are ready to make your relocation simple and stress-free.
+                    Our vetted, independent movers are ready to make your relocation simple and stress-free.
                   </p>
                   <Button asChild className="w-full bg-white text-accent hover:bg-gray-100 font-black uppercase tracking-widest text-xs rounded-xl h-12">
                     <Link href="/quote">Get Instant Quote</Link>

@@ -106,7 +106,7 @@ export default function CleaningServicesPage() {
             <Sparkles className="h-16 w-16 mx-auto" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">A TRULY FRESH START</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-90">
-              Our cleaning professionals ensure you walk into a sanctuary, not a project. Available in all 51 regions.
+              Our cleaning professionals ensure you walk into a sanctuary, not a project. Available in many areas.
             </p>
             <div className="flex justify-center">
               <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">

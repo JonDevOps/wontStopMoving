@@ -83,7 +83,7 @@ export default function GunSafeMovingPage() {
                     "Weight distribution analysis for flooring",
                     "Specialized motorized stair-climbing equipment",
                     "Custom crating for high-value vault finishes",
-                    "Direct transport with real-time GPS tracking"
+                    "Direct transport with status updates in your dashboard"
                   ].map((item, i) => (
                     <div key={i} className="flex items-center gap-3 font-bold text-primary">
                       <CheckCircle2 className="h-5 w-5 text-accent" />
@@ -106,7 +106,7 @@ export default function GunSafeMovingPage() {
             <Truck className="h-16 w-16 mx-auto text-accent" />
             <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">SECURE YOUR TRANSITION</h2>
             <p className="text-xl max-w-2xl mx-auto opacity-80 leading-relaxed">
-              Our 51,000 movers include specialized heavy-haul experts trained in safe and vault relocation protocols.
+              Our network includes heavy-haul specialists trained in safe and vault relocation.
             </p>
             <div className="flex justify-center">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-12 h-16 text-xl font-bold shadow-2xl uppercase">

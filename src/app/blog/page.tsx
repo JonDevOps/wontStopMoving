@@ -74,7 +74,7 @@ export default function BlogListingPage() {
               THE <span className="text-accent">MOVEMENT</span> BLOG
             </h1>
             <p className="text-xl opacity-80 max-w-2xl mx-auto leading-relaxed">
-              Expert advice, packing hacks, and logistics insights from our nationwide network of 51,000 professional movers.
+              Expert advice, packing hacks, and logistics insights from the Wont Stop Moving team.
             </p>
           </div>
         </section>
@@ -215,7 +215,7 @@ export default function BlogListingPage() {
             <div className="max-w-4xl mx-auto bg-primary text-white p-12 rounded-3xl text-center space-y-6">
               <h2 className="text-3xl font-black uppercase tracking-tighter">Get Moving Tips in Your Inbox</h2>
               <p className="text-white/70 max-w-xl mx-auto">
-                Join our community of over 1 million happy customers and receive our monthly newsletter with exclusive moving deals and professional hacks.
+                Subscribe to our monthly newsletter with exclusive moving deals and professional hacks.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
                 <input 

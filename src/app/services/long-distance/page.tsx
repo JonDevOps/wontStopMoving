@@ -24,8 +24,8 @@ export default function LongDistanceMovingPage() {
       icon: Truck
     },
     {
-      title: "Real-Time Tracking",
-      desc: "Monitor your shipment's journey across state lines with 24/7 GPS telematics via our customer portal.",
+      title: "Move Status Updates",
+      desc: "Follow your move from booking to delivery in your customer dashboard.",
       icon: Navigation
     },
     {
