@@ -1,111 +1,65 @@
 'use server';
 
-import { requireRoleFromToken } from '@/lib/server/auth';
 /**
- * @fileOverview This file implements a Genkit flow to generate a professional and detailed
- * description of moving services and pricing for a customer quote.
- *
- * - generateQuoteDescription - A function that handles the quote description generation process.
- * - GenerateQuoteDescriptionInput - The input type for the generateQuoteDescription function.
- * - GenerateQuoteDescriptionOutput - The return type for the generateQuoteDescription function.
+ * Writes the customer-facing description for a quote, using Gemini.
+ * Only signed-in admins may call it.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { Type } from '@google/genai';
+import { requireRoleFromToken } from '@/lib/server/auth';
+import { generateJson } from '@/lib/server/gemini';
 
-const GenerateQuoteDescriptionInputSchema = z.object({
-  moveSize: z
-    .enum([
-      'studio',
-      '1br',
-      '2br',
-      '3br',
-      '4br+',
-      'commercial',
-    ])
-    .describe('The size of the move, e.g., studio, 1br, commercial.'),
-  specialItems: z
-    .string()
-    .optional()
-    .describe('Any special items requiring extra care or equipment.'),
-  pickupAddress: z.string().describe('The full pickup address for the move.'),
-  dropoffAddress: z
-    .string()
-    .describe('The full dropoff address for the move.'),
-  estimatedHours: z
-    .number()
-    .describe('The estimated number of hours for the move.'),
-  price: z.number().describe('The quoted price for the moving services.'),
-});
-export type GenerateQuoteDescriptionInput = z.infer<
-  typeof GenerateQuoteDescriptionInputSchema
->;
+export type GenerateQuoteDescriptionInput = {
+  moveSize: 'studio' | '1br' | '2br' | '3br' | '4br+' | 'commercial';
+  specialItems?: string;
+  pickupAddress: string;
+  dropoffAddress: string;
+  estimatedHours: number;
+  price: number;
+};
 
-const GenerateQuoteDescriptionOutputSchema = z.object({
-  description: z
-    .string()
-    .describe('A professional and detailed description for the customer quote.'),
-});
-export type GenerateQuoteDescriptionOutput = z.infer<
-  typeof GenerateQuoteDescriptionOutputSchema
->;
+export type GenerateQuoteDescriptionOutput = { description: string };
+
+const SCHEMA = {
+  type: Type.OBJECT,
+  properties: { description: { type: Type.STRING, description: 'Professional, detailed description for the customer quote.' } },
+  required: ['description'],
+};
 
 export async function generateQuoteDescription(
   input: GenerateQuoteDescriptionInput,
   idToken: string
 ): Promise<GenerateQuoteDescriptionOutput> {
   // Server actions are public endpoints: only signed-in staff may use the AI.
-  await requireRoleFromToken(idToken, ["admin"]);
+  await requireRoleFromToken(idToken, ['admin']);
   try {
-    return await generateQuoteDescriptionFlow(input);
+    const instructions = [
+      'You write customer quote descriptions for WontStopMoving.com, a moving company.',
+      'Write a professional, clear and friendly description of this quote: the services included, the key move details and the total price.',
+      'Payment is held in escrow and released to the movers only when the customer gives their 6-digit release code.',
+      'Do not promise services, guarantees or insurance that are not listed here.',
+      '',
+      'Move details:',
+      `- Move size: ${input.moveSize}`,
+      `- Pickup: ${input.pickupAddress}`,
+      `- Drop-off: ${input.dropoffAddress}`,
+      `- Estimated hours: ${input.estimatedHours}`,
+      `- Special items: ${input.specialItems || 'None specified'}`,
+      `- Quoted price: $${input.price}`,
+    ].join('\n');
+    return await generateJson<GenerateQuoteDescriptionOutput>([{ text: instructions }], SCHEMA);
   } catch (err) {
-    console.warn('AI Quote Description Generator fallback used:', err);
+    console.warn('AI quote description unavailable, using the standard template:', err);
     return {
       description: [
         `Thank you for choosing Wont Stop Moving for your upcoming ${input.moveSize.toUpperCase()} relocation from ${input.pickupAddress} to ${input.dropoffAddress}.`,
         ``,
-        `Included in Your $${input.price.toLocaleString()} Protected Proposal (${input.estimatedHours} Estimated Hours):`,
-        `• Professional Moving Crew & Equipped Moving Truck`,
-        `• Full Furniture Padding, Stretch-Wrapping & Floor/Doorway Protection`,
-        `• Disassembly & Reassembly of Standard Bed Frames and Dining Tables`,
-        input.specialItems
-          ? `• Specialty Handling Included: ${input.specialItems}`
-          : `• Standard Cargo & Valuation Protection Included`,
-        `• 100% Escrow-Backed Payment Protection (Funds are held safely until move completion and your 6-digit release code confirmation).`,
+        `Your $${input.price.toLocaleString()} quote (${input.estimatedHours} estimated hours) includes:`,
+        `• A professional moving crew and truck`,
+        `• Furniture padding and floor/doorway protection`,
+        input.specialItems ? `• Special handling for: ${input.specialItems}` : `• Standard household items`,
+        `• Escrow payment protection: funds are held until the move is complete and you confirm with your 6-digit release code.`,
       ].join('\n'),
     };
   }
 }
-
-const prompt = ai.definePrompt({
-  name: 'generateQuoteDescriptionPrompt',
-  input: {schema: GenerateQuoteDescriptionInputSchema},
-  output: {schema: GenerateQuoteDescriptionOutputSchema},
-  prompt: `You are an AI assistant for WontStopMoving.com, a professional moving company.
-Your task is to generate a professional, detailed, and clear description for a customer's moving quote.
-This description should outline the services included, key details of the move, and the total quoted price.
-
-Be thorough, friendly, and reassuring, highlighting our commitment to a smooth moving experience.
-
-Move Details:
-- Move Size: {{{moveSize}}}
-- Pickup Address: {{{pickupAddress}}}
-- Dropoff Address: {{{dropoffAddress}}}
-- Estimated Hours: {{{estimatedHours}}} hours
-- Special Items: {{#if specialItems}}{{{specialItems}}}{{else}}None specified.{{/if}}
-- Quoted Price: \${{{price}}}.
-
-Based on these details, please generate a comprehensive quote description for the customer.`,
-});
-
-const generateQuoteDescriptionFlow = ai.defineFlow(
-  {
-    name: 'generateQuoteDescriptionFlow',
-    inputSchema: GenerateQuoteDescriptionInputSchema,
-    outputSchema: GenerateQuoteDescriptionOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);

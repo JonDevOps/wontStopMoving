@@ -1,95 +1,61 @@
 'use server';
 
-import { requireRoleFromToken } from '@/lib/server/auth';
 /**
- * @fileOverview An AI assistant flow for employees to quickly draft structured notes or summarize observations about a move.
- *
- * - aiJobNoteAssistant - A function that handles the AI note assistance process.
- * - AiJobNoteAssistantInput - The input type for the aiJobNoteAssistant function.
- * - AiJobNoteAssistantOutput - The return type for the aiJobNoteAssistant function.
+ * Turns a crew member's raw field notes into structured notes, using Gemini.
+ * Only signed-in crew (employees) and admins may call it.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { Type } from '@google/genai';
+import { requireRoleFromToken } from '@/lib/server/auth';
+import { generateJson } from '@/lib/server/gemini';
 
-const AiJobNoteAssistantInputSchema = z.object({
-  rawNotes: z
-    .string()
-    .describe(
-      'Employee\'s unstructured raw notes or observations about the job.'
-    ),
-  jobDetails: z
-    .string()
-    .describe(
-      'Contextual details about the job, such as move size, special items, pickup/dropoff addresses, and customer notes. This helps the AI structure the notes.'
-    ),
-});
-export type AiJobNoteAssistantInput = z.infer<
-  typeof AiJobNoteAssistantInputSchema
->;
+export type AiJobNoteAssistantInput = {
+  /** The crew member's unstructured notes. */
+  rawNotes: string;
+  /** Job context: move size, special items, addresses, customer notes. */
+  jobDetails: string;
+};
 
-const AiJobNoteAssistantOutputSchema = z.object({
-  structuredNotes: z
-    .string()
-    .describe('AI-generated structured and summarized notes for the job.'),
-});
-export type AiJobNoteAssistantOutput = z.infer<
-  typeof AiJobNoteAssistantOutputSchema
->;
+export type AiJobNoteAssistantOutput = { structuredNotes: string };
+
+const SCHEMA = {
+  type: Type.OBJECT,
+  properties: { structuredNotes: { type: Type.STRING, description: 'Structured, summarized notes in Markdown.' } },
+  required: ['structuredNotes'],
+};
 
 export async function aiJobNoteAssistant(
   input: AiJobNoteAssistantInput,
   idToken: string
 ): Promise<AiJobNoteAssistantOutput> {
   // Server actions are public endpoints: only signed-in staff may use the AI.
-  await requireRoleFromToken(idToken, ["employee", "admin"]);
+  await requireRoleFromToken(idToken, ['employee', 'admin']);
   try {
-    return await aiJobNoteAssistantFlow(input);
+    const instructions = [
+      'You help a moving company crew member structure their job notes for the official record.',
+      'Using the job details as context, rewrite the raw notes clearly and concisely, with Markdown headings or bullets',
+      'such as Observations, Issues Encountered and Customer Feedback where they apply. Do not add anything that is not in the notes.',
+      '',
+      'Job details:',
+      input.jobDetails.slice(0, 4000),
+      '',
+      'Raw notes:',
+      input.rawNotes.slice(0, 8000),
+    ].join('\n');
+    return await generateJson<AiJobNoteAssistantOutput>([{ text: instructions }], SCHEMA);
   } catch (err) {
-    console.warn('AI Job Note Assistant fallback used:', err);
+    console.warn('AI note assistant unavailable:', err);
+    // Keep the crew's own words; don't invent observations.
     return {
       structuredNotes: [
-        '### Dispatch & Crew Summary',
-        `- **Job Context:** ${input.jobDetails || 'Standard residential relocation'}`,
+        '### Job Context',
+        `- ${input.jobDetails || 'Not provided'}`,
         '',
-        '### Key Field Observations',
-        `- ${input.rawNotes.trim() || 'Move progressing on schedule with full item protection applied.'}`,
+        '### Field Notes',
+        input.rawNotes.trim() || '- (no notes)',
         '',
-        '### Compliance & Next Steps',
-        '- All furniture padded and shrink-wrapped prior to loading.',
-        '- Customer walkthrough and 6-digit escrow release code verification scheduled upon final placement.',
+        '_AI formatting is unavailable right now; notes saved as written._',
       ].join('\n'),
     };
   }
 }
-
-const aiJobNoteAssistantPrompt = ai.definePrompt({
-  name: 'aiJobNoteAssistantPrompt',
-  input: { schema: AiJobNoteAssistantInputSchema },
-  output: { schema: AiJobNoteAssistantOutputSchema },
-  prompt: `You are an AI assistant helping a moving company employee structure and summarize their job notes.
-
-Here are the job details for context:
-{{{jobDetails}}}
-
-Here are the employee's raw notes:
-{{{rawNotes}}}
-
-Your task is to take these raw notes and, using the job details as context, generate structured and summarized notes. Focus on clarity, conciseness, and key observations relevant to the move.
-
-Structure the output clearly, for example, by using bullet points or distinct paragraphs for different aspects like 'Observations', 'Issues Encountered', 'Customer Feedback', etc., as appropriate based on the raw notes.
-
-Ensure the structured notes are ready for official record-keeping.`,
-});
-
-const aiJobNoteAssistantFlow = ai.defineFlow(
-  {
-    name: 'aiJobNoteAssistantFlow',
-    inputSchema: AiJobNoteAssistantInputSchema,
-    outputSchema: AiJobNoteAssistantOutputSchema,
-  },
-  async (input) => {
-    const { output } = await aiJobNoteAssistantPrompt(input);
-    return output!;
-  }
-);

@@ -1,99 +1,65 @@
 'use server';
 
-import { requireRoleFromToken } from '@/lib/server/auth';
 /**
- * @fileOverview An AI agent that summarizes job applications.
- *
- * - aiApplicationSummarizer - A function that handles the job application summarization process.
- * - ApplicationSummarizerInput - The input type for the aiApplicationSummarizer function.
- * - ApplicationSummarizerOutput - The return type for the aiApplicationSummarizer function.
+ * Summarizes a job application (and optional resume) for admins, using Gemini.
+ * Only signed-in admins may call it.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { Type } from '@google/genai';
+import { requireRoleFromToken } from '@/lib/server/auth';
+import { dataUriPart, generateJson } from '@/lib/server/gemini';
 
-const ApplicationSummarizerInputSchema = z.object({
-  applicationText: z
-    .string()
-    .describe(
-      'Comprehensive text detailing the applicant\'s information, such as name, email, phone, state, years of experience, driver\'s license status, CDL status, and cover letter content.'
-    ),
-  resumeDataUri: z
-    .string()
-    .describe(
-      "The applicant's resume as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
-});
-export type ApplicationSummarizerInput = z.infer<
-  typeof ApplicationSummarizerInputSchema
->;
+export type ApplicationSummarizerInput = {
+  /** Applicant details: name, contact, state, experience, licenses, cover letter. */
+  applicationText: string;
+  /** Resume as a data URI (`data:<mime>;base64,<data>`), if one was uploaded. */
+  resumeDataUri: string;
+};
 
-const ApplicationSummarizerOutputSchema = z.object({
-  summary: z
-    .string()
-    .describe('A concise overall summary of the applicant, their background, and suitability.'),
-  keySkills: z.array(z.string()).describe('A list of key skills extracted from the application and resume.'),
-  relevantExperience: z
-    .string()
-    .describe(
-      'A summary of the applicant\'s work experience most relevant to a moving company role, including duration and responsibilities.'
-    ),
-  qualificationMatch: z
-    .string()
-    .describe(
-      'An assessment of how well the applicant\'s stated qualifications (e.g., years of experience, driver\'s license, CDL) match the general requirements for moving roles.'
-    ),
-});
-export type ApplicationSummarizerOutput = z.infer<
-  typeof ApplicationSummarizerOutputSchema
->;
+export type ApplicationSummarizerOutput = {
+  summary: string;
+  keySkills: string[];
+  relevantExperience: string;
+  qualificationMatch: string;
+};
+
+const SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    summary: { type: Type.STRING, description: 'Concise overall summary of the applicant, their background and suitability.' },
+    keySkills: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Key skills found in the application and resume.' },
+    relevantExperience: { type: Type.STRING, description: 'Work experience relevant to a moving company role, with duration and responsibilities.' },
+    qualificationMatch: { type: Type.STRING, description: 'How well stated qualifications (experience, license, CDL) match moving roles.' },
+  },
+  required: ['summary', 'keySkills', 'relevantExperience', 'qualificationMatch'],
+};
 
 export async function aiApplicationSummarizer(
   input: ApplicationSummarizerInput,
   idToken: string
 ): Promise<ApplicationSummarizerOutput> {
   // Server actions are public endpoints: only signed-in staff may use the AI.
-  await requireRoleFromToken(idToken, ["admin"]);
+  await requireRoleFromToken(idToken, ['admin']);
   try {
-    return await aiApplicationSummarizerFlow(input);
+    const resume = dataUriPart(input.resumeDataUri);
+    const instructions = [
+      'You are an expert HR recruiter for WontStopMoving.com.',
+      `Review this job application${resume ? ' and the attached resume' : ''}.`,
+      'Summarize the applicant, extract key skills, identify relevant experience and assess how well they match moving company roles.',
+      'Only use facts that appear in the application or resume.',
+      '',
+      'Application details:',
+      input.applicationText.slice(0, 20000),
+    ].join('\n');
+    return await generateJson<ApplicationSummarizerOutput>([{ text: instructions }, ...(resume ? [resume] : [])], SCHEMA);
   } catch (err) {
-    console.warn('AI Application Summarizer fallback used:', err);
+    console.warn('AI application summary unavailable:', err);
+    // Never invent an assessment: say plainly that there isn't one.
     return {
-      summary: `Applicant profile reviewed for Wont Stop Moving field operations. Details submitted: ${input.applicationText.slice(0, 240)}`,
-      keySkills: [
-        'Heavy Lifting & Furniture Protection',
-        'DOT & Box Truck Safety',
-        'Customer Walkthrough & Escrow Protocol',
-        'Residential & Commercial Packing',
-      ],
-      relevantExperience:
-        'Hands-on moving, loading, and logistics experience suitable for local and regional relocation crews.',
-      qualificationMatch:
-        'Strong match for Wont Stop Moving crew standards pending final ID and DOT verification.',
+      summary: 'AI summary is unavailable right now. Please review the application below.',
+      keySkills: [],
+      relevantExperience: 'Not assessed.',
+      qualificationMatch: 'Not assessed.',
     };
   }
 }
-
-const summarizeApplicationPrompt = ai.definePrompt({
-  name: 'summarizeApplicationPrompt',
-  input: { schema: ApplicationSummarizerInputSchema },
-  output: { schema: ApplicationSummarizerOutputSchema },
-  prompt: `You are an AI assistant acting as an expert HR recruiter for WontStopMoving.com. Your task is to review a job application and the accompanying resume to provide a concise summary, extract key skills, identify relevant experience, and assess the applicant's qualification match for moving company roles.
-
-Application Details: {{{applicationText}}}
-Resume: {{media url=resumeDataUri}}
-
-Based on the provided information, please generate a structured summary as a JSON object.`,
-});
-
-const aiApplicationSummarizerFlow = ai.defineFlow(
-  {
-    name: 'aiApplicationSummarizerFlow',
-    inputSchema: ApplicationSummarizerInputSchema,
-    outputSchema: ApplicationSummarizerOutputSchema,
-  },
-  async (input) => {
-    const { output } = await summarizeApplicationPrompt(input);
-    return output!;
-  }
-);
