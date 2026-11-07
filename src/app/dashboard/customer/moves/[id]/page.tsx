@@ -32,6 +32,7 @@ export default function CustomerJobDetailsPage() {
 
   const [job, setJob] = useState<JobDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [releaseCode, setReleaseCode] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -40,6 +41,13 @@ export default function CustomerJobDetailsPage() {
         const docSnap = await getDoc(doc(firestore, "jobs", jobId));
         if (docSnap.exists()) {
           setJob({ id: docSnap.id, ...docSnap.data() } as JobDetails);
+          // The release code is stored separately so providers can't read it.
+          try {
+            const secret = await getDoc(doc(firestore, "jobSecrets", jobId));
+            if (secret.exists()) setReleaseCode(String(secret.data().releaseCode));
+          } catch {
+            setReleaseCode(null);
+          }
         }
       } catch (err) {
         console.error("Error fetching job:", err);
@@ -148,7 +156,7 @@ export default function CustomerJobDetailsPage() {
               </Card>
             )}
 
-            {job.status !== 'completed' && job.releaseCode && (
+            {job.status !== 'completed' && releaseCode && (
               <Card className="border-none shadow-xl bg-accent text-white mt-6">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-black tracking-widest uppercase flex items-center gap-2">
@@ -159,7 +167,7 @@ export default function CustomerJobDetailsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-5xl font-black tracking-[0.2em]">{job.releaseCode}</div>
+                  <div className="text-5xl font-black tracking-[0.2em]">{releaseCode}</div>
                 </CardContent>
               </Card>
             )}

@@ -1,8 +1,9 @@
 "use client";
 
 import { PublicLayout } from "@/components/layout/public-layout";
-import { useFirestore, useUser } from "@/firebase";
-import { doc, getDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth, useFirestore, useUser } from "@/firebase";
+import { apiFetch } from "@/lib/api-client";
+import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,6 +26,7 @@ export default function DirectBookingPage() {
   const providerId = params.providerId as string;
   const router = useRouter();
   const firestore = useFirestore();
+  const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
@@ -109,35 +111,13 @@ export default function DirectBookingPage() {
 
     setIsSubmitting(true);
     try {
-      const releaseCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-      const jobData = {
-        customerId: user.uid,
-        providerIds: [providerId],
-        status: 'pending_payment',
+      const data = await apiFetch<{ url?: string }>(auth, "/api/stripe/checkout", {
+        providerId: provider.id,
+        hours,
         moveDate,
         pickupAddress,
         dropoffAddress,
-        hoursReserved: hours,
-        price: totalCost,
-        releaseCode,
-        createdAt: serverTimestamp(),
-      };
-
-      const docRef = await addDoc(collection(firestore, "jobs"), jobData);
-      
-      // Call Stripe Checkout API
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobId: docRef.id,
-          price: totalCost,
-          businessName: provider.businessName,
-          providerId: provider.id
-        })
       });
-      const data = await res.json();
       
       if (data.url) {
         window.location.href = data.url; // Redirect to Stripe Checkout
@@ -149,7 +129,7 @@ export default function DirectBookingPage() {
       toast({
         variant: "destructive",
         title: "Booking Failed",
-        description: "An error occurred while securing your booking.",
+        description: error instanceof Error ? error.message : "An error occurred while securing your booking.",
       });
       setIsSubmitting(false);
     }

@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { idTokenOf } from "@/lib/api-client";
 import { doc, updateDoc } from "firebase/firestore";
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { calculateMoveTotal } from "@/lib/pricing";
 function QuoteReviewContent({ id }: { id: string }) {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const auth = useAuth();
 
   const quoteRef = useMemoFirebase(() => {
     if (!firestore || !id) return null;
@@ -65,7 +67,7 @@ function QuoteReviewContent({ id }: { id: string }) {
         estimatedHours: 4, // Placeholder
         price: price,
         specialItems: quote.specialItems
-      });
+      }, await idTokenOf(auth));
       setAiSummary(result.description);
     } catch (error) {
       console.error("AI Error:", error);

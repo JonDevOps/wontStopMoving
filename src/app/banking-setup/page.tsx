@@ -1,15 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { PublicLayout } from "@/components/layout/public-layout";
-import { StripeBankingSetup } from "@/components/banking/stripe-banking-setup";
-
-export default function DirectBankingSetupPage() {
-  return (
-    <PublicLayout>
-      <div className="min-h-screen bg-gray-50 pt-28 pb-20 px-4">
-        <StripeBankingSetup />
-      </div>
-    </PublicLayout>
-  );
+// The Stripe setup checklist is for admins only; it lives in the admin dashboard.
+export default function BankingSetupRedirect() {
+  redirect("/dashboard/admin/banking");
 }
-

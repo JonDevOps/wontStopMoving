@@ -1,13 +1,14 @@
 "use client";
 
 import { ProviderLayout } from "@/components/layout/provider-layout";
-import { useFirestore, useUser } from "@/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { useAuth, useFirestore, useUser } from "@/firebase";
+import { apiFetch } from "@/lib/api-client";
+import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Clock, Phone, Mail, Key, PlusCircle, AlertCircle } from "lucide-react";
+import { MapPin, Clock, Phone, Mail, Key, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ChatInterface } from "@/components/chat/chat-interface";
 import { Input } from "@/components/ui/input";
@@ -33,14 +34,12 @@ export default function ProviderJobDetailsPage() {
   const jobId = params.id as string;
   const { user } = useUser();
   const firestore = useFirestore();
+  const auth = useAuth();
 
   const [job, setJob] = useState<JobDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [releaseCode, setReleaseCode] = useState("");
   const [submittingCode, setSubmittingCode] = useState(false);
-  const [modifyAmount, setModifyAmount] = useState("");
-  const [modifyDesc, setModifyDesc] = useState("");
-  const [isModifying, setIsModifying] = useState(false);
   const { toast } = useToast();
 
   const handleCompleteJob = async () => {
@@ -49,49 +48,18 @@ export default function ProviderJobDetailsPage() {
       return;
     }
     if (!job || !firestore) return;
-    if (job.releaseCode && releaseCode.trim() !== String(job.releaseCode).trim()) {
-      toast({
-        variant: "destructive",
-        title: "Incorrect Release Code",
-        description: "The 6-digit code entered does not match the customer's escrow release code.",
-      });
-      return;
-    }
     setSubmittingCode(true);
     try {
-      let stripeAccountId: string | undefined;
-      if (user) {
-        const providerSnap = await getDoc(doc(firestore, "providers", user.uid));
-        if (providerSnap.exists()) {
-          stripeAccountId = providerSnap.data()?.stripeAccountId;
-        }
-      }
-
-      const res = await fetch("/api/jobs/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobId: job.id,
-          code: releaseCode,
-          price: job.price || 0,
-          stripeAccountId,
-        }),
+      const data = await apiFetch<{ payoutStatus: string; transferId: string | null }>(auth, "/api/jobs/complete", {
+        jobId: job.id,
+        code: releaseCode.trim(),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to complete job");
 
-      await updateDoc(doc(firestore, "jobs", job.id), {
-        status: "completed",
-        completedAt: new Date().toISOString(),
-        releasedToProvider: true,
-        transferId: data.transferId || null,
-      });
-      
       toast({
         title: "Job Completed! 🎉",
         description: data.transferId
-          ? "70% payout transfer initiated to your connected Stripe account!"
-          : "Job marked complete and 70% payout queued for your connected Stripe account.",
+          ? "Your 70% payout was sent to your connected Stripe account."
+          : "Job complete. Your payout will be sent once your Stripe account is connected.",
       });
       setJob({ ...job, status: "completed", releasedToProvider: true });
     } catch (err: any) {
@@ -199,95 +167,6 @@ export default function ProviderJobDetailsPage() {
               </CardContent>
             </Card>
 
-            {(job.status === 'confirmed' || job.status === 'in-progress') && (
-              <Card className="border-2 shadow-sm mt-6">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-black tracking-widest uppercase flex items-center gap-2">
-                    <PlusCircle className="w-5 h-5 text-accent" /> Add Extra Hours / Services
-                  </CardTitle>
-                  <p className="text-xs font-medium text-slate-600 mt-1">
-                    If the job takes longer or requires additional materials, securely charge the customer's payment method on file.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-slate-500">Amount ($)</label>
-                        <Input 
-                          type="number" 
-                          min="1"
-                          placeholder="Amount in USD"
-                          value={modifyAmount}
-                          onChange={(e) => setModifyAmount(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-slate-500">Reason</label>
-                        <Input 
-                          type="text" 
-                          placeholder="e.g. 2 Extra Hours"
-                          value={modifyDesc}
-                          onChange={(e) => setModifyDesc(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <Button 
-                      className="w-full font-bold bg-accent hover:bg-accent/90 disabled:opacity-50"
-                      onClick={async () => {
-                        if (!modifyAmount || !modifyDesc) return toast({ variant: "destructive", title: "Missing Fields" });
-                        if (!job?.stripeCustomerId) return toast({ variant: "destructive", title: "Missing Card", description: "Customer did not save a card on file during escrow." });
-                        setIsModifying(true);
-                        try {
-                          const res = await fetch("/api/jobs/modify", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ 
-                              jobId, 
-                              amount: Number(modifyAmount), 
-                              description: modifyDesc,
-                              stripeCustomerId: job.stripeCustomerId
-                            })
-                          });
-                          const data = await res.json();
-                          if (!res.ok) throw new Error(data.error);
-
-                          // Local Firestore update because of mocked backend architecture
-                          const addedAmount = Number(modifyAmount);
-                          const newPrice = (job.price || 0) + addedAmount;
-                          const newModifications = job.modifications || [];
-                          newModifications.push({
-                            amount: addedAmount,
-                            description: modifyDesc,
-                            timestamp: new Date().toISOString(),
-                            paymentIntentId: data.paymentIntentId
-                          });
-
-                          await updateDoc(doc(firestore!, "jobs", jobId), {
-                            price: newPrice,
-                            modifications: newModifications
-                          });
-
-                          toast({ title: "Charge Successful", description: `Added $${modifyAmount} to job total.` });
-                          setModifyAmount("");
-                          setModifyDesc("");
-                          // Refresh job data
-                          const docSnap = await getDoc(doc(firestore!, "jobs", jobId));
-                          setJob({ id: docSnap.id, ...docSnap.data() } as JobDetails);
-                        } catch (e: any) {
-                          toast({ variant: "destructive", title: "Charge Failed", description: e.message });
-                        } finally {
-                          setIsModifying(false);
-                        }
-                      }}
-                      disabled={isModifying || !modifyAmount || !modifyDesc}
-                    >
-                      {isModifying ? "Processing Charge..." : "Add to Job Total"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             {(job.status === 'confirmed' || job.status === 'in-progress') && (
               <Card className="border-2 border-accent shadow-lg bg-accent/5 mt-6">

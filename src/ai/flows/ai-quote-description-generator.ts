@@ -1,4 +1,6 @@
 'use server';
+
+import { requireRoleFromToken } from '@/lib/server/auth';
 /**
  * @fileOverview This file implements a Genkit flow to generate a professional and detailed
  * description of moving services and pricing for a customer quote.
@@ -49,8 +51,11 @@ export type GenerateQuoteDescriptionOutput = z.infer<
 >;
 
 export async function generateQuoteDescription(
-  input: GenerateQuoteDescriptionInput
+  input: GenerateQuoteDescriptionInput,
+  idToken: string
 ): Promise<GenerateQuoteDescriptionOutput> {
+  // Server actions are public endpoints: only signed-in staff may use the AI.
+  await requireRoleFromToken(idToken, ["admin"]);
   try {
     return await generateQuoteDescriptionFlow(input);
   } catch (err) {

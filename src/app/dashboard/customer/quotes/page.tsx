@@ -2,7 +2,7 @@
 
 import { CustomerLayout } from "@/components/layout/customer-layout";
 import { Card, CardContent } from "@/components/ui/card";
-import { useCollection, useMemoFirebase, useUser, useFirestore } from "@/firebase";
+import { useAuth, useCollection, useMemoFirebase, useUser, useFirestore } from "@/firebase";
 import { collection, query, where, orderBy } from "firebase/firestore";
 import { FileText, Calendar, Clock, ChevronRight, Sparkles, MapPin, CreditCard, GraduationCap, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +11,30 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { useState } from "react";
 import { calculateMoveTotal } from "@/lib/pricing";
-import { createCheckoutSession } from "@/app/actions/stripe";
+import { apiFetch } from "@/lib/api-client";
+import { useToast } from "@/hooks/use-toast";
 
 export default function MyQuotesPage() {
   const { user } = useUser();
+  const auth = useAuth();
+  const { toast } = useToast();
+  const [payingQuoteId, setPayingQuoteId] = useState<string | null>(null);
+
+  const handlePayQuote = async (quoteId: string) => {
+    setPayingQuoteId(quoteId);
+    try {
+      // The server reads your quote and calculates the total.
+      const { url } = await apiFetch<{ url: string }>(auth, "/api/stripe/quote-checkout", { quoteId });
+      window.location.href = url;
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Checkout failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+      setPayingQuoteId(null);
+    }
+  };
   const firestore = useFirestore();
   const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
 
@@ -140,19 +160,14 @@ export default function MyQuotesPage() {
                       </div>
                       <div className="bg-gray-50 p-6 flex flex-col justify-center gap-3 border-t md:border-t-0 md:border-l min-w-[200px]">
                         {!isProcessed && quote.status !== 'expired' && (
-                          <form action={createCheckoutSession}>
-                            <input type="hidden" name="quoteId" value={quote.id} />
-                            <input type="hidden" name="customerId" value={user?.uid || ''} />
-                            <input type="hidden" name="moveSize" value={quote.moveSize || details?.moveSize || "studio"} />
-                            <input type="hidden" name="addOns" value={JSON.stringify(selectedAddOns)} />
-                            <input type="hidden" name="email" value={user?.email || ''} />
-                            <input type="hidden" name="isStudent" value={String(!!details?.isStudent)} />
-                            <input type="hidden" name="isMilitary" value={String(!!details?.isMilitary)} />
-                            <input type="hidden" name="isExpress" value={String(!!details?.addOns?.express)} />
-                            <Button type="submit" className="w-full rounded-full bg-primary hover:bg-primary/90 text-white font-bold gap-2 shadow-lg h-12 uppercase tracking-widest text-xs">
-                              <CreditCard className="h-4 w-4" /> Pay & Book
-                            </Button>
-                          </form>
+                          <Button
+                            type="button"
+                            disabled={payingQuoteId === quote.id}
+                            onClick={() => handlePayQuote(quote.id)}
+                            className="w-full rounded-full bg-primary hover:bg-primary/90 text-white font-bold gap-2 shadow-lg h-12 uppercase tracking-widest text-xs"
+                          >
+                            <CreditCard className="h-4 w-4" /> {payingQuoteId === quote.id ? "Opening Checkout..." : "Pay & Book"}
+                          </Button>
                         )}
                         {isProcessed && (
                           <Button asChild className="w-full rounded-full bg-green-500 hover:bg-green-600 text-white font-bold h-12 uppercase tracking-widest text-xs">

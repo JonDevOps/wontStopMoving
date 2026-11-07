@@ -1,4 +1,6 @@
 'use server';
+
+import { requireRoleFromToken } from '@/lib/server/auth';
 /**
  * @fileOverview An AI agent that summarizes job applications.
  *
@@ -47,8 +49,11 @@ export type ApplicationSummarizerOutput = z.infer<
 >;
 
 export async function aiApplicationSummarizer(
-  input: ApplicationSummarizerInput
+  input: ApplicationSummarizerInput,
+  idToken: string
 ): Promise<ApplicationSummarizerOutput> {
+  // Server actions are public endpoints: only signed-in staff may use the AI.
+  await requireRoleFromToken(idToken, ["admin"]);
   try {
     return await aiApplicationSummarizerFlow(input);
   } catch (err) {

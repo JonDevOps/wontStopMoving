@@ -21,13 +21,15 @@ import {
 import Link from "next/link";
 import { useState, use, useEffect } from "react";
 import { aiJobNoteAssistant } from "@/ai/flows/ai-job-note-assistant";
-import { useFirestore } from "@/firebase";
+import { useAuth, useFirestore } from "@/firebase";
+import { idTokenOf } from "@/lib/api-client";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 export default function JobDetailPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = use(params);
   const firestore = useFirestore();
+  const auth = useAuth();
   const { toast } = useToast();
   const [status, setStatus] = useState("In Progress");
   const [rawNotes, setRawNotes] = useState("");
@@ -84,14 +86,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     setStatus("Delivered");
     if (liveJob && firestore) {
       try {
+        // Crew records delivery; the job is completed (and paid out) when the
+        // customer's release code is entered.
         await updateDoc(doc(firestore, "jobs", jobId), {
-          status: "completed",
           crewStatus: "Delivered",
         });
       } catch {}
     }
     toast({
-      title: "Job Marked Complete! 🎉",
+      title: "Delivery Recorded! 🎉",
       description: "Dispatch has been updated with final delivery confirmation.",
     });
   };
@@ -103,7 +106,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       const result = await aiJobNoteAssistant({
         rawNotes,
         jobDetails: JSON.stringify(jobDetails)
-      });
+      }, await idTokenOf(auth));
       setRawNotes(result.structuredNotes);
     } catch (error) {
       console.error("AI Assistant Error:", error);

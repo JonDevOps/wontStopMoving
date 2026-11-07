@@ -1,4 +1,6 @@
 'use server';
+
+import { requireRoleFromToken } from '@/lib/server/auth';
 /**
  * @fileOverview An AI assistant flow for employees to quickly draft structured notes or summarize observations about a move.
  *
@@ -36,8 +38,11 @@ export type AiJobNoteAssistantOutput = z.infer<
 >;
 
 export async function aiJobNoteAssistant(
-  input: AiJobNoteAssistantInput
+  input: AiJobNoteAssistantInput,
+  idToken: string
 ): Promise<AiJobNoteAssistantOutput> {
+  // Server actions are public endpoints: only signed-in staff may use the AI.
+  await requireRoleFromToken(idToken, ["employee", "admin"]);
   try {
     return await aiJobNoteAssistantFlow(input);
   } catch (err) {

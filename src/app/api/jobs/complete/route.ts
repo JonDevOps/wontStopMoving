@@ -1,66 +1,22 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { completeJobWithCode } from "@/lib/server/jobs";
+import { errorResponse, HttpError, isId, readJson, requireRole, requireStripe } from "@/lib/server/auth";
 
-// SECURITY HOLD (Nov 7, 2026): this route had no authentication and trusted
-// the caller's amounts and Stripe IDs while Stripe is in live mode. It is
-// switched off until it verifies the caller's Firebase ID token and reads the
-// job, price and Stripe IDs from Firestore on the server.
-const ROUTE_DISABLED = true;
-
-
+/**
+ * The assigned provider (or an admin) enters the customer's 6-digit release
+ * code. The code, the amount and the payout account all come from Firestore.
+ */
 export async function POST(req: Request) {
-  if (ROUTE_DISABLED) {
-    return NextResponse.json(
-      { error: "This action is temporarily unavailable. Please contact support." },
-      { status: 503 }
-    );
-  }
   try {
-    const { jobId, code, price, stripeAccountId } = await req.json();
+    const { user, role } = await requireRole(req, ["provider", "admin"]);
+    requireStripe();
+    const { jobId, code } = await readJson(req);
+    if (!isId(jobId)) throw new HttpError(400, "Choose a job.");
+    if (typeof code !== "string" || !/^\d{6}$/.test(code.trim())) throw new HttpError(400, "Enter the 6-digit release code.");
 
-    if (!jobId || !code) {
-      throw new Error("Missing jobId or code");
-    }
-
-    const secretKey = process.env.STRIPE_SECRET_KEY || "";
-    const isRealStripe =
-      Boolean(secretKey) &&
-      !secretKey.includes("placeholder") &&
-      (secretKey.startsWith("sk_live_") || secretKey.startsWith("sk_test_"));
-
-    let transferId: string | null = null;
-
-    // When a real Stripe Connect account ID is present, execute the 70% provider payout (keeping 30% platform commission)
-    if (
-      isRealStripe &&
-      stripeAccountId &&
-      typeof stripeAccountId === "string" &&
-      stripeAccountId.startsWith("acct_") &&
-      !stripeAccountId.startsWith("acct_demo_") &&
-      Number(price) > 0
-    ) {
-      try {
-        const payoutCents = Math.round(Number(price) * 0.7 * 100);
-        const transfer = await stripe.transfers.create({
-          amount: payoutCents,
-          currency: "usd",
-          destination: stripeAccountId,
-          transfer_group: `JOB_${jobId}`,
-          description: `70% Escrow Release for Job ${jobId}`,
-        });
-        transferId = transfer.id;
-      } catch (transferErr: any) {
-        console.warn("Stripe Connect transfer queued/deferred:", transferErr.message);
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      transferId,
-      message: "Job completed and 70% provider payout verified (30% retained by Wont Stop Moving).",
-    });
-  } catch (error: any) {
-    console.error("Payout transfer error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const result = await completeJobWithCode({ jobId, code: code.trim(), uid: user.uid, isAdmin: role === "admin" });
+    return NextResponse.json({ success: true, ...result });
+  } catch (error) {
+    return errorResponse(error);
   }
 }

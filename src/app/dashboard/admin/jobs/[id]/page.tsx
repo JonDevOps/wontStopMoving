@@ -27,6 +27,12 @@ export default function AdminJobDetailsPage() {
 
   const { data: job, isLoading: jobLoading } = useDoc(jobRef);
 
+  const secretRef = useMemoFirebase(() => {
+    if (!firestore || !id) return null;
+    return doc(firestore, "jobSecrets", id);
+  }, [firestore, id]);
+  const { data: jobSecret } = useDoc(secretRef);
+
   const providersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, "providers"));
@@ -181,8 +187,8 @@ export default function AdminJobDetailsPage() {
               
               <div className="flex justify-between items-center py-2 border-b border-accent/10">
                 <p className="text-xs font-bold text-muted-foreground uppercase">Release Code</p>
-                {job.releaseCode ? (
-                  <p className="font-black text-lg tracking-[0.2em]">{job.releaseCode}</p>
+                {jobSecret?.releaseCode ? (
+                  <p className="font-black text-lg tracking-[0.2em]">{jobSecret.releaseCode}</p>
                 ) : (
                   <Badge variant="outline" className="text-[10px] uppercase">Not Generated</Badge>
                 )}

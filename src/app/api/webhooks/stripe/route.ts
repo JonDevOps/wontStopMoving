@@ -1,100 +1,38 @@
-import { headers } from 'next/headers';
-import { NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
-import { initializeFirebase } from '@/firebase';
-import { doc, setDoc, updateDoc, collection, serverTimestamp, getDoc } from 'firebase/firestore';
+import { NextResponse } from "next/server";
+import type Stripe from "stripe";
+import { stripe } from "@/lib/stripe";
+import { confirmPaidCheckout } from "@/lib/server/jobs";
+import { HttpError } from "@/lib/server/auth";
 
-/**
- * Stripe Webhook Handler
- * This endpoint processes successful payments and automates Job creation.
- */
+/** Stripe webhook. Every event is signature-checked before anything is written. */
 export async function POST(req: Request) {
-  const body = await req.text();
-  const signature = (await headers()).get('stripe-signature') as string;
+  const secret = process.env.STRIPE_WEBHOOK_SECRET || "";
+  const signature = req.headers.get("stripe-signature");
+  if (!secret.startsWith("whsec_") || !signature) {
+    return new NextResponse("Webhook not configured", { status: 400 });
+  }
 
-  let event;
-
+  let event: Stripe.Event;
   try {
-    // Verify the webhook is actually from Stripe
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET || ''
-    );
+    event = stripe.webhooks.constructEvent(await req.text(), signature, secret);
   } catch (err: any) {
-    console.error(`Webhook Error: ${err.message}`);
-    return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
+    console.error("Stripe webhook signature check failed:", err?.message);
+    return new NextResponse("Invalid signature", { status: 400 });
   }
 
-  // Handle the successful payment event
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object as any;
-    const metadata = session.metadata;
-
-    if (!metadata?.quoteId || !metadata?.customerId) {
-      console.error('Webhook Error: Missing metadata in session');
-      return new NextResponse('Missing Metadata', { status: 400 });
-    }
-
-    const { quoteId, customerId, moveSize } = metadata;
-    const { firestore } = initializeFirebase();
-
+  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
     try {
-      // 1. Update the Quote status to "processed"
-      const quoteRef = doc(firestore, 'quotes', quoteId);
-      const quoteSnap = await getDoc(quoteRef);
-      
-      if (!quoteSnap.exists()) {
-        console.error(`Quote ${quoteId} not found`);
-        return new NextResponse('Quote not found', { status: 404 });
+      await confirmPaidCheckout(event.data.object as Stripe.Checkout.Session);
+    } catch (error) {
+      // 4xx problems (unknown booking, wrong customer) will never succeed, so
+      // acknowledge them; anything else returns 500 so Stripe retries.
+      if (error instanceof HttpError && error.status < 500) {
+        console.error(`Webhook ${event.id} ignored: ${error.message}`);
+      } else {
+        console.error(`Webhook ${event.id} failed:`, error);
+        return new NextResponse("Retry later", { status: 500 });
       }
-
-      const quoteData = quoteSnap.data();
-      let details: any = {};
-      try {
-        details = typeof quoteData.details === 'string' ? JSON.parse(quoteData.details) : quoteData.details;
-      } catch (e) {
-        console.warn('Could not parse quote details JSON');
-      }
-
-      await updateDoc(quoteRef, { status: 'processed' });
-
-      // 2. Create the official Job entity for the dispatch board (deterministic ID to avoid duplicates)
-      const deterministicJobId = `job_quote_${quoteId}`;
-      const newJobRef = doc(firestore, 'jobs', deterministicJobId);
-      const releaseCode = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      const jobData = {
-        id: deterministicJobId,
-        customerId: customerId,
-        quoteId: quoteId,
-        status: 'confirmed',
-        state: quoteData.state || details.state || 'California',
-        moveDate: quoteData.moveDate || details.moveDate || '',
-        pickupAddress: quoteData.pickupAddress || quoteData.pickupZip || details.pickupZip || '',
-        dropoffAddress: quoteData.dropoffAddress || quoteData.dropoffZip || details.dropoffZip || '',
-        moveSize: moveSize || quoteData.moveSize || 'studio',
-        price: session.amount_total / 100, // Convert from cents to dollars
-        employeeIds: [], // Initially unassigned
-        providerIds: quoteData.preferredProviderId ? [quoteData.preferredProviderId] : [],
-        releaseCode,
-        specialItems: quoteData.specialItems || details.specialItems || '',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        paymentId: session.id,
-        paymentIntentId: session.payment_intent || null,
-        stripeCustomerId: session.customer || null,
-        customerEmail: session.customer_details?.email || quoteData.email || ''
-      };
-
-      await setDoc(newJobRef, jobData, { merge: true });
-
-      console.log(`Successfully created Job ${newJobRef.id} from Quote ${quoteId}`);
-    } catch (dbError: any) {
-      console.error('Database Error in Webhook:', dbError);
-      return new NextResponse('Database error', { status: 500 });
     }
   }
-
-  return new NextResponse(null, { status: 200 });
+  return NextResponse.json({ received: true });
 }

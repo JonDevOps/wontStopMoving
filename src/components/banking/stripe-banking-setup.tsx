@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/firebase";
+import { apiFetch } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -65,6 +67,7 @@ const STRIPE_CHECKLIST = [
 ];
 
 export function StripeBankingSetup() {
+  const auth = useAuth();
   const { toast } = useToast();
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [statusLoading, setStatusLoading] = useState(true);
@@ -79,9 +82,7 @@ export function StripeBankingSetup() {
   const checkStripeStatus = async () => {
     setStatusLoading(true);
     try {
-      const res = await fetch("/api/stripe/config-status");
-      const data = await res.json();
-      setStripeConfig(data);
+      setStripeConfig(await apiFetch(auth, "/api/stripe/config-status"));
     } catch {
       setStripeConfig(null);
     } finally {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useFirestore, useUser } from "@/firebase";
-import { collection, addDoc, updateDoc, doc, serverTimestamp } from "firebase/firestore";
+import { setDoc, updateDoc, doc, serverTimestamp } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,7 +40,8 @@ export function ReviewForm({ jobId, providerId, onReviewSubmitted }: ReviewFormP
     setIsSubmitting(true);
     try {
       // 1. Add review to the provider's reviews subcollection
-      await addDoc(collection(firestore, "providers", providerId, "reviews"), {
+      // One review per job: the review's ID is the job ID.
+      await setDoc(doc(firestore, "providers", providerId, "reviews", jobId), {
         jobId,
         customerId: user.uid,
         customerName: user.displayName || "Anonymous",

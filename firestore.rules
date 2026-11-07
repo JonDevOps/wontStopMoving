@@ -92,18 +92,40 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Fields only the server (payout setup, reviews) or an admin may set.
+    function providerProtectedFields() {
+      return ['status', 'stripeAccountId', 'stripeOnboardingComplete', 'rating', 'reviewCount'];
+    }
+
     match /providers/{providerUid} {
       allow read: if true;
-      allow create: if (isOwner(providerUid) && request.resource.data.status == 'pending') || isAdmin();
+      allow create: if isAdmin() || (
+        isOwner(providerUid) &&
+        request.resource.data.status == 'pending' &&
+        !('stripeAccountId' in request.resource.data) &&
+        !('stripeOnboardingComplete' in request.resource.data) &&
+        request.resource.data.get('rating', 0) == 0 &&
+        request.resource.data.get('reviewCount', 0) == 0
+      );
       allow update: if isAdmin() || (
         isOwner(providerUid) &&
-        request.resource.data.status == resource.data.status
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(providerProtectedFields())
       );
       allow delete: if isAdmin();
 
-      match /reviews/{reviewId} {
+      // One review per completed job, written by that job's customer. The
+      // review's ID is the job ID.
+      match /reviews/{jobId} {
         allow read: if true;
-        allow create: if isSignedIn(); // Allow customers to write a review
+        allow create: if isSignedIn() &&
+          request.resource.data.customerId == request.auth.uid &&
+          request.resource.data.jobId == jobId &&
+          request.resource.data.rating is number &&
+          request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
+          get(/databases/$(database)/documents/jobs/$(jobId)).data.customerId == request.auth.uid &&
+          get(/databases/$(database)/documents/jobs/$(jobId)).data.status == 'completed' &&
+          providerUid in get(/databases/$(database)/documents/jobs/$(jobId)).data.providerIds;
+        allow update, delete: if isAdmin();
       }
     }
 
@@ -125,20 +147,47 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Jobs are created, paid, completed and paid out by the server. In the
+    // browser, each participant may change only their own small set of fields.
+    function changedOnly(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+    function isJobProvider() {
+      return isSignedIn() && resource.data.get('providerIds', []) is list &&
+        request.auth.uid in resource.data.get('providerIds', []);
+    }
+    function isJobEmployee() {
+      return isSignedIn() && resource.data.get('employeeIds', []) is list &&
+        request.auth.uid in resource.data.get('employeeIds', []);
+    }
+
     match /jobs/{id} {
-      allow read: if (isSignedIn() && (resource.data.customerId == request.auth.uid || 
-        (resource.data.employeeIds != null && request.auth.uid in resource.data.employeeIds) || 
+      allow read: if (isSignedIn() && (resource.data.customerId == request.auth.uid ||
+        (resource.data.employeeIds != null && request.auth.uid in resource.data.employeeIds) ||
         (resource.data.providerIds != null && request.auth.uid in resource.data.providerIds))) || isAdmin();
-      allow create: if (isSignedIn() && request.resource.data.customerId == request.auth.uid) || isAdmin();
-      allow update: if (isSignedIn() && (
-        resource.data.customerId == request.auth.uid ||
-        (resource.data.employeeIds != null && request.auth.uid in resource.data.employeeIds) || 
-        (resource.data.providerIds != null && request.auth.uid in resource.data.providerIds))) || isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() ||
+        // Customer: mark the job reviewed.
+        (isSignedIn() && resource.data.customerId == request.auth.uid &&
+          changedOnly(['reviewed']) && request.resource.data.reviewed == true) ||
+        // Provider: switch between confirmed and in-progress.
+        (isJobProvider() && changedOnly(['status']) &&
+          resource.data.status in ['confirmed', 'in-progress'] &&
+          request.resource.data.status in ['confirmed', 'in-progress']) ||
+        // Crew: field notes and crew status.
+        (isJobEmployee() && changedOnly(['employeeNotes', 'crewStatus']));
       allow delete: if isAdmin();
 
       match /messages/{messageId} {
         allow read, create: if isSignedIn() && canAccessJob(id);
       }
+    }
+
+    // Release codes. Only the customer and admins can read them; providers
+    // never can. Written only by the server.
+    match /jobSecrets/{jobId} {
+      allow read: if (isSignedIn() && resource.data.customerId == request.auth.uid) || isAdmin();
+      allow write: if false;
     }
 
     // Default deny fallback

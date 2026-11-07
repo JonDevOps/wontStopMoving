@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
+import { errorResponse, requireRole } from "@/lib/server/auth";
 
-export async function GET() {
+/** Admin-only: shows whether Stripe is configured and in which mode. */
+export async function GET(req: Request) {
+  try {
+    await requireRole(req, ["admin"]);
+  } catch (error) {
+    return errorResponse(error);
+  }
   const secretKey = process.env.STRIPE_SECRET_KEY || "";
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 

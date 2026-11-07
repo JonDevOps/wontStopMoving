@@ -4,7 +4,9 @@ import { Progress } from "@/components/ui/progress";
 import { ProviderLayout } from "@/components/layout/provider-layout";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { apiFetch } from "@/lib/api-client";
 import {
+  useAuth,
   useUser,
   useFirestore,
   useDoc,
@@ -52,6 +54,7 @@ import { TwoFactorCard } from "@/components/security/two-factor-card";
 function ProviderDashboardContent() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const auth = useAuth();
   const { toast } = useToast();
 
   const userProfileRef = useMemoFirebase(() => {
@@ -143,15 +146,14 @@ function ProviderDashboardContent() {
         return;
 
       try {
-        const res = await fetch("/api/stripe/account-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accountId: providerInfo.stripeAccountId }),
-        });
-        const data = await res.json();
+        // The server checks Stripe and records the result on your provider profile.
+        const data = await apiFetch<{ chargesEnabled: boolean; payoutsEnabled: boolean }>(
+          auth,
+          "/api/stripe/account-status",
+          {}
+        );
 
-        if (data.chargesEnabled && data.payoutsEnabled && providerRef) {
-          await updateDoc(providerRef, { stripeOnboardingComplete: true });
+        if (data.chargesEnabled && data.payoutsEnabled) {
           toast({
             title: "Bank Account Connected!",
             description: "You are ready to receive 85% automated payouts.",
@@ -165,7 +167,7 @@ function ProviderDashboardContent() {
   }, [
     providerInfo?.stripeAccountId,
     providerInfo?.stripeOnboardingComplete,
-    providerRef,
+    auth,
     toast,
   ]);
 
@@ -320,42 +322,9 @@ function ProviderDashboardContent() {
     setStripeStatusLoading(true);
 
     try {
-      if (providerInfo?.stripeAccountId) {
-        const res = await fetch("/api/stripe/account-link", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accountId: providerInfo.stripeAccountId }),
-        });
-        const data = await res.json();
-        if (data.url) window.location.href = data.url;
-        else throw new Error(data.error || "Could not create onboarding link");
-      } else {
-        const res = await fetch("/api/stripe/account", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: user.email,
-            businessName:
-              providerInfo?.businessName ||
-              businessName ||
-              "Independent Provider",
-          }),
-        });
-        const data = await res.json();
-        if (data.accountId && data.url) {
-          await setDoc(
-            providerRef,
-            { stripeAccountId: data.accountId },
-            { merge: true }
-          );
-          window.location.href = data.url;
-        } else {
-          throw new Error(
-            data.error ||
-              "Add your real STRIPE_SECRET_KEY in .env.local to launch Stripe Connect."
-          );
-        }
-      }
+      // The server creates (or reuses) your own Stripe account and returns its onboarding link.
+      const data = await apiFetch<{ url: string }>(auth, "/api/stripe/account", {});
+      window.location.href = data.url;
     } catch (err: any) {
       toast({
         variant: "destructive",

@@ -1,6 +1,7 @@
 "use client";
 
-import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { idTokenOf } from "@/lib/api-client";
 import { doc, updateDoc } from "firebase/firestore";
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 function ApplicationReviewContent({ id }: { id: string }) {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const auth = useAuth();
 
   const applicationRef = useMemoFirebase(() => {
     if (!firestore || !id) return null;
@@ -70,7 +72,7 @@ function ApplicationReviewContent({ id }: { id: string }) {
       const result = await aiApplicationSummarizer({
         applicationText: JSON.stringify(application),
         resumeDataUri: "data:application/pdf;base64,JVBERi0xLjQKJ..." // Placeholder
-      });
+      }, await idTokenOf(auth));
       setAiSummary(result);
     } catch (error) {
       console.error("AI Summarizer Error:", error);
