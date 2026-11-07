@@ -142,8 +142,13 @@ service cloud.firestore {
 
     match /quotes/{id} {
       allow read: if (isSignedIn() && resource.data.customerId == request.auth.uid) || isAdmin();
-      allow create: if true;
-      allow update: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      // Quotes come from signed-in customers, for themselves, starting as 'new'.
+      allow create: if isAdmin() || (isSignedIn() &&
+        request.resource.data.customerId == request.auth.uid &&
+        request.resource.data.status == 'new');
+      // Customers may edit their quote's details, but not reassign it or change its status.
+      allow update: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['customerId', 'status']));
       allow delete: if isAdmin();
     }
 
@@ -179,7 +184,9 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       match /messages/{messageId} {
-        allow read, create: if isSignedIn() && canAccessJob(id);
+        allow read: if isSignedIn() && canAccessJob(id);
+        // Messages must be sent under the sender's own ID.
+        allow create: if isSignedIn() && canAccessJob(id) && request.resource.data.senderId == request.auth.uid;
       }
     }
 

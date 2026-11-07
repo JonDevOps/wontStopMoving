@@ -110,3 +110,19 @@ test('reviews: only the customer of a completed job, once', async () => {
   await assertSucceeds(setDoc(doc(as('cust'), 'providers/prov/reviews/done'), review));
   await assertFails(setDoc(doc(as('cust'), 'providers/prov/reviews/done'), { ...review, rating: 1 }));
 });
+
+test('quotes: only for yourself, starting as new; no reassigning or status changes', async () => {
+  await assertFails(addDoc(collection(env.unauthenticatedContext().firestore(), 'quotes'), { customerId: 'cust', status: 'new' }));
+  await assertFails(addDoc(collection(as('prov'), 'quotes'), { customerId: 'cust', status: 'new' }));
+  await assertFails(setDoc(doc(as('cust'), 'quotes/q1'), { customerId: 'cust', status: 'processed' }));
+  await assertSucceeds(setDoc(doc(as('cust'), 'quotes/q1'), { customerId: 'cust', status: 'new', moveSize: '2br' }));
+  await assertSucceeds(updateDoc(doc(as('cust'), 'quotes/q1'), { moveSize: '3br' }));
+  await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), { status: 'processed' }));
+  await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), { customerId: 'prov' }));
+});
+
+test('job chat: participants post only as themselves', async () => {
+  await assertSucceeds(addDoc(collection(as('prov'), 'jobs/j1/messages'), { senderId: 'prov', text: 'On my way' }));
+  await assertFails(addDoc(collection(as('prov'), 'jobs/j1/messages'), { senderId: 'cust', text: 'Fake' }));
+  await assertFails(addDoc(collection(as('other'), 'jobs/j1/messages'), { senderId: 'other', text: 'Not on this job' }));
+});
