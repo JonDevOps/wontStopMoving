@@ -14,6 +14,17 @@ import {
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { PublicLayout } from '@/components/layout/public-layout';
+import { pageMetadata } from '@/lib/seo';
+
+export const metadata = {
+  ...pageMetadata({
+    title: 'Movers Across the U.S., Puerto Rico & Canada',
+    description:
+      'Get an instant moving quote and book vetted, independent movers online. Upfront pricing, and your payment stays in escrow until the job is done.',
+    path: '/',
+  }),
+  title: { absolute: 'Wont Stop Moving | Movers Across the U.S., Puerto Rico & Canada' },
+};
 
 export default function Home() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero-bg');
