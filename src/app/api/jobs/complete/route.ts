@@ -1,7 +1,20 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 
+// SECURITY HOLD (Nov 7, 2026): this route had no authentication and trusted
+// the caller's amounts and Stripe IDs while Stripe is in live mode. It is
+// switched off until it verifies the caller's Firebase ID token and reads the
+// job, price and Stripe IDs from Firestore on the server.
+const ROUTE_DISABLED = true;
+
+
 export async function POST(req: Request) {
+  if (ROUTE_DISABLED) {
+    return NextResponse.json(
+      { error: "This action is temporarily unavailable. Please contact support." },
+      { status: 503 }
+    );
+  }
   try {
     const { jobId, code, price, stripeAccountId } = await req.json();
 
