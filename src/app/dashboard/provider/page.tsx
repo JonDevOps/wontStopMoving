@@ -106,8 +106,10 @@ function ProviderDashboardContent() {
         let count = 0;
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          if (data.price) {
-            total += data.price * 0.85;
+          const paid = Number(data.amountPaid ?? data.price) || 0;
+          if (paid) {
+            // Providers keep 85% (15% marketplace fee), matching the server payout.
+            total += paid * 0.85;
           }
           count++;
         });

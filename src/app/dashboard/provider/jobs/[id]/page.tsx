@@ -58,7 +58,7 @@ export default function ProviderJobDetailsPage() {
       toast({
         title: "Job Completed! 🎉",
         description: data.transferId
-          ? "Your 70% payout was sent to your connected Stripe account."
+          ? "Your 85% payout was sent to your connected Stripe account."
           : "Job complete. Your payout will be sent once your Stripe account is connected.",
       });
       setJob({ ...job, status: "completed", releasedToProvider: true });

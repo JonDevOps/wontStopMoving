@@ -11,7 +11,8 @@ import { stripe } from "@/lib/stripe";
  * and admins can read, never on the job document that providers can see.
  */
 
-export const PROVIDER_SHARE = 0.7;
+/** Providers keep 85% of what the customer paid; the marketplace fee is 15%. */
+export const PROVIDER_SHARE = 0.85;
 const MAX_CODE_ATTEMPTS = 5;
 
 const newReleaseCode = () => String(randomInt(100000, 1000000));
@@ -119,7 +120,7 @@ export type CompletionResult = {
 
 /**
  * Completes a job when the assigned provider (or an admin) enters the
- * customer's release code, then pays the provider 70% of what the customer
+ * customer's release code, then pays the provider 85% of what the customer
  * actually paid, to the Stripe account stored on the provider's own record.
  */
 export async function completeJobWithCode(params: {
@@ -194,7 +195,7 @@ export async function completeJobWithCode(params: {
           currency: "usd",
           destination: accountId,
           transfer_group: `JOB_${jobId}`,
-          description: `70% payout for job ${jobId}`,
+          description: `85% payout for job ${jobId}`,
           ...(sourceTransaction ? { source_transaction: sourceTransaction } : {}),
           metadata: { jobId, providerId: outcome.payeeUid! },
         },
