@@ -19,6 +19,14 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
+import { GoogleButton } from "@/components/auth/google-button";
+import {
+  signInWithGooglePopup,
+  getProfileRole,
+  createSelfServiceProfile,
+  dashboardForRole,
+  googleErrorMessage,
+} from "@/lib/google-sign-in";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name required"),
@@ -37,12 +45,40 @@ export default function SignupPage() {
   const firestore = useFirestore();
   const [isLoading, setIsLoading] = useState(false);
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<SignupValues>({
+  const { register, handleSubmit, setValue, getValues, formState: { errors } } = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
       accountType: 'customer',
     },
   });
+
+  const handleGoogleSignup = async () => {
+    setIsLoading(true);
+    try {
+      const user = await signInWithGooglePopup(auth);
+      const existingRole = await getProfileRole(firestore, user.uid);
+      if (existingRole) {
+        // Already has an account: just sign them in.
+        router.push(dashboardForRole(existingRole));
+        return;
+      }
+      const role = getValues("accountType") === "provider" ? "provider" : "customer";
+      await createSelfServiceProfile(firestore, user, { role, state: getValues("state") || "" });
+      toast({
+        title: "Account Created",
+        description: role === "provider" ? "Your provider account is pending admin approval." : "Welcome to Wont Stop Moving!",
+      });
+      router.push(dashboardForRole(role));
+    } catch (error: unknown) {
+      const message = googleErrorMessage(error);
+      if (message) {
+        console.error("Google signup error:", error);
+        toast({ variant: "destructive", title: "Registration Failed", description: message });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const onSubmit = async (data: SignupValues) => {
     setIsLoading(true);
@@ -117,6 +153,15 @@ export default function SignupPage() {
             </div>
           </CardHeader>
           <CardContent className="p-8 space-y-6">
+            <GoogleButton onClick={handleGoogleSignup} disabled={isLoading} label="Sign up with Google" />
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-100"></span>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-3 text-muted-foreground font-bold">or use email</span>
+              </div>
+            </div>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>

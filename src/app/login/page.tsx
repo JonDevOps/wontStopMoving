@@ -22,6 +22,15 @@ import { useAuth, useFirestore } from "@/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { GoogleButton } from "@/components/auth/google-button";
+import {
+  signInWithGooglePopup,
+  getProfileRole,
+  createSelfServiceProfile,
+  dashboardForRole,
+  googleErrorMessage,
+  signOutQuietly,
+} from "@/lib/google-sign-in";
 
 type PortalRole = "customer" | "provider" | "employee" | "admin";
 
@@ -137,6 +146,51 @@ function LoginContent() {
     params.delete("mode");
     const query = params.toString();
     router.replace(query ? `/login?${query}` : "/login", { scroll: false });
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    try {
+      const user = await signInWithGooglePopup(auth);
+      let role = await getProfileRole(firestore, user.uid);
+
+      if (!role) {
+        // First Google sign-in: customers and providers can create their own
+        // account here. Employees apply through careers; admins are added by
+        // an existing admin.
+        if (selectedRole === "employee" || selectedRole === "admin") {
+          await signOutQuietly(auth);
+          toast({
+            variant: "destructive",
+            title: "No account found",
+            description:
+              selectedRole === "admin"
+                ? "Admin accounts are added by an existing admin."
+                : "Apply on the Careers page to create an employee account.",
+          });
+          return;
+        }
+        role = selectedRole === "provider" ? "provider" : "customer";
+        await createSelfServiceProfile(firestore, user, { role: role as "customer" | "provider" });
+        toast({
+          title: "Account created",
+          description:
+            role === "provider"
+              ? "Your provider account is pending admin approval."
+              : "Welcome to Wont Stop Moving!",
+        });
+      }
+
+      router.push(redirectParam || dashboardForRole(role));
+    } catch (error: unknown) {
+      const message = googleErrorMessage(error);
+      if (message) {
+        console.error("Google sign-in error:", error);
+        toast({ variant: "destructive", title: "Google Sign-In Failed", description: message });
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -366,6 +420,8 @@ function LoginContent() {
                 : `Sign In as ${activePortal.shortLabel}`}
             </Button>
           </form>
+
+        <GoogleButton onClick={handleGoogleLogin} disabled={isLoading} />
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
