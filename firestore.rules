@@ -53,11 +53,6 @@ service cloud.firestore {
       return hasRole('admin');
     }
 
-    function canSelfAssignAdmin() {
-      return ('email' in request.auth.token && request.auth.token.email == 'admin@wontstopmoving.com') ||
-             ('adminInviteVerified' in request.resource.data && request.resource.data.adminInviteVerified == true);
-    }
-
     function canAccessJob(jobId) {
       let job = get(/databases/$(database)/documents/jobs/$(jobId)).data;
       return isAdmin() || 
@@ -71,10 +66,10 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isAdmin() || (
-        isOwner(userId) && (
-          request.resource.data.role in ['customer', 'employee', 'provider'] ||
-          (request.resource.data.role == 'admin' && canSelfAssignAdmin())
-        )
+        // Self-signup can never create an admin. Admins are granted only by
+        // an existing admin (or server-side with the Admin SDK).
+        isOwner(userId) &&
+        request.resource.data.role in ['customer', 'employee', 'provider']
       );
       allow update: if isAdmin() || (
         isOwner(userId) &&

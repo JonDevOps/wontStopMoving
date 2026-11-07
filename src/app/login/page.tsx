@@ -13,15 +13,14 @@ import {
   ArrowRight,
   ArrowLeft,
   UserPlus,
-  KeyRound,
 } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { useAuth, useFirestore } from "@/firebase";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 type PortalRole = "customer" | "provider" | "employee" | "admin";
@@ -92,8 +91,8 @@ const PORTAL_CONFIG: Record<
     subtitle: "Executive & dispatch administration",
     description: "Executive & dispatch administration",
     icon: ShieldCheck,
-    signupLabel: "Create Admin Account",
-    signupPrompt: "Setting up a new admin?",
+    signupLabel: "Admin accounts are added by an existing admin",
+    signupPrompt: "Need admin access?",
     emailPlaceholder: "admin@wontstopmoving.com",
   },
 };
@@ -114,11 +113,6 @@ function LoginContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isAdminSignupMode, setIsAdminSignupMode] = useState(
-    searchParams.get("mode") === "signup"
-  );
-  const [adminName, setAdminName] = useState("");
-  const [adminAccessCode, setAdminAccessCode] = useState("");
 
   useEffect(() => {
     if (roleParam && roleParam in PORTAL_CONFIG) {
@@ -128,65 +122,21 @@ function LoginContent() {
     }
   }, [roleParam]);
 
-  const handleSelectRole = (role: PortalRole, signupMode = false) => {
+  const handleSelectRole = (role: PortalRole) => {
     setSelectedRole(role);
-    setIsAdminSignupMode(signupMode);
     const params = new URLSearchParams(searchParams.toString());
     params.set("role", role);
-    if (signupMode) params.set("mode", "signup");
-    else params.delete("mode");
+    params.delete("mode");
     router.replace(`/login?${params.toString()}`, { scroll: false });
   };
 
   const handleClearRole = () => {
     setSelectedRole(null);
-    setIsAdminSignupMode(false);
     const params = new URLSearchParams(searchParams.toString());
     params.delete("role");
     params.delete("mode");
     const query = params.toString();
     router.replace(query ? `/login?${query}` : "/login", { scroll: false });
-  };
-
-  const handleAdminSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminAccessCode.trim() !== "WSM-ADMIN-2026") {
-      toast({
-        variant: "destructive",
-        title: "Invalid Admin Authorization Code",
-        description: "Please enter the valid master admin code (WSM-ADMIN-2026).",
-      });
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      const uid = cred.user.uid;
-      await setDoc(doc(firestore, "users", uid), {
-        id: uid,
-        name: adminName || "System Administrator",
-        email,
-        phone: "(650) 569-0584",
-        role: "admin",
-        adminInviteVerified: true,
-        state: "California",
-        twoFactorEnabled: false,
-        createdAt: serverTimestamp(),
-      });
-      toast({
-        title: "Admin Account Created!",
-        description: "Welcome to the Wont Stop Moving Command Center.",
-      });
-      router.push("/dashboard/admin");
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Admin Registration Failed",
-        description: error.message || "Could not create admin account.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -283,7 +233,7 @@ function LoginContent() {
                   <div className="space-y-3 pt-4 border-t border-gray-100">
                     <Button
                       type="button"
-                      onClick={() => handleSelectRole(roleKey, false)}
+                      onClick={() => handleSelectRole(roleKey)}
                       className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl uppercase tracking-wider text-xs gap-2"
                     >
                       {portal.shortLabel} Sign In
@@ -301,15 +251,9 @@ function LoginContent() {
                         </Link>
                       </Button>
                     ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => handleSelectRole(roleKey, true)}
-                        className="w-full h-12 border-gray-200 hover:border-accent hover:text-accent rounded-xl font-bold uppercase tracking-wider text-xs gap-2"
-                      >
-                        <KeyRound className="h-4 w-4" />
-                        Admin Setup
-                      </Button>
+                      <p className="text-xs text-center text-muted-foreground py-3">
+                        Admin accounts are added by an existing admin.
+                      </p>
                     )}
                   </div>
                 </CardContent>
@@ -336,7 +280,7 @@ function LoginContent() {
               <button
                 key={roleKey}
                 type="button"
-                onClick={() => handleSelectRole(roleKey, false)}
+                onClick={() => handleSelectRole(roleKey)}
                 className={`py-2.5 px-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
                   isSelected
                     ? "bg-primary text-white shadow-sm"
@@ -370,16 +314,8 @@ function LoginContent() {
         </div>
         <div>
           <h1 className="text-3xl font-black text-primary uppercase tracking-tighter">
-            {selectedRole === "admin" && isAdminSignupMode ? (
-              <>
-                Create <span className="text-accent">Admin</span>
-              </>
-            ) : (
-              <>
-                {activePortal.titlePrefix}{" "}
-                <span className="text-accent">{activePortal.titleAccent}</span>
-              </>
-            )}
+            {activePortal.titlePrefix}{" "}
+            <span className="text-accent">{activePortal.titleAccent}</span>
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             {activePortal.subtitle}
@@ -388,67 +324,6 @@ function LoginContent() {
       </CardHeader>
 
       <CardContent className="p-8 space-y-6">
-        {selectedRole === "admin" && isAdminSignupMode ? (
-          <form onSubmit={handleAdminSignup} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="adminName">Admin Name</Label>
-              <Input
-                id="adminName"
-                placeholder="Jonathan"
-                value={adminName}
-                onChange={(e) => setAdminName(e.target.value)}
-                className="h-12 border-gray-200"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Admin Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@wontstopmoving.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-12 border-gray-200"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password (Min 8 chars)</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-12 border-gray-200"
-                minLength={8}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="adminAccessCode">Master Authorization Code</Label>
-              <Input
-                id="adminAccessCode"
-                type="text"
-                placeholder="WSM-ADMIN-2026"
-                value={adminAccessCode}
-                onChange={(e) => setAdminAccessCode(e.target.value)}
-                className="h-12 border-gray-200 font-mono"
-                required
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Default test authorization code: <code className="font-bold text-primary">WSM-ADMIN-2026</code>
-              </p>
-            </div>
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl text-base uppercase tracking-wider"
-            >
-              {isLoading ? "Creating Admin..." : "Create Admin Account"}
-            </Button>
-          </form>
-        ) : (
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
@@ -491,7 +366,6 @@ function LoginContent() {
                 : `Sign In as ${activePortal.shortLabel}`}
             </Button>
           </form>
-        )}
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
@@ -499,9 +373,7 @@ function LoginContent() {
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-white px-3 text-muted-foreground font-bold">
-              {selectedRole === "admin" && isAdminSignupMode
-                ? "Already have an admin account?"
-                : activePortal.signupPrompt}
+              {activePortal.signupPrompt}
             </span>
           </div>
         </div>
@@ -518,15 +390,9 @@ function LoginContent() {
             </Link>
           </Button>
         ) : (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleSelectRole("admin", !isAdminSignupMode)}
-            className="w-full h-12 border-2 border-accent/30 hover:border-accent hover:bg-accent/5 rounded-xl gap-2 text-primary font-black uppercase tracking-wider text-xs"
-          >
-            <KeyRound className="h-4 w-4 text-accent" />
-            {isAdminSignupMode ? "Back to Admin Sign In" : activePortal.signupLabel}
-          </Button>
+          <p className="text-sm text-center text-muted-foreground">
+            Admin accounts are added by an existing admin.
+          </p>
         )}
       </CardContent>
     </Card>
