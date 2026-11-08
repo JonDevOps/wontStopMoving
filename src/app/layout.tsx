@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { default: `${SITE_NAME} | Movers Across the U.S., Puerto Rico & Canada`, template: `%s | ${SITE_NAME}` },
   description: DEFAULT_DESCRIPTION,
+  // Google Search Console ownership for https://wontstopmoving.com/ — keep, or the property loses verification.
+  verification: { google: 'QD9uNo_dqZoCMNmls90uspypYwarzScd83700frUsuc' },
   openGraph: { type: 'website', url: SITE_URL, siteName: SITE_NAME, title: SITE_NAME, description: DEFAULT_DESCRIPTION, images: [SOCIAL_IMAGE] },
   twitter: { card: 'summary_large_image', title: SITE_NAME, description: DEFAULT_DESCRIPTION, images: [SOCIAL_IMAGE] },
 };
