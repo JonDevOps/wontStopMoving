@@ -4,6 +4,7 @@ import {
   signOut,
   type Auth,
   type User,
+  type UserCredential,
 } from "firebase/auth";
 import {
   doc,
@@ -16,10 +17,10 @@ import {
 export type SelfServiceRole = "customer" | "provider";
 
 /** Opens the Google popup and returns the signed-in Firebase user. */
-export async function signInWithGooglePopup(auth: Auth): Promise<User> {
+export async function signInWithGooglePopup(auth: Auth, completeSignIn: (operation: () => Promise<UserCredential>) => Promise<UserCredential>): Promise<User> {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
-  const { user } = await signInWithPopup(auth, provider);
+  const { user } = await completeSignIn(() => signInWithPopup(auth, provider));
   return user;
 }
 
@@ -80,6 +81,7 @@ export function dashboardForRole(role: string | null): string {
 export function googleErrorMessage(error: unknown): string | null {
   const code = (error as { code?: string })?.code ?? "";
   if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return null;
+  if (code === "auth/mfa-cancelled") return "Verification cancelled. Sign in again when you are ready.";
   if (code === "auth/popup-blocked") return "Your browser blocked the Google window. Allow pop-ups for this site and try again.";
   if (code === "auth/account-exists-with-different-credential")
     return "This email already has an account. Sign in with your email and password instead.";

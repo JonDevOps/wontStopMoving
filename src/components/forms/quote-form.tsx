@@ -34,6 +34,7 @@ import {
 import { useFirestore, useUser, useAuth } from "@/firebase";
 import { collection, serverTimestamp, doc, setDoc, addDoc, getDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { useMfaSignIn } from '@/components/auth/mfa-provider';
 import { sendSignupVerification } from '@/lib/email-verification';
 import { useToast } from "@/hooks/use-toast";
 import { calculateMoveTotal } from "@/lib/pricing";
@@ -72,6 +73,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
   const totalSteps = 5;
   const firestore = useFirestore();
   const auth = useAuth();
+  const completeSignIn = useMfaSignIn();
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
@@ -163,7 +165,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
             : 'You can resend the verification email from your dashboard.' });
         } catch (authErr: any) {
           if (authErr.code === "auth/email-already-in-use") {
-            const signInCred = await signInWithEmailAndPassword(auth, data.email, data.password);
+            const signInCred = await completeSignIn(() => signInWithEmailAndPassword(auth, data.email, data.password!));
             currentUserId = signInCred.user.uid;
           } else {
             throw authErr;
@@ -211,7 +213,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
 
       setStep(6); // Success step
     } catch (error: any) {
-      console.error("Submission Error:", error);
+      console.error("Quote submission failed:", error?.code || 'unknown');
       toast({
         variant: "destructive",
         title: "Submission Failed",

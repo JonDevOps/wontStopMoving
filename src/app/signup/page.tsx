@@ -21,6 +21,7 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
 import { GoogleButton } from "@/components/auth/google-button";
+import { useMfaSignIn } from '@/components/auth/mfa-provider';
 import {
   signInWithGooglePopup,
   getProfileRole,
@@ -43,6 +44,7 @@ export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
+  const completeSignIn = useMfaSignIn();
   const firestore = useFirestore();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -56,7 +58,7 @@ export default function SignupPage() {
   const handleGoogleSignup = async () => {
     setIsLoading(true);
     try {
-      const user = await signInWithGooglePopup(auth);
+      const user = await signInWithGooglePopup(auth, completeSignIn);
       const existingRole = await getProfileRole(firestore, user.uid);
       if (existingRole) {
         // Already has an account: just sign them in.
@@ -73,7 +75,6 @@ export default function SignupPage() {
     } catch (error: unknown) {
       const message = googleErrorMessage(error);
       if (message) {
-        console.error("Google signup error:", error);
         toast({ variant: "destructive", title: "Registration Failed", description: message });
       }
     } finally {
@@ -129,7 +130,7 @@ export default function SignupPage() {
         router.push('/dashboard/customer');
       }
     } catch (error: any) {
-      console.error("Signup Error:", error);
+      console.error("Signup failed:", error?.code || 'unknown');
       toast({
         variant: "destructive",
         title: "Registration Failed",

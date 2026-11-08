@@ -50,6 +50,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { AVAILABLE_SERVICES } from "@/lib/services";
 import { TwoFactorCard } from "@/components/security/two-factor-card";
+import { multiFactor } from 'firebase/auth';
 
 function ProviderDashboardContent() {
   const { user } = useUser();
@@ -351,7 +352,7 @@ function ProviderDashboardContent() {
       providerInfo?.onboarding?.idFrontUploaded &&
       (!requiresBack || providerInfo?.onboarding?.idBackUploaded)
   );
-  const twoFactorDone = Boolean(userProfile?.twoFactorEnabled);
+  const twoFactorDone = Boolean(user && multiFactor(user).enrolledFactors.length);
 
   const actionTasks = [
     {

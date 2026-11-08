@@ -8,7 +8,7 @@ service cloud.firestore {
     //
     // 1. /users/{userId}
     //    - Fields: id, email, name, firstName, lastName, phone, role ('customer' | 'employee' | 'provider' | 'admin'),
-    //      state, twoFactorEnabled, twoFactorMethod, twoFactorPhone, twoFactorUpdatedAt, createdAt
+    //      state, createdAt. MFA enrollment lives in Firebase Auth, never profile flags.
     //    - Security: Only owner or admin can read individual profile; only admin can list users.
     //      Non-admin users cannot self-assign or escalate their `role` to 'admin'.
     //
@@ -50,7 +50,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return hasRole('admin');
+      return hasRole('admin') &&
+        request.auth.token.get('firebase', {}).get('sign_in_second_factor', '') in ['totp', 'phone'];
     }
 
     function canAccessJob(jobId) {

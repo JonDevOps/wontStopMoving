@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { confirmPaidCheckout } from "@/lib/server/jobs";
-import { errorResponse, getRole, HttpError, readJson, requireStripe, requireUser } from "@/lib/server/auth";
+import { errorResponse, HttpError, readJson, requireRoleFromToken, requireStripe, requireUser } from "@/lib/server/auth";
 
 /** Called when the customer returns from Stripe. Only the paying customer (or an admin) can check a session. */
 export async function POST(req: Request) {
@@ -13,8 +13,8 @@ export async function POST(req: Request) {
       throw new HttpError(400, "Invalid checkout session.");
     }
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-    if (session.metadata?.customerId !== user.uid && (await getRole(user.uid)) !== "admin") {
-      throw new HttpError(403, "This payment belongs to another account.");
+    if (session.metadata?.customerId !== user.uid) {
+      await requireRoleFromToken(req.headers.get('authorization')?.slice(7), ['admin']);
     }
     const { jobId } = await confirmPaidCheckout(session);
     return NextResponse.json({ paymentStatus: session.payment_status, jobId });

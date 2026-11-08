@@ -11,6 +11,7 @@ service firebase.storage {
 
     function isAdmin() {
       return isSignedIn() &&
+        request.auth.token.get('firebase', {}).get('sign_in_second_factor', '') in ['totp', 'phone'] &&
         firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }

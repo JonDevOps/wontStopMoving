@@ -33,6 +33,7 @@ import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { TwoFactorCard } from "@/components/security/two-factor-card";
+import { multiFactor } from 'firebase/auth';
 
 function EmployeeDashboardContent() {
   const { user } = useUser();
@@ -76,7 +77,7 @@ function EmployeeDashboardContent() {
   const idVerifiedDone =
     onboardingStep > 3 ||
     Boolean(profile?.verification?.selfie && profile?.verification?.idFront);
-  const twoFactorDone = Boolean(userProfile?.twoFactorEnabled);
+  const twoFactorDone = Boolean(user && multiFactor(user).enrolledFactors.length);
 
   const actionTasks = [
     {
@@ -97,7 +98,7 @@ function EmployeeDashboardContent() {
     },
     {
       title: "3. Enable Two-Factor Authentication (2FA)",
-      desc: "Post-signup security task — protect your employee account via SMS, Email, or Authenticator",
+      desc: "Protect your employee account with an authenticator app",
       done: twoFactorDone,
       href: "#two-factor-section",
       cta: twoFactorDone ? "Configured" : "Setup 2FA Below",

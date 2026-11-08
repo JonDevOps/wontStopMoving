@@ -4,6 +4,7 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, applyActionCode, reload } from 'firebase/auth';
 import { initializeApp as initializeAdmin, deleteApp as deleteAdmin } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import Stripe from 'stripe';
 import { supportInquirySchema } from '../src/lib/support.ts';
 import { sendSignupVerification } from '../src/lib/email-verification.ts';
@@ -14,7 +15,7 @@ if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HO
   throw new Error('These tests require local emulators and the integration runner.');
 }
 const projectId = 'demo-wsm';
-let adminApp, db, app, auth, adminToken, customerToken;
+let adminApp, db, app, auth, adminToken, adminPasswordOnlyToken, customerToken;
 const inquiry = { name: 'Test Customer', email: 'contact-test@example.com', phone: '', subject: 'Test enquiry', message: 'Please help me plan my upcoming move.' };
 const json = body => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
@@ -25,8 +26,22 @@ before(async () => {
   auth = getAuth(app);
   connectAuthEmulator(auth, `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`, { disableWarnings: true });
   const admin = (await createUserWithEmailAndPassword(auth, 'test-admin@example.com', 'test-only-password')).user;
-  await db.doc(`users/${admin.uid}`).set({ role: 'admin' });
-  adminToken = await admin.getIdToken();
+  await db.doc(`users/${admin.uid}`).set({ role: 'admin', twoFactorEnabled: true });
+  adminPasswordOnlyToken = await admin.getIdToken();
+  await getAdminAuth(adminApp).updateUser(admin.uid, { emailVerified: true });
+  await reload(admin);
+  const idToken = await admin.getIdToken(true);
+  // Auth emulator supports SMS MFA, but not TOTP. Exercise genuine Firebase
+  // second-factor tokens here; production TOTP has a separate smoke check.
+  const authBase = `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`;
+  const start = await (await fetch(`${authBase}/identitytoolkit.googleapis.com/v2/accounts/mfaEnrollment:start?key=fake-api-key`, json({ idToken, phoneEnrollmentInfo: { phoneNumber: '+16505550199' } }))).json();
+  assert.ok(start.phoneSessionInfo?.sessionInfo);
+  const codes = await (await fetch(`${authBase}/emulator/v1/projects/${projectId}/verificationCodes`)).json();
+  const code = codes.verificationCodes.find(item => item.sessionInfo === start.phoneSessionInfo.sessionInfo)?.code;
+  assert.ok(code);
+  const enrolled = await (await fetch(`${authBase}/identitytoolkit.googleapis.com/v2/accounts/mfaEnrollment:finalize?key=fake-api-key`, json({ idToken, displayName: 'Test MFA', phoneVerificationInfo: { sessionInfo: start.phoneSessionInfo.sessionInfo, code } }))).json();
+  assert.ok(enrolled.idToken);
+  adminToken = enrolled.idToken;
   const customer = (await createUserWithEmailAndPassword(auth, 'test-customer@example.com', 'test-only-password')).user;
   await db.doc(`users/${customer.uid}`).set({ role: 'customer' });
   customerToken = await customer.getIdToken();
@@ -56,13 +71,14 @@ test('enquiry persists, only admins can read it, and status updates preserve the
   assert.ok(original.createdAt.toMillis());
   assert.equal('website' in original, false);
   assert.equal((await fetch(`${base}/api/admin/support`)).status, 401);
+  assert.equal((await fetch(`${base}/api/admin/support`, { headers: { Authorization: `Bearer ${adminPasswordOnlyToken}` } })).status, 403);
   assert.equal((await fetch(`${base}/api/admin/support`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 403);
   const headers = { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' };
   const listed = await fetch(`${base}/api/admin/support`, { headers });
   assert.equal(listed.status, 200);
   assert.match(listed.headers.get('cache-control'), /no-store/);
   assert.ok((await listed.json()).tickets.some(t => t.id === ticketId));
-  for (const [token, status] of [[customerToken, 403], [adminToken, 200]]) {
+  for (const [token, status] of [[customerToken, 403], [adminPasswordOnlyToken, 403], [adminToken, 200]]) {
     const update = await fetch(`${base}/api/admin/support/${ticketId}`, { method: 'PATCH', headers: { ...headers, Authorization: `Bearer ${token}` }, body: JSON.stringify({ status: 'resolved', message: 'tampered' }) });
     assert.equal(update.status, status);
   }

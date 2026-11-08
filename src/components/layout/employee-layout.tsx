@@ -27,6 +27,7 @@ import { doc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { useAuth } from "@/firebase";
 import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
+import { AdminMfaGate } from '@/components/auth/admin-mfa-gate';
 
 interface NavItem {
   label: string;
@@ -123,7 +124,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <AdminMfaGate required={profile?.role === 'admin'}><div className="flex min-h-screen bg-gray-50">
       {/* Sidebar Desktop */}
       <aside className="hidden lg:flex flex-col w-72 bg-primary text-white fixed h-full z-40">
         <div className="p-8">
@@ -240,6 +241,6 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
           </aside>
         </div>
       )}
-    </div>
+    </div></AdminMfaGate>
   );
 }

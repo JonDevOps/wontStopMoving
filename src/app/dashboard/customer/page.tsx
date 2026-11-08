@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { TwoFactorCard } from "@/components/security/two-factor-card";
+import { multiFactor } from 'firebase/auth';
 
 function CustomerDashboardContent() {
   const { user } = useUser();
@@ -66,7 +67,7 @@ function CustomerDashboardContent() {
   const hasJobs = Boolean(jobs && jobs.length > 0);
   const completedJobs =
     jobs?.filter((j) => j.status === "completed").length || 0;
-  const has2FA = Boolean(userProfile?.twoFactorEnabled);
+  const has2FA = Boolean(user && multiFactor(user).enrolledFactors.length);
   const hasPhone = Boolean(userProfile?.phone);
 
   const customerTasks = [
