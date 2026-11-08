@@ -159,6 +159,7 @@ export default function MyQuotesPage() {
                         </div>
                       </div>
                       <div className="bg-gray-50 p-6 flex flex-col justify-center gap-3 border-t md:border-t-0 md:border-l min-w-[200px]">
+                        {!isProcessed && quote.paymentStatus === 'failed' && <p role="status" className="text-sm text-red-700 max-w-xs">Your payment did not complete. Your quote is still available—use Pay &amp; Book to try again.</p>}
                         {!isProcessed && quote.status !== 'expired' && (
                           <Button
                             type="button"

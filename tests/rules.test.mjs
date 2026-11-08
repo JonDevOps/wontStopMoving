@@ -134,6 +134,10 @@ test('quotes: only for yourself, starting as new; no reassigning or status chang
   await assertSucceeds(updateDoc(doc(as('cust'), 'quotes/q1'), { moveSize: '3br' }));
   await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), { status: 'processed' }));
   await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), { customerId: 'prov' }));
+  for (const change of [{ paymentStatus: 'paid' }, { checkoutSessionId: 'cs_forged' }, { paymentFailedAt: 'forged' }]) {
+    await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), change));
+    await assertFails(setDoc(doc(as('cust'), 'quotes/q-new'), { customerId: 'cust', status: 'new', ...change }));
+  }
 });
 
 test('job chat: participants post only as themselves', async () => {

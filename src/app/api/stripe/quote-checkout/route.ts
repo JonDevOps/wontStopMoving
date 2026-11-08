@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { FieldValue } from 'firebase-admin/firestore';
 import { stripe } from "@/lib/stripe";
 import { calculateMoveTotal } from "@/lib/pricing";
 import { adminDb } from "@/lib/server/firebase-admin";
@@ -57,6 +58,11 @@ export async function POST(req: Request) {
       metadata: { flow: "quote", quoteId, customerId: user.uid, moveSize },
       success_url: `${origin}/dashboard/customer/moves?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/dashboard/customer/quotes?cancelled=true`,
+    });
+    await adminDb().runTransaction(async tx => {
+      const current = (await tx.get(quote.ref)).data();
+      if (!current || current.status === 'processed' || current.paymentStatus === 'paid') return;
+      tx.update(quote.ref, { checkoutSessionId: session.id, paymentStatus: 'pending', paymentFailedAt: FieldValue.delete() });
     });
     return NextResponse.json({ url: session.url });
   } catch (error) {

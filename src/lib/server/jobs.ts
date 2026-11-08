@@ -2,7 +2,7 @@ import { randomInt, timingSafeEqual } from "node:crypto";
 import type Stripe from "stripe";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
-import { HttpError } from "./auth";
+import { HttpError, isId } from "./auth";
 import { stripe } from "@/lib/stripe";
 
 /**
@@ -98,13 +98,40 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
         },
         { merge: true }
       );
-      tx.update(quoteRef, { status: "processed" });
+      tx.update(quoteRef, { status: "processed", paymentStatus: "paid", checkoutSessionId: session.id, paymentFailedAt: FieldValue.delete() });
       if (!secret.exists) tx.set(secretRef, { customerId, releaseCode: newReleaseCode(), failedAttempts: 0 });
     });
     return { jobId };
   }
 
   throw new HttpError(400, "Payment is missing its booking details.");
+}
+
+/** A failed attempt never downgrades a paid booking or a newer Checkout attempt. */
+export async function recordFailedCheckout(session: Stripe.Checkout.Session) {
+  if (session.payment_status === 'paid') return;
+  const md = session.metadata || {};
+  if (!isId(md.customerId)) throw new HttpError(400, 'Payment is missing its customer.');
+  const booking = md.flow === 'booking' && isId(md.jobId);
+  const quote = md.flow === 'quote' && isId(md.quoteId);
+  if (!booking && !quote) throw new HttpError(400, 'Payment is missing its booking details.');
+  const ref = adminDb().doc(booking ? `jobs/${md.jobId}` : `quotes/${md.quoteId}`);
+  await adminDb().runTransaction(async tx => {
+    const snapshot = await tx.get(ref);
+    if (!snapshot.exists) throw new HttpError(404, 'Booking or quote not found.');
+    const data = snapshot.data()!;
+    if (data.customerId !== md.customerId) throw new HttpError(403, 'This payment belongs to another account.');
+    if (data.paymentStatus === 'paid' || data.status === 'processed' ||
+        ['confirmed', 'in-progress', 'completed', 'cancelled', 'expired'].includes(data.status)) return;
+    if (data.checkoutSessionId && data.checkoutSessionId !== session.id) return;
+    if (data.paymentStatus === 'failed') return;
+    tx.update(ref, {
+      ...(booking ? { status: 'payment_failed' } : {}),
+      checkoutSessionId: session.id,
+      paymentStatus: 'failed',
+      paymentFailedAt: FieldValue.serverTimestamp(),
+    });
+  });
 }
 
 function codesMatch(a: string, b: string) {

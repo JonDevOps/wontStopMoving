@@ -97,9 +97,14 @@ function MovesContent() {
                             "bg-primary hover:bg-primary text-white"
                           }
                         >
-                          {job.status}
+                          {job.status === 'payment_failed' ? 'Payment failed' : job.status}
                         </Badge>
                       </div>
+
+                      {job.paymentStatus === 'failed' && <div role="status" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">
+                        Your payment did not complete, so this move is not confirmed.
+                        <Link className="block mt-2 font-bold underline" href={job.providerIds?.[0] ? `/book/${job.providerIds[0]}` : '/quote'}>Try booking again</Link>
+                      </div>}
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="flex items-center gap-3">

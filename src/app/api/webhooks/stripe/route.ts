@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
-import { confirmPaidCheckout } from "@/lib/server/jobs";
+import { confirmPaidCheckout, recordFailedCheckout } from "@/lib/server/jobs";
 import { HttpError } from "@/lib/server/auth";
 
 /** Stripe webhook. Every event is signature-checked before anything is written. */
@@ -20,9 +20,18 @@ export async function POST(req: Request) {
     return new NextResponse("Invalid signature", { status: 400 });
   }
 
-  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+  // Platform Checkout payments only. Connected-account events use their own
+  // endpoint and signing secret, and must not confirm platform bookings.
+  if (event.account || event.livemode !== (process.env.STRIPE_SECRET_KEY || '').startsWith('sk_live_')) {
+    return NextResponse.json({ received: true });
+  }
+
+  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded" ||
+      event.type === "checkout.session.async_payment_failed") {
     try {
-      await confirmPaidCheckout(event.data.object as Stripe.Checkout.Session);
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (event.type === 'checkout.session.async_payment_failed') await recordFailedCheckout(session);
+      else await confirmPaidCheckout(session);
     } catch (error) {
       // 4xx problems (unknown booking, wrong customer) will never succeed, so
       // acknowledge them; anything else returns 500 so Stripe retries.

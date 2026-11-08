@@ -7,6 +7,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
 import { supportInquirySchema } from '../src/lib/support.ts';
 import { sendSignupVerification } from '../src/lib/email-verification.ts';
+import { syncConnectedAccountStatus } from '../src/lib/server/connect-status.ts';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -91,7 +92,7 @@ test('signup helper sends a working verification link through Firebase Auth', as
 
 const stripe = new Stripe('sk_test_placeholder_key_required');
 async function webhook(event, valid = true) {
-  const body = JSON.stringify(event);
+  const body = JSON.stringify({ livemode: false, ...event });
   const signature = stripe.webhooks.generateTestHeaderString({ payload: body, secret: valid ? 'whsec_integration_test' : 'whsec_wrong' });
   return fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'stripe-signature': signature }, body });
 }
@@ -120,4 +121,91 @@ test('paid checkout webhook confirms the booking once even with concurrent retri
   assert.equal(job.paymentStatus, 'paid');
   assert.equal(job.status, 'confirmed');
   assert.equal(job.amountPaid, 100);
+});
+
+test('failed delayed booking is recorded once and a late failure never downgrades a paid booking', async () => {
+  const ref = db.doc('jobs/delayed-failure');
+  await ref.set({ customerId: 'test-buyer', status: 'pending_payment', paymentStatus: 'unpaid', checkoutSessionId: 'cs_delayed_failure' });
+  const event = { id: 'evt_failed', type: 'checkout.session.async_payment_failed', data: { object: {
+    id: 'cs_delayed_failure', payment_status: 'unpaid', metadata: { flow: 'booking', jobId: ref.id, customerId: 'test-buyer' },
+  } } };
+  assert.equal((await webhook(event)).status, 200);
+  const failed = (await ref.get()).data();
+  assert.equal(failed.status, 'payment_failed');
+  assert.equal(failed.paymentStatus, 'failed');
+  assert.equal((await db.doc(`jobSecrets/${ref.id}`).get()).exists, false);
+  assert.equal((await webhook(event)).status, 200);
+  assert.equal((await ref.get()).data().paymentFailedAt.toMillis(), failed.paymentFailedAt.toMillis());
+  const success = { ...event, type: 'checkout.session.async_payment_succeeded', data: { object: { ...event.data.object, payment_status: 'paid', amount_total: 5000 } } };
+  assert.equal((await webhook(success)).status, 200);
+  assert.equal((await webhook(event)).status, 200);
+  assert.equal((await ref.get()).data().paymentStatus, 'paid');
+  assert.equal((await ref.get()).data().status, 'confirmed');
+});
+
+test('failed quote stays payable, stale failures and other customers cannot overwrite it', async () => {
+  const ref = db.doc('quotes/delayed-quote');
+  await ref.set({ customerId: 'test-buyer', status: 'new', paymentStatus: 'pending', checkoutSessionId: 'cs_quote_current' });
+  const session = { id: 'cs_quote_old', payment_status: 'unpaid', metadata: { flow: 'quote', quoteId: ref.id, customerId: 'test-buyer' } };
+  const event = s => ({ id: 'evt_quote_failed', type: 'checkout.session.async_payment_failed', data: { object: s } });
+  assert.equal((await webhook(event(session))).status, 200);
+  assert.equal((await ref.get()).data().paymentStatus, 'pending');
+  const current = { ...session, id: 'cs_quote_current' };
+  assert.equal((await webhook(event({ ...current, metadata: { ...current.metadata, customerId: 'other-buyer' } }))).status, 200);
+  assert.equal((await ref.get()).data().paymentStatus, 'pending');
+  assert.equal((await webhook(event(current))).status, 200);
+  assert.equal((await ref.get()).data().paymentStatus, 'failed');
+  assert.equal((await ref.get()).data().status, 'new');
+  assert.equal((await db.doc(`jobs/job_quote_${ref.id}`).get()).exists, false);
+  assert.equal((await webhook({ id: 'evt_quote_paid', type: 'checkout.session.async_payment_succeeded', data: { object: { ...current, payment_status: 'paid', amount_total: 9000 } } })).status, 200);
+  assert.equal((await webhook(event(current))).status, 200);
+  assert.equal((await ref.get()).data().paymentStatus, 'paid');
+  assert.equal((await ref.get()).data().status, 'processed');
+});
+
+test('platform handler ignores connected-account payments and the wrong mode', async () => {
+  await db.doc('jobs/scoped').set({ customerId: 'test-buyer', status: 'pending_payment', paymentStatus: 'unpaid' });
+  const event = { id: 'evt_scoped', type: 'checkout.session.completed', data: { object: {
+    id: 'cs_scoped', payment_status: 'paid', metadata: { flow: 'booking', jobId: 'scoped', customerId: 'test-buyer' },
+  } } };
+  assert.equal((await webhook({ ...event, account: 'acct_other' })).status, 200);
+  assert.equal((await webhook({ ...event, livemode: true })).status, 200);
+  assert.equal((await db.doc('jobs/scoped').get()).data().paymentStatus, 'unpaid');
+});
+
+test('Connect synchronization uses stored account mapping and fresh Stripe state', async () => {
+  const ref = db.doc('providers/connect-sync');
+  await ref.set({ stripeAccountId: 'acct_providerSync', status: 'pending', stripeOnboardingComplete: false });
+  await syncConnectedAccountStatus(db, 'acct_providerSync', async id => ({ id, charges_enabled: true, payouts_enabled: true }));
+  assert.equal((await ref.get()).data().stripeOnboardingComplete, true);
+  assert.equal((await ref.get()).data().status, 'pending'); // Stripe readiness never approves a provider.
+  await syncConnectedAccountStatus(db, 'acct_providerSync', async id => ({ id, charges_enabled: true, payouts_enabled: false }));
+  assert.equal((await ref.get()).data().stripeOnboardingComplete, false);
+  let fetched = false;
+  await syncConnectedAccountStatus(db, 'acct_unknown', async id => { fetched = true; return { id }; });
+  assert.equal(fetched, false);
+  await assert.rejects(syncConnectedAccountStatus(db, 'acct_providerSync', async () => { throw new Error('Stripe unavailable'); }));
+  assert.equal((await ref.get()).data().stripeOnboardingComplete, false);
+});
+
+test('Connect synchronization rejects ambiguous or changed account mappings', async () => {
+  await db.doc('providers/connect-duplicate').set({ stripeAccountId: 'acct_providerSync', stripeOnboardingComplete: false });
+  await assert.rejects(syncConnectedAccountStatus(db, 'acct_providerSync', async id => ({ id, charges_enabled: true, payouts_enabled: true })));
+  await db.doc('providers/connect-duplicate').delete();
+  await assert.rejects(syncConnectedAccountStatus(db, 'acct_providerSync', async () => ({ id: 'acct_wrong', charges_enabled: true, payouts_enabled: true })));
+  assert.equal((await db.doc('providers/connect-sync').get()).data().stripeOnboardingComplete, false);
+});
+
+test('Connect endpoint requires its own signature, connected-account scope, and the correct mode', async () => {
+  const event = { id: 'evt_connect', type: 'account.updated', livemode: false, account: 'acct_unmapped', data: { object: { id: 'acct_unmapped' } } };
+  const send = async (e, secret = 'whsec_connect_integration_test') => {
+    const body = JSON.stringify(e);
+    const signature = stripe.webhooks.generateTestHeaderString({ payload: body, secret });
+    return fetch(`${base}/api/webhooks/stripe/connect`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'stripe-signature': signature }, body });
+  };
+  assert.equal((await send(event, 'whsec_integration_test')).status, 400);
+  assert.equal((await send({ ...event, account: 'acct_wrong' })).status, 400);
+  assert.equal((await send({ ...event, account: undefined })).status, 400);
+  assert.equal((await send(event)).status, 200);
+  assert.equal((await send({ ...event, livemode: true, account: 'acct_wrong' })).status, 200);
 });
