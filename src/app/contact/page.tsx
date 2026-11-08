@@ -22,25 +22,30 @@ import { useToast } from '@/hooks/use-toast';
 export default function ContactPage() {
   const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [ticketId, setTicketId] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
-  const handleInquirySubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleInquirySubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Opens the visitor's email app with their message to our support inbox.
+    if (isSubmitting) return;
     const form = e.currentTarget;
     const field = (id: string) => (form.elements.namedItem(id) as HTMLInputElement | null)?.value?.trim() || "";
-    const body = [
-      `Name: ${field("name")}`,
-      `Email: ${field("email")}`,
-      field("phone") ? `Phone: ${field("phone")}` : "",
-      "",
-      field("message"),
-    ].filter((line, i) => line !== "" || i === 3).join("\n");
-    window.location.href = `mailto:support@wontstopmoving.com?subject=${encodeURIComponent(field("subject") || "Website inquiry")}&body=${encodeURIComponent(body)}`;
-    setSubmitted(true);
-    toast({
-      title: "Opening your email app",
-      description: "Send the email to reach our support team. We'll reply as soon as we can.",
-    });
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      const response = await fetch('/api/support', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.fromEntries(['name', 'email', 'phone', 'subject', 'message', 'website'].map(key => [key, field(key)]))),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to send your message. Please try again.');
+      setTicketId(result.ticketId);
+      setSubmitted(true);
+      toast({ title: 'Message received', description: 'Your enquiry has been saved for our support team.' });
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Unable to send your message. Please try again.');
+    } finally { setIsSubmitting(false); }
   };
 
   const offices = [
@@ -74,12 +79,12 @@ export default function ContactPage() {
         {/* Contact Form & Info */}
         <section className="py-24 bg-white">
           <div className="container mx-auto px-4">
-            <div className="grid lg:grid-cols-2 gap-16">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
               {/* Contact Form */}
               <div className="space-y-8">
                 <div>
                   <h2 className="text-3xl font-black text-primary uppercase mb-4">SEND A MESSAGE</h2>
-                  <p className="text-muted-foreground">Fill out the form below and it will open an email to our support team.</p>
+                  <p className="text-muted-foreground">Send your enquiry directly to our support team. We’ll reply to the email address you provide.</p>
                 </div>
                 
                 <Card className="border-none shadow-xl bg-gray-50">
@@ -89,9 +94,9 @@ export default function ContactPage() {
                         <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
                           <CheckCircle2 className="h-8 w-8" />
                         </div>
-                        <h3 className="text-2xl font-black text-primary uppercase">Almost Done!</h3>
+                        <h3 className="text-2xl font-black text-primary uppercase">Message Received</h3>
                         <p className="text-muted-foreground max-w-md mx-auto">
-                          Your email app should have opened with your message to support@wontstopmoving.com. Press send there and we'll get back to you as soon as we can.
+                          Your enquiry is saved. Our support team will review it and reply by email. Your reference is {ticketId}.
                         </p>
                         <Button variant="outline" onClick={() => setSubmitted(false)} className="rounded-full font-bold">
                           Send Another Message
@@ -99,30 +104,35 @@ export default function ContactPage() {
                       </div>
                     ) : (
                       <form onSubmit={handleInquirySubmit} className="space-y-6">
+                        <div hidden aria-hidden="true">
+                          <label htmlFor="website">Leave this field empty</label>
+                          <input id="website" name="website" tabIndex={-1} autoComplete="off" />
+                        </div>
                         <div className="grid md:grid-cols-2 gap-6">
                           <div className="space-y-2">
                             <Label htmlFor="name">Full Name</Label>
-                            <Input id="name" required placeholder="John Doe" className="bg-white border-gray-200 h-12" />
+                            <Input id="name" required minLength={2} maxLength={120} placeholder="John Doe" className="bg-white border-gray-200 h-12" />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="email">Email Address</Label>
-                            <Input id="email" type="email" required placeholder="john@example.com" className="bg-white border-gray-200 h-12" />
+                            <Input id="email" type="email" required maxLength={254} placeholder="john@example.com" className="bg-white border-gray-200 h-12" />
                           </div>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="phone">Phone Number</Label>
-                          <Input id="phone" type="tel" placeholder="(555) 000-0000" className="bg-white border-gray-200 h-12" />
+                          <Input id="phone" type="tel" maxLength={40} placeholder="(555) 000-0000" className="bg-white border-gray-200 h-12" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="subject">Subject</Label>
-                          <Input id="subject" required placeholder="Question about my quote" className="bg-white border-gray-200 h-12" />
+                          <Input id="subject" required minLength={2} maxLength={200} placeholder="Question about my quote" className="bg-white border-gray-200 h-12" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="message">Message</Label>
-                          <Textarea id="message" required placeholder="How can we help you today?" className="bg-white border-gray-200 min-h-[150px]" />
+                          <Textarea id="message" required minLength={10} maxLength={5000} placeholder="How can we help you today?" className="bg-white border-gray-200 min-h-[150px]" />
                         </div>
-                        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest">
-                          Submit Inquiry
+                        {submitError && <p role="alert" className="text-sm text-red-700">{submitError}</p>}
+                        <Button type="submit" disabled={isSubmitting} className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest">
+                          {isSubmitting ? 'Sending…' : 'Submit Inquiry'}
                         </Button>
                       </form>
                     )}
@@ -152,7 +162,7 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">Email Support</p>
-                        <p className="text-xl font-bold text-primary">support@wontstopmoving.com</p>
+                        <p className="text-xl font-bold text-primary break-all">support@wontstopmoving.com</p>
                       </div>
                     </div>
 

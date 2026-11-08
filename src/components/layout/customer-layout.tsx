@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
+import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
 
 interface NavItem {
   label: string;
@@ -167,6 +168,7 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="p-6 lg:p-10 flex-1">
+          <EmailVerificationNotice />
           {children}
         </main>
       </div>

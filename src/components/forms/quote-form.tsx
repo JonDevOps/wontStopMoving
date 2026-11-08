@@ -34,6 +34,7 @@ import {
 import { useFirestore, useUser, useAuth } from "@/firebase";
 import { collection, serverTimestamp, doc, setDoc, addDoc, getDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { sendSignupVerification } from '@/lib/email-verification';
 import { useToast } from "@/hooks/use-toast";
 import { calculateMoveTotal } from "@/lib/pricing";
 import Link from "next/link";
@@ -156,6 +157,10 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
             state: "New",
             createdAt: serverTimestamp(),
           });
+          const verificationSent = await sendSignupVerification(newUser);
+          toast({ title: 'Account created', description: verificationSent
+            ? 'Check your inbox to verify your email. Your quote will be saved next.'
+            : 'You can resend the verification email from your dashboard.' });
         } catch (authErr: any) {
           if (authErr.code === "auth/email-already-in-use") {
             const signInCred = await signInWithEmailAndPassword(auth, data.email, data.password);

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:rules": "node --test tests/rules.test.mjs"
+    "test:rules": "node --test tests/rules.test.mjs",
+    "test:support": "node tests/run-support-integration.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.52.0",

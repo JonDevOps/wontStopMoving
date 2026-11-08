@@ -60,6 +60,21 @@ test('only admins can list users', async () => {
   await assertSucceeds(getDocs(collection(as('boss'), 'users')));
 });
 
+test('support tickets and intake counters cannot be read or written directly by browser clients', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'supportTickets/private'), { email: 'private@example.com', message: 'Private enquiry' });
+    await setDoc(doc(ctx.firestore(), 'supportIntakeLimits/private'), { count: 1 });
+  });
+  for (const db of [env.unauthenticatedContext().firestore(), as('cust'), as('prov'), as('crew'), as('boss')]) {
+    await assertFails(getDoc(doc(db, 'supportTickets/private')));
+    await assertFails(getDocs(collection(db, 'supportTickets')));
+    await assertFails(setDoc(doc(db, 'supportTickets/injected'), { message: 'Bypass intake' }));
+    await assertFails(updateDoc(doc(db, 'supportTickets/private'), { status: 'resolved' }));
+    await assertFails(getDoc(doc(db, 'supportIntakeLimits/private')));
+    await assertFails(setDoc(doc(db, 'supportIntakeLimits/private'), { count: 0 }));
+  }
+});
+
 test('only the customer and admins can read a release code; providers cannot', async () => {
   await assertSucceeds(getDoc(doc(as('cust'), 'jobSecrets/j1')));
   await assertSucceeds(getDoc(doc(as('boss'), 'jobSecrets/j1')));

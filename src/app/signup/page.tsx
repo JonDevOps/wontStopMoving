@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { useAuth, useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { sendSignupVerification } from '@/lib/email-verification';
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
@@ -96,6 +97,11 @@ export default function SignupPage() {
         state: data.state,
         createdAt: serverTimestamp(),
       });
+
+      const verificationSent = await sendSignupVerification(user);
+      toast({ title: 'Verify your email', description: verificationSent
+        ? 'Check your inbox for a verification link. You can continue to your dashboard.'
+        : 'Your account is created. You can resend the verification email from your dashboard.' });
 
       if (data.accountType === 'provider') {
         const providerRef = doc(firestore, "providers", user.uid);

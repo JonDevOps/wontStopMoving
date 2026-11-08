@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useFirestore, useAuth } from "@/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { sendSignupVerification } from '@/lib/email-verification';
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -96,7 +97,9 @@ export default function EmployeeSignUpPage() {
 
       toast({
         title: "Account Created",
-        description: "Moving to Phase 2: Your Details.",
+        description: await sendSignupVerification(user)
+          ? 'Check your inbox to verify your email. Moving to Phase 2: Your Details.'
+          : 'Moving to Phase 2: Your Details. You can resend the verification email from your dashboard.',
       });
       
       router.push('/careers/apply/details');

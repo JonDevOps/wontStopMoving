@@ -1,4 +1,5 @@
 "use client";
+import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -160,6 +161,7 @@ export function ProviderLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="p-6 lg:p-10 flex-1">
+          <EmailVerificationNotice />
           {children}
         </main>
       </div>

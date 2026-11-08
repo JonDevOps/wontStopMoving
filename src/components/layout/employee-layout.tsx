@@ -17,7 +17,8 @@ import {
   Calculator,
   UserCheck,
   PhoneCall,
-  Landmark
+  Landmark,
+  MessageSquare
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { useAuth } from "@/firebase";
+import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
 
 interface NavItem {
   label: string;
@@ -96,6 +98,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Customers", href: "/dashboard/admin/customers", icon: User },
     { label: "Quotes", href: "/dashboard/admin/quotes", icon: Calculator },
     { label: "Jobs", href: "/dashboard/admin/jobs", icon: Truck },
+    { label: "Support", href: "/dashboard/admin/support", icon: MessageSquare },
     { label: "Providers", href: "/dashboard/admin/providers", icon: UserCheck },
     { label: "Employees", href: "/dashboard/admin/employees", icon: ShieldCheck },
     { label: "Applications", href: "/dashboard/admin/careers", icon: FileText },
@@ -134,7 +137,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
           </Link>
         </div>
 
-        <nav className="flex-1 px-6 space-y-2 mt-4">
+        <nav className="flex-1 px-6 space-y-2 mt-4 overflow-y-auto pb-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 px-4 mb-4">
             {isAdmin ? "ADMIN CONTROL" : "EMPLOYEE PORTAL"}
           </p>
@@ -193,6 +196,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
         </header>
 
         <main className="p-6 lg:p-10 flex-1">
+          <EmailVerificationNotice />
           {children}
         </main>
       </div>
