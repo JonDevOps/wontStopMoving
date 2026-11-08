@@ -2,8 +2,8 @@
   "placeholderImages": [
     {
       "id": "hero-bg",
-      "description": "Professional moving truck on a highway",
-      "imageUrl": "https://picsum.photos/seed/move1/1920/1080",
+      "description": "Illustration of a moving truck and packed boxes on the road to a new home",
+      "imageUrl": "/images/moving-journey.svg",
       "imageHint": "moving truck"
     },
     {

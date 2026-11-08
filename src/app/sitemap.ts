@@ -1,11 +1,11 @@
 import type { MetadataRoute } from 'next';
 import { BLOG_POSTS } from '@/app/blog/posts';
-import { ALL_LOCATIONS, CITIES_BY_STATE, slugify } from '@/lib/location-data';
+import { ALL_LOCATIONS, slugify } from '@/lib/location-data';
 import { SERVICES, SITE_URL } from '@/lib/seo';
 
 /**
- * Every public page: core pages, services, blog posts, and each state and city
- * we serve (~10,000 URLs, under the 50,000-per-sitemap limit).
+ * Indexable public pages. City pages remain available to visitors but are
+ * excluded until they have distinct local content. Agent guides stay public.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
@@ -47,10 +47,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const places = ALL_LOCATIONS.flatMap((state) => {
     const stateSlug = slugify(state);
-    const cities = CITIES_BY_STATE[stateSlug] || [];
     return [
       entry(`/locations/${stateSlug}`, 0.7),
-      ...cities.map((city) => entry(`/locations/${stateSlug}/${slugify(city)}`, 0.5)),
     ];
   });
 

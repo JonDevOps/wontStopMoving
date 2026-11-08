@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 /** Site-wide SEO facts. Only true, verifiable details belong here. */
 export const SITE_URL = 'https://wontstopmoving.com';
 export const SITE_NAME = 'Wont Stop Moving';
+export const SOCIAL_IMAGE = { url: '/opengraph-image', width: 1200, height: 630, alt: 'Wont Stop Moving — Moving made simple' };
 export const SITE_PHONE = '+1-650-569-0584';
 export const SITE_EMAIL = 'support@wontstopmoving.com';
 export const DEFAULT_DESCRIPTION =
@@ -26,8 +27,8 @@ export function pageMetadata({
     title: { absolute: `${title} | ${SITE_NAME}` },
     description,
     alternates: { canonical: path },
-    openGraph: { type: 'website', url, siteName: SITE_NAME, title: `${title} | ${SITE_NAME}`, description },
-    twitter: { card: 'summary', title: `${title} | ${SITE_NAME}`, description },
+    openGraph: { type: 'website', url, siteName: SITE_NAME, title: `${title} | ${SITE_NAME}`, description, images: [SOCIAL_IMAGE] },
+    twitter: { card: 'summary_large_image', title: `${title} | ${SITE_NAME}`, description, images: [SOCIAL_IMAGE] },
     ...(noindex ? { robots: { index: false, follow: true } } : {}),
   };
 }

@@ -33,7 +33,7 @@ export default function Home() {
     <PublicLayout>
       <div className="flex flex-col min-h-screen">
         {/* Hero Section */}
-        <section className="relative h-screen flex items-center overflow-hidden bg-primary pt-20">
+        <section className="relative min-h-[100svh] flex items-center overflow-hidden bg-primary pt-28 pb-16">
           <div className="absolute inset-0 opacity-40">
             {heroImage && (
               <Image 
@@ -50,7 +50,7 @@ export default function Home() {
           
           <div className="container relative mx-auto px-4 z-10">
             <div className="max-w-3xl">
-              <h1 className="text-6xl md:text-8xl font-headline font-black text-white leading-tight mb-6 animate-fade-in animate-kinetic">
+              <h1 className="text-[clamp(2.25rem,10vw,6rem)] font-headline font-black text-white leading-tight mb-6 break-words">
                 MOVING MADE <span className="text-accent inline-block animate-float">SIMPLE</span>
               </h1>
               <p className="text-xl text-white/80 mb-10 max-w-xl leading-relaxed">
@@ -77,7 +77,7 @@ export default function Home() {
                 <div className="text-sm uppercase tracking-widest opacity-80">Independent Professionals</div>
               </div>
               <div>
-                <div className="text-4xl font-black font-headline">US · PR · CA</div>
+                <div className="text-2xl sm:text-4xl font-black font-headline">US · PR · CA</div>
                 <div className="text-sm uppercase tracking-widest opacity-80">Service Area</div>
               </div>
               <div>
@@ -154,24 +154,19 @@ export default function Home() {
                 </Button>
               </div>
               <div className="lg:w-1/2 relative bg-gray-100 rounded-3xl p-8 overflow-hidden">
-                 {/* Visual Placeholder for Map */}
+                 {/* Branded service-area illustration, not a geographic map. */}
                  <div className="aspect-[4/3] relative flex items-center justify-center">
                     <Image 
-                      src="https://picsum.photos/seed/map/800/600"
-                      alt="US Map Coverage"
+                      src="/images/moving-journey.svg"
+                      alt="Illustrated moving truck connecting homes across our service areas"
                       width={800}
                       height={600}
-                      className="rounded-xl shadow-inner opacity-20 grayscale"
+                      className="rounded-xl"
                     />
-                    <div className="absolute inset-0 flex flex-wrap gap-2 p-4 justify-center items-center">
-                      {Array.from({length: 51}).map((_, i) => (
-                        <div key={i} className="w-3 h-3 bg-accent rounded-full animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
-                      ))}
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute inset-x-0 bottom-0 flex items-center justify-center">
                       <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-2xl text-center">
-                        <div className="text-3xl font-black text-primary">NATIONWIDE</div>
-                        <div className="text-accent font-bold">100% Coverage Guaranteed</div>
+                        <div className="text-xl sm:text-3xl font-black text-primary">LET’S GET MOVING</div>
+                        <div className="text-accent font-bold">US · Puerto Rico · Canada</div>
                       </div>
                     </div>
                  </div>
