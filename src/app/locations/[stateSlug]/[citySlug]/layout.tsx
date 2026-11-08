@@ -16,8 +16,6 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     title: `Movers in ${place.city}, ${place.state}`,
     description: `Local and long-distance movers in ${place.city}, ${place.state}. Packing, specialty items and storage, with an instant quote, upfront pricing and payment held in escrow until the job is done.`,
     path: `/locations/${stateSlug}/${citySlug}`,
-    // Keep these useful navigation pages out of search until they have unique local content.
-    noindex: true,
   });
 }
 
