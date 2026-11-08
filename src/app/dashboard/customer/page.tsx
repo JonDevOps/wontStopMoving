@@ -27,8 +27,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { TwoFactorCard } from "@/components/security/two-factor-card";
-import { multiFactor } from 'firebase/auth';
 
 function CustomerDashboardContent() {
   const { user } = useUser();
@@ -67,7 +65,6 @@ function CustomerDashboardContent() {
   const hasJobs = Boolean(jobs && jobs.length > 0);
   const completedJobs =
     jobs?.filter((j) => j.status === "completed").length || 0;
-  const has2FA = Boolean(user && multiFactor(user).enrolledFactors.length);
   const hasPhone = Boolean(userProfile?.phone);
 
   const customerTasks = [
@@ -91,13 +88,6 @@ function CustomerDashboardContent() {
       done: hasPhone,
       href: "/dashboard/customer/profile",
       cta: "Update Profile",
-    },
-    {
-      title: "Enable Two-Factor Authentication (2FA)",
-      desc: "Optional security task — protect your move bookings and payments",
-      done: has2FA,
-      href: "#security",
-      cta: "Configure Below",
     },
   ];
 
@@ -261,7 +251,7 @@ function CustomerDashboardContent() {
           </CardContent>
         </Card>
 
-        {/* Smart Move Insights & 2FA Security Card */}
+        {/* Smart Move Insights */}
         <div className="space-y-6" id="security">
           <Card className="border-none shadow-sm bg-primary text-white rounded-3xl overflow-hidden">
             <CardContent className="p-6 space-y-3">
@@ -278,7 +268,6 @@ function CustomerDashboardContent() {
             </CardContent>
           </Card>
 
-          <TwoFactorCard userProfile={userProfile} />
         </div>
       </div>
 

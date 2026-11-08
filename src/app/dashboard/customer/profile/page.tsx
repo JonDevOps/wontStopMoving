@@ -14,7 +14,6 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
 import { User, Mail, Phone, MapPin, Save, ShieldCheck } from "lucide-react";
-import { TwoFactorCard } from "@/components/security/two-factor-card";
 
 export default function CustomerProfilePage() {
   const { user } = useUser();
@@ -180,7 +179,6 @@ export default function CustomerProfilePage() {
               </CardContent>
             </Card>
 
-            <TwoFactorCard roleLabel="Customer" />
 
             <Card className="border-none shadow-sm">
               <CardHeader>

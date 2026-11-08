@@ -15,7 +15,6 @@ import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
 import { User, Mail, Phone, MapPin, Save, ShieldCheck, Briefcase, Calendar, IdCard, Star, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
-import { TwoFactorCard } from "@/components/security/two-factor-card";
 
 export default function EmployeeProfilePage() {
   const { user } = useUser();
@@ -255,7 +254,6 @@ export default function EmployeeProfilePage() {
               </CardContent>
             </Card>
 
-            <TwoFactorCard roleLabel="Employee" />
           </div>
         </div>
       </div>

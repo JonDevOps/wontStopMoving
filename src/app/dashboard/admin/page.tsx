@@ -43,7 +43,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { TwoFactorCard } from "@/components/security/two-factor-card";
 
 function AdminDashboardContent() {
   const { toast } = useToast();
@@ -307,7 +306,6 @@ function AdminDashboardContent() {
             ))}
           </div>
 
-          <TwoFactorCard userProfile={profile} compact />
         </CardContent>
       </Card>
 

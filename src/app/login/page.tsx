@@ -23,7 +23,6 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleButton } from "@/components/auth/google-button";
-import { useMfaSignIn } from '@/components/auth/mfa-provider';
 import {
   signInWithGooglePopup,
   getProfileRole,
@@ -112,7 +111,6 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const auth = useAuth();
-  const completeSignIn = useMfaSignIn();
   const firestore = useFirestore();
 
   const roleParam = searchParams.get("role") as PortalRole | null;
@@ -153,7 +151,7 @@ function LoginContent() {
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
-      const user = await signInWithGooglePopup(auth, completeSignIn);
+      const user = await signInWithGooglePopup(auth);
       let role = await getProfileRole(firestore, user.uid);
 
       if (!role) {
@@ -199,11 +197,11 @@ function LoginContent() {
     setIsLoading(true);
 
     try {
-      const userCredential = await completeSignIn(() => signInWithEmailAndPassword(
+      const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
         password
-      ));
+      );
       const user = userCredential.user;
 
       // Role Resolver Logic
@@ -234,7 +232,7 @@ function LoginContent() {
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: error?.code === 'auth/mfa-cancelled' ? 'Verification cancelled. Please try signing in again.' : "Unable to sign in. Check your credentials and try again.",
+        description: "Unable to sign in. Check your credentials and try again.",
       });
     } finally {
       setIsLoading(false);
@@ -378,7 +376,6 @@ function LoginContent() {
       </CardHeader>
 
       <CardContent className="p-8 space-y-6">
-          {searchParams.get('security') === 'updated' && <p role="status" className="text-sm rounded-lg bg-green-50 p-3 text-green-900">Your security settings were updated. Sign in again to continue.</p>}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>

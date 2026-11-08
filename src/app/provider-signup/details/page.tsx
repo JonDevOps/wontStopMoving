@@ -83,7 +83,7 @@ export default function ProviderDetailsPage() {
 
       toast({
         title: "Details Saved",
-        description: "Your business details are saved! ID verification & 2FA are in your dashboard tasks.",
+        description: "Your business details are saved! ID verification is in your dashboard tasks.",
       });
       
       router.push('/dashboard/provider');

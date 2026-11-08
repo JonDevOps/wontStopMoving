@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Bell, Lock, User, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { TwoFactorCard } from "@/components/security/two-factor-card";
 
 export default function ProviderSettingsPage() {
   const { user } = useUser();
@@ -145,7 +144,6 @@ export default function ProviderSettingsPage() {
             </CardContent>
           </Card>
 
-          <TwoFactorCard roleLabel="Provider" />
 
           <div className="flex justify-end pt-2">
             <Button type="submit" className="bg-slate-900 text-white min-w-[150px] shadow-sm hover:bg-slate-800" disabled={saving}>

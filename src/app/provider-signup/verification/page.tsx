@@ -172,7 +172,7 @@ export default function ProviderVerificationPage() {
     toast({
       title: "Saved as a Dashboard Task",
       description:
-        "You can complete ID Verification, 2FA, and Stripe setup anytime from your Provider Dashboard.",
+        "You can complete ID Verification and Stripe setup anytime from your Provider Dashboard.",
     });
     router.push("/dashboard/provider");
   };

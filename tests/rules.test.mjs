@@ -28,23 +28,7 @@ beforeEach(async () => {
   });
 });
 
-const as = (uid, token = uid === 'boss' ? { firebase: { sign_in_second_factor: 'totp' } } : {}) => env.authenticatedContext(uid, token).firestore();
-
-test('admin access requires a Firebase second-factor claim, never a profile flag', async () => {
-  await env.withSecurityRulesDisabled(async ctx => {
-    await updateDoc(doc(ctx.firestore(), 'users/boss'), { twoFactorEnabled: true, twoFactorMethod: 'authenticator' });
-  });
-  for (const token of [{}, { twoFactorEnabled: true }, { firebase: { sign_in_second_factor: 'password' } }]) {
-    const db = as('boss', token);
-    await assertSucceeds(getDoc(doc(db, 'users/boss'))); // enrollment remains accessible
-    await assertFails(getDocs(collection(db, 'users')));
-    await assertFails(getDoc(doc(db, 'users/cust')));
-    await assertFails(updateDoc(doc(db, 'providers/prov'), { status: 'approved' }));
-    await assertFails(setDoc(doc(db, 'users/new-admin'), { role: 'admin' }));
-  }
-  await assertSucceeds(getDocs(collection(as('boss'), 'users')));
-  await assertSucceeds(getDocs(collection(as('boss', { firebase: { sign_in_second_factor: 'phone' } }), 'users')));
-});
+const as = (uid, token = {}) => env.authenticatedContext(uid, token).firestore();
 
 test('a new signup cannot make itself admin with the old invite flag', async () => {
   await assertFails(setDoc(doc(as('mallory'), 'users/mallory'), { role: 'admin', adminInviteVerified: true }));

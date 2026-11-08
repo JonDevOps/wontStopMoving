@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { DecodedIdToken } from "firebase-admin/auth";
 import { adminAuth, adminDb } from "./firebase-admin";
-import { hasVerifiedSecondFactor } from '../mfa';
 
 /**
  * Identity checks for API routes and server actions. Both are public HTTP
@@ -42,9 +41,6 @@ async function checkRole(user: DecodedIdToken, roles: Role[]) {
   const role = await getRole(user.uid);
   if (!role || !roles.includes(role)) {
     throw new HttpError(403, "Your account doesn't have access to this action.");
-  }
-  if (role === 'admin' && !hasVerifiedSecondFactor(user.firebase)) {
-    throw new HttpError(403, 'Admin access requires two-factor authentication. Set up your authenticator and sign in again.');
   }
   return { user, role };
 }

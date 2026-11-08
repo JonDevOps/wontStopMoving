@@ -32,8 +32,6 @@ import { collection, query, orderBy, limit, doc } from "firebase/firestore";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { TwoFactorCard } from "@/components/security/two-factor-card";
-import { multiFactor } from 'firebase/auth';
 
 function EmployeeDashboardContent() {
   const { user } = useUser();
@@ -77,7 +75,6 @@ function EmployeeDashboardContent() {
   const idVerifiedDone =
     onboardingStep > 3 ||
     Boolean(profile?.verification?.selfie && profile?.verification?.idFront);
-  const twoFactorDone = Boolean(user && multiFactor(user).enrolledFactors.length);
 
   const actionTasks = [
     {
@@ -97,15 +94,7 @@ function EmployeeDashboardContent() {
       icon: ShieldAlert,
     },
     {
-      title: "3. Enable Two-Factor Authentication (2FA)",
-      desc: "Protect your employee account with an authenticator app",
-      done: twoFactorDone,
-      href: "#two-factor-section",
-      cta: twoFactorDone ? "Configured" : "Setup 2FA Below",
-      icon: ShieldCheck,
-    },
-    {
-      title: "4. Sales Call Script & Customer Qualification Checklist",
+      title: "3. Sales Call Script & Customer Qualification Checklist",
       desc: "Interactive call script & live move calculator for inbound and outbound sales calls",
       done: false,
       href: "/dashboard/employee/sales-script",
@@ -114,10 +103,10 @@ function EmployeeDashboardContent() {
     },
   ];
 
-  const completedTasksCount = [detailsDone, idVerifiedDone, twoFactorDone].filter(
+  const completedTasksCount = [detailsDone, idVerifiedDone].filter(
     Boolean
   ).length;
-  const readinessPercent = Math.round(((completedTasksCount + 1) / 4) * 100);
+  const readinessPercent = Math.round(((completedTasksCount + 1) / 3) * 100);
 
   const stats = [
     {
@@ -224,7 +213,7 @@ function EmployeeDashboardContent() {
         ))}
       </div>
 
-      {/* Action Tasks & 2FA / Training Grid */}
+      {/* Action Tasks / Training Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-none shadow-sm bg-white rounded-3xl">
@@ -235,7 +224,7 @@ function EmployeeDashboardContent() {
                   My Tasks & Post-Signup Checklist
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
-                  ID verification and 2FA can be completed anytime below without blocking your access.
+                  ID verification can be completed anytime below without blocking your access.
                 </p>
               </div>
               <Badge className="bg-primary text-white border-none text-xs font-black">
@@ -273,7 +262,6 @@ function EmployeeDashboardContent() {
                         </p>
                       </div>
                     </div>
-                    {task.href !== "#two-factor-section" && (
                       <Button
                         asChild
                         size="sm"
@@ -289,14 +277,10 @@ function EmployeeDashboardContent() {
                           <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
                         </Link>
                       </Button>
-                    )}
                   </div>
                 ))}
               </div>
 
-              <div id="two-factor-section" className="pt-2">
-                <TwoFactorCard userProfile={userProfile} compact />
-              </div>
             </CardContent>
           </Card>
 

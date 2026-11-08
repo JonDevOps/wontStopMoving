@@ -176,7 +176,7 @@ export default function EmployeeVerificationPage() {
     toast({
       title: "Saved as a Dashboard Task",
       description:
-        "You can complete ID Verification and 2FA anytime from your Employee Dashboard.",
+        "You can complete ID Verification anytime from your Employee Dashboard.",
     });
     router.push("/dashboard/employee");
   };

@@ -21,7 +21,6 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
 import { GoogleButton } from "@/components/auth/google-button";
-import { useMfaSignIn } from '@/components/auth/mfa-provider';
 import {
   signInWithGooglePopup,
   getProfileRole,
@@ -44,7 +43,6 @@ export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
-  const completeSignIn = useMfaSignIn();
   const firestore = useFirestore();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -58,7 +56,7 @@ export default function SignupPage() {
   const handleGoogleSignup = async () => {
     setIsLoading(true);
     try {
-      const user = await signInWithGooglePopup(auth, completeSignIn);
+      const user = await signInWithGooglePopup(auth);
       const existingRole = await getProfileRole(firestore, user.uid);
       if (existingRole) {
         // Already has an account: just sign them in.

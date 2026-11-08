@@ -49,8 +49,6 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { AVAILABLE_SERVICES } from "@/lib/services";
-import { TwoFactorCard } from "@/components/security/two-factor-card";
-import { multiFactor } from 'firebase/auth';
 
 function ProviderDashboardContent() {
   const { user } = useUser();
@@ -352,7 +350,6 @@ function ProviderDashboardContent() {
       providerInfo?.onboarding?.idFrontUploaded &&
       (!requiresBack || providerInfo?.onboarding?.idBackUploaded)
   );
-  const twoFactorDone = Boolean(user && multiFactor(user).enrolledFactors.length);
 
   const actionTasks = [
     {
@@ -372,17 +369,12 @@ function ProviderDashboardContent() {
       anchor: "#id-section",
     },
     {
-      label: "4. Enable Two-Factor Authentication (2FA)",
-      done: twoFactorDone,
-      anchor: "#two-factor-section",
-    },
-    {
-      label: "5. Upload Certificate of Liability Insurance (COI)",
+      label: "4. Upload Certificate of Liability Insurance (COI)",
       done: Boolean(providerInfo?.onboarding?.insuranceUploaded),
       anchor: "#insurance-section",
     },
     {
-      label: "6. Connect Business Bank Account via Stripe (85% Payouts)",
+      label: "5. Connect Business Bank Account via Stripe (85% Payouts)",
       done: Boolean(providerInfo?.stripeOnboardingComplete),
       anchor: "#stripe-section",
     },
@@ -534,7 +526,7 @@ function ProviderDashboardContent() {
             Post-Signup Tasks & Activation Checklist
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            ID verification, 2FA, insurance, and Stripe payout connection can all be completed right on this page at your convenience.
+            ID verification, insurance, and Stripe payout connection can all be completed right on this page at your convenience.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -577,9 +569,6 @@ function ProviderDashboardContent() {
             ))}
           </div>
 
-          <div id="two-factor-section" className="pt-2">
-            <TwoFactorCard userProfile={userProfile} compact />
-          </div>
         </CardContent>
       </Card>
 

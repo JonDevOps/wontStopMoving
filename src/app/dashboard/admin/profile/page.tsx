@@ -14,7 +14,6 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
 import { User, Mail, Phone, MapPin, Save, ShieldCheck, ShieldAlert } from "lucide-react";
-import { TwoFactorCard } from "@/components/security/two-factor-card";
 
 function AdminProfileContent() {
   const { user } = useUser();
@@ -191,7 +190,6 @@ function AdminProfileContent() {
             </CardContent>
           </Card>
 
-          <TwoFactorCard roleLabel="Admin" />
 
           <Card className="border-none shadow-sm">
             <CardHeader className="pb-2">

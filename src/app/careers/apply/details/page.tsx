@@ -83,7 +83,7 @@ export default function EmployeeDetailsPage() {
 
       toast({
         title: "Details Saved",
-        description: "Your profile is saved! ID verification & 2FA are added to your dashboard tasks.",
+        description: "Your profile is saved! ID verification is added to your dashboard tasks.",
       });
       
       router.push('/dashboard/employee');
