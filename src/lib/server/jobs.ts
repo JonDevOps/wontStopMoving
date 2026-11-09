@@ -97,6 +97,7 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
           dropoffAddress: q.dropoffAddress || q.dropoffZip || details.dropoffZip || "",
           moveSize: md.moveSize || q.moveSize || details.moveSize || "studio",
           specialItems: q.specialItems || details.specialItems || "",
+          ...(q.isCustomQuote ? { serviceDescription: q.description, quotedPricing: q.pricing } : {}),
           price: payment.amountPaid,
           employeeIds: [],
           providerIds: q.preferredProviderId ? [q.preferredProviderId] : [],

@@ -31,6 +31,21 @@ beforeEach(async () => {
 
 const as = (uid, token = {}) => env.authenticatedContext(uid, token).firestore();
 
+test('custom quotes are private until claimed and their pricing and scope cannot be rewritten in browsers', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'quotes/custom'), { isCustomQuote: true, customerId: 'cust', status: 'new', description: 'Two movers', pricing: { type: 'fixed', total: 500 } });
+    await setDoc(doc(ctx.firestore(), 'quotes/unclaimed'), { isCustomQuote: true, customerId: '', status: 'new' });
+  });
+  await assertSucceeds(getDoc(doc(as('cust'), 'quotes/custom')));
+  await assertFails(getDoc(doc(as('prov'), 'quotes/custom')));
+  await assertFails(getDoc(doc(as('cust'), 'quotes/unclaimed')));
+  for (const uid of ['cust', 'boss']) {
+    for (const change of [{ pricing: { type: 'fixed', total: 1 } }, { description: 'changed scope' }, { customerId: 'other' }, { isCustomQuote: false }]) await assertFails(updateDoc(doc(as(uid), 'quotes/custom'), change));
+    await assertFails(setDoc(doc(as(uid), 'quotes/forged'), { customerId: uid, status: 'new', isCustomQuote: true, pricing: { type: 'fixed', total: 1 }, termsAcceptance: termsAcceptance(uid, 'quote', serverTimestamp()) }));
+  }
+  await assertSucceeds(updateDoc(doc(as('boss'), 'quotes/custom'), { status: 'expired' }));
+});
+
 test('a new signup cannot make itself admin with the old invite flag', async () => {
   await assertFails(setDoc(doc(as('mallory'), 'users/mallory'), { role: 'admin', adminInviteVerified: true }));
 });

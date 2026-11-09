@@ -75,6 +75,7 @@ function AdminQuotesContent() {
           Customer <span className="text-accent">Estimates</span>
         </h1>
         <p className="text-muted-foreground text-sm md:text-base">Monitor and convert incoming service requests into jobs</p>
+        <Button asChild><Link href="/dashboard/admin/quotes/new">Create custom quote</Link></Button>
       </header>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
