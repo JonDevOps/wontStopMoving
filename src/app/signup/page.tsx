@@ -21,6 +21,8 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
 import { GoogleButton } from "@/components/auth/google-button";
+import { TermsAcceptance } from '@/components/legal/terms-acceptance';
+import { termsAcceptance } from '@/lib/terms';
 import {
   signInWithGooglePopup,
   getProfileRole,
@@ -45,6 +47,7 @@ export default function SignupPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const [isLoading, setIsLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const { register, handleSubmit, setValue, getValues, formState: { errors } } = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
@@ -54,6 +57,10 @@ export default function SignupPage() {
   });
 
   const handleGoogleSignup = async () => {
+    if (!termsAccepted) {
+      toast({ variant: 'destructive', title: 'Accept the Terms of Service', description: 'Review the terms and check the agreement box to create an account.' });
+      return;
+    }
     setIsLoading(true);
     try {
       const user = await signInWithGooglePopup(auth);
@@ -64,7 +71,7 @@ export default function SignupPage() {
         return;
       }
       const role = getValues("accountType") === "provider" ? "provider" : "customer";
-      await createSelfServiceProfile(firestore, user, { role, state: getValues("state") || "" });
+      await createSelfServiceProfile(firestore, user, { role, state: getValues("state") || "", termsAccepted });
       toast({
         title: "Account Created",
         description: role === "provider" ? "Your provider account is pending admin approval." : "Welcome to Wont Stop Moving!",
@@ -81,6 +88,7 @@ export default function SignupPage() {
   };
 
   const onSubmit = async (data: SignupValues) => {
+    if (!termsAccepted) return;
     setIsLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
@@ -95,6 +103,7 @@ export default function SignupPage() {
         role: data.accountType,
         state: data.state,
         createdAt: serverTimestamp(),
+        termsAcceptance: termsAcceptance(user.uid, 'signup', serverTimestamp()),
       });
 
       const verificationSent = await sendSignupVerification(user);
@@ -158,7 +167,8 @@ export default function SignupPage() {
             </div>
           </CardHeader>
           <CardContent className="p-8 space-y-6">
-            <GoogleButton onClick={handleGoogleSignup} disabled={isLoading} label="Sign up with Google" />
+            <TermsAcceptance id="signup-terms" checked={termsAccepted} onChange={setTermsAccepted} disabled={isLoading} form="customer-signup"/>
+            <GoogleButton onClick={handleGoogleSignup} disabled={isLoading || !termsAccepted} label="Sign up with Google" />
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-gray-100"></span>
@@ -167,7 +177,7 @@ export default function SignupPage() {
                 <span className="bg-white px-3 text-muted-foreground font-bold">or use email</span>
               </div>
             </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form id="customer-signup" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input id="name" {...register("name")} placeholder="Jane Doe" className="h-12 border-gray-200" required />

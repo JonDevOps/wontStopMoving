@@ -66,12 +66,19 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
     const quoteRef = db.doc(`quotes/${md.quoteId}`);
     const jobRef = db.doc(`jobs/${jobId}`);
     const secretRef = db.doc(`jobSecrets/${jobId}`);
+    const termsRef = db.doc(`checkoutTerms/${session.id}`);
     await db.runTransaction(async (tx) => {
-      const [quote, job, secret] = await Promise.all([tx.get(quoteRef), tx.get(jobRef), tx.get(secretRef)]);
+      const [quote, job, secret, checkoutTerms] = await Promise.all([tx.get(quoteRef), tx.get(jobRef), tx.get(secretRef), tx.get(termsRef)]);
       if (!quote.exists) throw new HttpError(404, "Quote not found.");
       const q = quote.data()!;
       if (q.customerId !== customerId) throw new HttpError(403, "This payment belongs to another account.");
       if (job.exists && job.data()?.paymentStatus === "paid") return;
+      // Each attempt keeps its own consent record. A delayed payment must not
+      // inherit the terms from a later Checkout attempt on the same quote.
+      const acceptance = checkoutTerms.data()?.termsAcceptance;
+      if (md.termsVersion && (!checkoutTerms.exists || checkoutTerms.data()?.customerId !== customerId || checkoutTerms.data()?.quoteId !== md.quoteId || acceptance?.version !== md.termsVersion || acceptance?.acceptedBy !== customerId)) {
+        throw new Error('Checkout terms record is missing or does not match this payment.');
+      }
       let details: Record<string, any> = {};
       try {
         details = typeof q.details === "string" ? JSON.parse(q.details) : q.details || {};
@@ -94,6 +101,7 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
           employeeIds: [],
           providerIds: q.preferredProviderId ? [q.preferredProviderId] : [],
           createdAt: FieldValue.serverTimestamp(),
+          ...(md.termsVersion && acceptance ? { termsAcceptance: acceptance } : {}),
           ...payment,
         },
         { merge: true }

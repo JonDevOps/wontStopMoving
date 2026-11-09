@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, applyActionCode, reload } from 'firebase/auth';
 import { initializeApp as initializeAdmin, deleteApp as deleteAdmin } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
 import { supportInquirySchema } from '../src/lib/support.ts';
 import { sendSignupVerification } from '../src/lib/email-verification.ts';
 import { syncConnectedAccountStatus } from '../src/lib/server/connect-status.ts';
+import { TERMS_VERSION, TERMS_DOCUMENT_PATH, termsAcceptance } from '../src/lib/terms.ts';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -32,6 +33,38 @@ before(async () => {
   customerToken = await customer.getIdToken();
 });
 after(async () => { await deleteApp(app); await deleteAdmin(adminApp); });
+
+test('checkout requires explicit current terms before any payment session or booking can be created', async () => {
+  const beforeJobs = (await db.collection('jobs').get()).size;
+  for (const route of ['/api/stripe/checkout', '/api/stripe/quote-checkout']) {
+    assert.equal((await fetch(`${base}${route}`, json({ termsAccepted: true, termsVersion: TERMS_VERSION }))).status, 401);
+    for (const terms of [{}, { termsAccepted: false, termsVersion: TERMS_VERSION }, { termsAccepted: 'true', termsVersion: TERMS_VERSION }, { termsAccepted: true }, { termsAccepted: true, termsVersion: 123 }]) {
+      const response = await fetch(`${base}${route}`, { ...json(terms), headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${customerToken}` } });
+      assert.equal(response.status, 400);
+      assert.match((await response.json()).error, /Terms of Service/);
+    }
+    const stale = await fetch(`${base}${route}`, { ...json({ termsAccepted: true, termsVersion: 'outdated' }), headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${customerToken}` } });
+    assert.equal(stale.status, 409);
+    // Test payment keys deliberately remain unconfigured: passing this gate
+    // reaches the payment-config guard, without contacting Stripe or charging.
+    const accepted = await fetch(`${base}${route}`, { ...json({ termsAccepted: true, termsVersion: TERMS_VERSION }), headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${customerToken}` } });
+    assert.equal(accepted.status, 503);
+  }
+  assert.equal((await db.collection('jobs').get()).size, beforeJobs);
+});
+
+test('the accepted terms revision has a permanent public page and unknown revisions return 404', async () => {
+  const current = await fetch(`${base}/terms`);
+  const versioned = await fetch(`${base}${TERMS_DOCUMENT_PATH}`);
+  assert.equal(current.status, 200);
+  assert.equal(versioned.status, 200);
+  for (const html of [await current.text(), await versioned.text()]) {
+    assert.match(html, /minimum number of hours is shown for your selected provider and booking/);
+    assert.match(html, /November 8, 2026/);
+    assert.doesNotMatch(html, /strict 3-hour minimum/);
+  }
+  assert.equal((await fetch(`${base}/terms/not-a-published-version`)).status, 404);
+});
 
 test('intake schema rejects malformed, oversized and privileged input', () => {
   for (const input of [{ ...inquiry, email: 'invalid' }, { ...inquiry, message: 'x'.repeat(5001) }, { ...inquiry, name: ' ' }, { ...inquiry, status: 'resolved' }]) {
@@ -96,6 +129,34 @@ async function webhook(event, valid = true) {
   const signature = stripe.webhooks.generateTestHeaderString({ payload: body, secret: valid ? 'whsec_integration_test' : 'whsec_wrong' });
   return fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'stripe-signature': signature }, body });
 }
+
+test('paid quote fulfillment keeps the exact session agreement instead of a later attempt', async () => {
+  const quoteId = 'terms-payment';
+  const sessionId = 'cs_terms_original';
+  const customerId = 'terms-buyer';
+  const acceptedAt = Timestamp.fromMillis(Date.now() - 60000);
+  const original = termsAcceptance(customerId, 'booking', acceptedAt);
+  await db.doc(`quotes/${quoteId}`).set({ customerId, status: 'new', moveSize: 'studio', bookingTermsAcceptance: { ...original, version: 'later-attempt' } });
+  const event = { id: 'evt_terms_paid', type: 'checkout.session.completed', data: { object: { id: sessionId, payment_status: 'paid', amount_total: 75000, metadata: { flow: 'quote', quoteId, customerId, termsVersion: TERMS_VERSION } } } };
+  // A missing audit receipt is retryable; no successful payment is silently dropped.
+  assert.equal((await webhook(event)).status, 500);
+  await db.doc(`checkoutTerms/${sessionId}`).set({ customerId, quoteId, termsAcceptance: original });
+  assert.equal((await webhook(event)).status, 200);
+  assert.equal((await webhook(event)).status, 200);
+  const job = (await db.doc(`jobs/job_quote_${quoteId}`).get()).data();
+  assert.equal(job.termsAcceptance.version, TERMS_VERSION);
+  assert.equal(job.termsAcceptance.documentPath, TERMS_DOCUMENT_PATH);
+  assert.equal(job.termsAcceptance.acceptedBy, customerId);
+  assert.equal(job.termsAcceptance.acceptedAt.toMillis(), acceptedAt.toMillis());
+});
+
+test('legacy paid quote sessions are honored without inventing historical consent', async () => {
+  const quoteId = 'legacy-terms';
+  await db.doc(`quotes/${quoteId}`).set({ customerId: 'legacy-buyer', status: 'new', moveSize: 'studio', bookingTermsAcceptance: termsAcceptance('legacy-buyer', 'booking', Timestamp.now()) });
+  const event = { id: 'evt_legacy_terms', type: 'checkout.session.completed', data: { object: { id: 'cs_legacy_terms', payment_status: 'paid', amount_total: 75000, metadata: { flow: 'quote', quoteId, customerId: 'legacy-buyer' } } } };
+  assert.equal((await webhook(event)).status, 200);
+  assert.equal('termsAcceptance' in (await db.doc(`jobs/job_quote_${quoteId}`).get()).data(), false);
+});
 
 test('webhook rejects invalid signatures and never fulfils unpaid sessions', async () => {
   const event = { id: 'evt_test_unpaid', type: 'checkout.session.completed', data: { object: { id: 'cs_test_unpaid', payment_status: 'unpaid' } } };

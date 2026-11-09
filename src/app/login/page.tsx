@@ -19,10 +19,11 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { useAuth, useFirestore } from "@/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, type User as FirebaseUser } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleButton } from "@/components/auth/google-button";
+import { TermsConfirmation } from '@/components/legal/terms-confirmation';
 import {
   signInWithGooglePopup,
   getProfileRole,
@@ -122,6 +123,7 @@ function LoginContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [pendingGoogleSignup, setPendingGoogleSignup] = useState<FirebaseUser | null>(null);
 
   useEffect(() => {
     if (roleParam && roleParam in PORTAL_CONFIG) {
@@ -171,6 +173,10 @@ function LoginContent() {
           return;
         }
         role = selectedRole === "provider" ? "provider" : "customer";
+        if (role === 'customer') {
+          setPendingGoogleSignup(user);
+          return;
+        }
         await createSelfServiceProfile(firestore, user, { role: role as "customer" | "provider" });
         toast({
           title: "Account created",
@@ -237,6 +243,22 @@ function LoginContent() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const completeGoogleSignup = async () => {
+    if (!pendingGoogleSignup || isLoading) return;
+    setIsLoading(true);
+    try {
+      let role = await getProfileRole(firestore, pendingGoogleSignup.uid);
+      if (!role) {
+        await createSelfServiceProfile(firestore, pendingGoogleSignup, { role: 'customer', termsAccepted: true });
+        role = 'customer';
+      }
+      setPendingGoogleSignup(null);
+      router.push(redirectParam || dashboardForRole(role));
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Could not complete signup', description: error instanceof Error ? error.message : 'Please try again.' });
+    } finally { setIsLoading(false); }
   };
 
   // Step 1: Role Selection Screen (Customer, Employee, Service Provider, or Admin)
@@ -322,7 +344,7 @@ function LoginContent() {
   const ActiveIcon = activePortal.icon;
 
   return (
-    <Card className="w-full max-w-md border-none shadow-2xl relative z-10 bg-white my-12 rounded-3xl overflow-hidden">
+    <><Card className="w-full max-w-md border-none shadow-2xl relative z-10 bg-white my-12 rounded-3xl overflow-hidden">
       {/* Quick Role Switcher Tabs */}
       <div className="bg-gray-100/80 p-2 border-b border-gray-200/60">
         <div className="grid grid-cols-4 gap-1">
@@ -450,6 +472,8 @@ function LoginContent() {
         )}
       </CardContent>
     </Card>
+    <TermsConfirmation open={!!pendingGoogleSignup} title="Finish creating your account" description="Review and accept the Terms of Service to create your customer account with Google." confirmLabel="Create customer account" busy={isLoading} onConfirm={() => void completeGoogleSignup()} onCancel={() => { setPendingGoogleSignup(null); void signOutQuietly(auth); }}/>
+    </>
   );
 }
 
