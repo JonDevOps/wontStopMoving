@@ -193,6 +193,20 @@ test('customer quotes reject missing or forged agreement metadata and preserve a
   await assertSucceeds(updateDoc(ref, { phone: '6505550100' }));
 });
 
+test('browser admins cannot invent another customer agreement or rewrite a booking agreement', async () => {
+  const boss = as('boss');
+  await assertFails(setDoc(doc(boss, 'users/forged-customer'), { role: 'customer', termsAcceptance: termsAcceptance('forged-customer', 'signup', serverTimestamp()) }));
+  await assertFails(setDoc(doc(boss, 'quotes/forged-consent'), { customerId: 'cust', status: 'new', termsAcceptance: termsAcceptance('cust', 'quote', serverTimestamp()) }));
+  await assertFails(setDoc(doc(boss, 'jobs/forged-consent'), { customerId: 'cust', termsAcceptance: termsAcceptance('cust', 'booking', serverTimestamp()) }));
+  // Staff can still create a lead without pretending that its customer agreed.
+  await assertSucceeds(setDoc(doc(boss, 'quotes/staff-lead'), { customerId: 'cust', status: 'new' }));
+  await env.withSecurityRulesDisabled(async ctx => {
+    await updateDoc(doc(ctx.firestore(), 'jobs/j1'), { termsAcceptance: termsAcceptance('cust', 'booking', Timestamp.now()) });
+  });
+  await assertFails(updateDoc(doc(boss, 'jobs/j1'), { 'termsAcceptance.version': 'rewritten' }));
+  await assertSucceeds(updateDoc(doc(boss, 'jobs/j1'), { employeeIds: ['crew'] }));
+});
+
 test('job chat: participants post only as themselves', async () => {
   await assertSucceeds(addDoc(collection(as('prov'), 'jobs/j1/messages'), { senderId: 'prov', text: 'On my way' }));
   await assertFails(addDoc(collection(as('prov'), 'jobs/j1/messages'), { senderId: 'cust', text: 'Fake' }));

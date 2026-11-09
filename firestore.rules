@@ -78,12 +78,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isAdmin() || (
+      allow create: if (isAdmin() && !('termsAcceptance' in request.resource.data)) || (
         // Self-signup can never create an admin. Admins are granted only by
         // an existing admin (or server-side with the Admin SDK).
         isOwner(userId) &&
         request.resource.data.role in ['customer', 'employee', 'provider'] &&
-        (request.resource.data.role != 'customer' || acceptedCurrentTerms(request.resource.data.get('termsAcceptance', {}), 'signup'))
+        ((request.resource.data.role != 'customer' && !('termsAcceptance' in request.resource.data)) || acceptedCurrentTerms(request.resource.data.get('termsAcceptance', {}), 'signup'))
       );
       allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['termsAcceptance']) && (isAdmin() || (
         isOwner(userId) &&
@@ -161,7 +161,7 @@ service cloud.firestore {
     match /quotes/{id} {
       allow read: if (isSignedIn() && resource.data.customerId == request.auth.uid) || isAdmin();
       // Quotes come from signed-in customers, for themselves, starting as 'new'.
-      allow create: if isAdmin() || (isSignedIn() &&
+      allow create: if (isAdmin() && !request.resource.data.keys().hasAny(['termsAcceptance', 'bookingTermsAcceptance'])) || (isSignedIn() &&
         request.resource.data.customerId == request.auth.uid &&
         request.resource.data.status == 'new' &&
         acceptedCurrentTerms(request.resource.data.get('termsAcceptance', {}), 'quote') &&
@@ -190,8 +190,8 @@ service cloud.firestore {
       allow read: if (isSignedIn() && (resource.data.customerId == request.auth.uid ||
         (resource.data.employeeIds != null && request.auth.uid in resource.data.employeeIds) ||
         (resource.data.providerIds != null && request.auth.uid in resource.data.providerIds))) || isAdmin();
-      allow create: if isAdmin();
-      allow update: if isAdmin() ||
+      allow create: if isAdmin() && !('termsAcceptance' in request.resource.data);
+      allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['termsAcceptance']) && (isAdmin() ||
         // Customer: mark the job reviewed.
         (isSignedIn() && resource.data.customerId == request.auth.uid &&
           changedOnly(['reviewed']) && request.resource.data.reviewed == true) ||
@@ -200,7 +200,7 @@ service cloud.firestore {
           resource.data.status in ['confirmed', 'in-progress'] &&
           request.resource.data.status in ['confirmed', 'in-progress']) ||
         // Crew: field notes and crew status.
-        (isJobEmployee() && changedOnly(['employeeNotes', 'crewStatus']));
+        (isJobEmployee() && changedOnly(['employeeNotes', 'crewStatus'])));
       allow delete: if isAdmin();
 
       match /messages/{messageId} {
