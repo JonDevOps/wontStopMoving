@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Loader2, ArrowRight, ShieldCheck, MapPin, Calendar, Clock, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
+import { TermsAcceptance } from '@/components/legal/terms-acceptance';
+import { TERMS_VERSION } from '@/lib/terms';
 
 interface ProviderProfile {
   id: string;
@@ -33,6 +35,7 @@ export default function DirectBookingPage() {
   const [provider, setProvider] = useState<ProviderProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Form State
   const [hours, setHours] = useState<number>(2);
@@ -109,6 +112,11 @@ export default function DirectBookingPage() {
 
     if (!firestore) return;
 
+    if (!termsAccepted) {
+      toast({ variant: 'destructive', title: 'Accept the Terms of Service', description: 'Review the terms and check the agreement box before continuing to payment.' });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const data = await apiFetch<{ url?: string }>(auth, "/api/stripe/checkout", {
@@ -117,6 +125,8 @@ export default function DirectBookingPage() {
         moveDate,
         pickupAddress,
         dropoffAddress,
+        termsAccepted,
+        termsVersion: TERMS_VERSION,
       });
       
       if (data.url) {
@@ -240,6 +250,8 @@ export default function DirectBookingPage() {
                     </div>
                   )}
 
+                  <TermsAcceptance id="booking-terms" checked={termsAccepted} onChange={setTermsAccepted} disabled={isSubmitting} form="booking-form"/>
+
                   <Button 
                     type="submit" 
                     form="booking-form"
@@ -253,7 +265,7 @@ export default function DirectBookingPage() {
                     )}
                   </Button>
                   <p className="text-center text-[10px] text-slate-400 font-bold uppercase">
-                    No payment charged until job completion.
+                    Payment is collected securely at Stripe checkout.
                   </p>
                 </CardContent>
               </Card>
