@@ -15,6 +15,7 @@ import { apiFetch } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 import { TermsConfirmation } from '@/components/legal/terms-confirmation';
 import { TERMS_VERSION } from '@/lib/terms';
+import { customQuotePricingText } from '@/lib/custom-quotes';
 
 export default function MyQuotesPage() {
   const { user } = useUser();
@@ -78,6 +79,7 @@ export default function MyQuotesPage() {
             </div>
           ) : quotes && quotes.length > 0 ? (
             quotes.map((quote) => {
+              if (quote.isCustomQuote) return <Card key={quote.id}><CardContent className="p-6 space-y-3"><Badge>Custom {quote.pricing.type === 'hourly' ? 'hourly estimate' : 'fixed-price quote'}</Badge><p className="whitespace-pre-wrap">{quote.description}</p><p>{customQuotePricingText(quote.pricing)}</p><p>Status: {quote.status}</p><Button asChild><Link href={`/custom-quotes/${quote.id}`}>Review quote</Link></Button></CardContent></Card>;
               // Safely parse details if it's stored as a string
               let details: any = {};
               try {

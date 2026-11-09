@@ -161,13 +161,13 @@ service cloud.firestore {
     match /quotes/{id} {
       allow read: if (isSignedIn() && resource.data.customerId == request.auth.uid) || isAdmin();
       // Quotes come from signed-in customers, for themselves, starting as 'new'.
-      allow create: if (isAdmin() && !request.resource.data.keys().hasAny(['termsAcceptance', 'bookingTermsAcceptance'])) || (isSignedIn() &&
+      allow create: if !request.resource.data.keys().hasAny(['isCustomQuote', 'pricing', 'expiresAt', 'createdBy', 'openedAt']) && ((isAdmin() && !request.resource.data.keys().hasAny(['termsAcceptance', 'bookingTermsAcceptance'])) || (isSignedIn() &&
         request.resource.data.customerId == request.auth.uid &&
         request.resource.data.status == 'new' &&
         acceptedCurrentTerms(request.resource.data.get('termsAcceptance', {}), 'quote') &&
-        !request.resource.data.keys().hasAny(quotePaymentFields()));
+        !request.resource.data.keys().hasAny(quotePaymentFields())));
       // Customers may edit their quote's details, but not reassign it or change its status.
-      allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['termsAcceptance', 'bookingTermsAcceptance']) && (isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid &&
+      allow update: if (!resource.data.get('isCustomQuote', false) || (isAdmin() && changedOnly(['status']))) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isCustomQuote', 'pricing', 'expiresAt', 'createdBy', 'openedAt', 'termsAcceptance', 'bookingTermsAcceptance']) && (isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['customerId', 'status', 'checkoutSessionId', 'paymentStatus', 'paymentFailedAt'])));
       allow delete: if isAdmin();
     }

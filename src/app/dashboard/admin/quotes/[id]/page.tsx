@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { calculateMoveTotal } from "@/lib/pricing";
+import { customQuoteTotal, customQuotePricingText } from '@/lib/custom-quotes';
 
 function QuoteReviewContent({ id }: { id: string }) {
   const { toast } = useToast();
@@ -56,7 +57,7 @@ function QuoteReviewContent({ id }: { id: string }) {
   };
 
   const handleAiDescription = async () => {
-    if (!quote) return;
+    if (!quote || quote.isCustomQuote) return;
     setIsSummarizing(true);
     try {
       const price = calculateMoveTotal(quote.moveSize, []); // Basic calc for description
@@ -96,7 +97,7 @@ function QuoteReviewContent({ id }: { id: string }) {
     .filter(([_, active]) => active)
     .map(([key]) => key);
 
-  const price = calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
+  const price = quote.isCustomQuote ? customQuoteTotal(quote.pricing) : calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
     isStudent: !!details?.isStudent,
     isMilitary: !!details?.isMilitary,
     isExpress: !!details?.addOns?.express
@@ -130,10 +131,12 @@ function QuoteReviewContent({ id }: { id: string }) {
           </div>
         </div>
         <div className="text-right">
-          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Estimated Total</p>
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">{quote.isCustomQuote && quote.pricing.type === 'fixed' ? 'Quoted total' : 'Estimated total'}</p>
           <p className="text-4xl font-black text-primary">${price.toLocaleString()}</p>
         </div>
       </header>
+
+      {quote.isCustomQuote && <Card><CardContent className="p-6 space-y-3"><h2 className="font-bold">Custom quote</h2><p className="whitespace-pre-wrap">{quote.description}</p><p>{customQuotePricingText(quote.pricing)}</p><p>Pickup: {quote.pickupAddress}</p><p>Drop-off: {quote.dropoffAddress}</p><p>Expires: {quote.expiresAt?.toDate().toLocaleString()}</p><p>Customer review link:</p><a className="underline break-all" href={`/custom-quotes/${id}`}>{`https://wontstopmoving.com/custom-quotes/${id}`}</a><Button asChild className="block w-fit"><a href={`mailto:${encodeURIComponent(quote.email)}?subject=${encodeURIComponent('Your Wont Stop Moving custom quote')}&body=${encodeURIComponent(`${quote.description}\n\n${customQuotePricingText(quote.pricing)}\n\nReview: https://wontstopmoving.com/custom-quotes/${id}\nSign in with ${quote.email} and verify your email to open your quote.`)}`}>Open quote email</a></Button><p>Email opens in your email app; send it there to deliver the quote.</p></CardContent></Card>}
 
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
@@ -162,7 +165,7 @@ function QuoteReviewContent({ id }: { id: string }) {
                   <div className="p-3 bg-gray-100 rounded-2xl text-primary"><MapPin className="h-5 w-5" /></div>
                   <div>
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Route</p>
-                    <p className="font-bold text-primary">{quote.pickupZip} → {quote.dropoffZip}</p>
+                    <p className="font-bold text-primary">{quote.pickupAddress || quote.pickupZip} → {quote.dropoffAddress || quote.dropoffZip}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -251,7 +254,7 @@ function QuoteReviewContent({ id }: { id: string }) {
             <CardContent className="space-y-3">
               <Button 
                 onClick={handleAiDescription} 
-                disabled={isSummarizing}
+                disabled={isSummarizing || !!quote.isCustomQuote}
                 className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl font-bold h-12 uppercase text-xs flex items-center gap-2"
               >
                 <Sparkles className="h-4 w-4" />

@@ -9,6 +9,8 @@ import { supportInquirySchema } from '../src/lib/support.ts';
 import { sendSignupVerification } from '../src/lib/email-verification.ts';
 import { syncConnectedAccountStatus } from '../src/lib/server/connect-status.ts';
 import { TERMS_VERSION, TERMS_DOCUMENT_PATH, termsAcceptance } from '../src/lib/terms.ts';
+import { customQuoteSchema, customQuoteTotal } from '../src/lib/custom-quotes.ts';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -34,6 +36,49 @@ before(async () => {
 });
 after(async () => { await deleteApp(app); await deleteAdmin(adminApp); });
 
+const customDraft = () => ({ name: 'Custom Customer', email: 'test-customer@example.com', description: 'Two movers and a truck. Packing excluded.', pickupAddress: '123 Test Street', dropoffAddress: '456 Test Avenue', moveDate: '2026-12-15', expiresAt: new Date(Date.now() + 86400000).toISOString(), pricing: { type: 'fixed', total: 1250.75 } });
+const authorized = (token, body) => ({ ...json(body), headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } });
+
+test('custom pricing rejects ambiguous, malformed, fractional-cent and below-minimum estimates', () => {
+  assert.equal(customQuoteTotal({ type: 'fixed', total: 1250.75 }), 1250.75);
+  assert.equal(customQuoteTotal({ type: 'hourly', hourlyRate: 125, minimumHours: 2, estimatedHours: 3.5 }), 437.5);
+  for (const pricing of [{ type: 'fixed', total: -5 }, { type: 'fixed', total: 5.001 }, { type: 'fixed', total: 5, hourlyRate: 1 }, { type: 'hourly', hourlyRate: 125, minimumHours: 3, estimatedHours: 2 }]) assert.equal(customQuoteSchema.safeParse({ ...customDraft(), pricing }).success, false);
+});
+
+test('only admins create custom quotes; verified intended recipient can claim and review, with pricing protected', async () => {
+  assert.equal((await fetch(`${base}/api/admin/quotes`, json(customDraft()))).status, 401);
+  assert.equal((await fetch(`${base}/api/admin/quotes`, authorized(customerToken, customDraft()))).status, 403);
+  assert.equal((await fetch(`${base}/api/admin/quotes`, authorized(adminToken, { ...customDraft(), expiresAt: '2020-01-01T00:00:00.000Z' }))).status, 400);
+  const created = await fetch(`${base}/api/admin/quotes`, authorized(adminToken, customDraft()));
+  assert.equal(created.status, 201);
+  const { id, url } = await created.json();
+  assert.ok(url.endsWith(`/custom-quotes/${id}`));
+  assert.equal((await db.doc(`quotes/${id}`).get()).data().customerId, '');
+  const open = () => fetch(`${base}/api/custom-quotes/${id}`, authorized(customerToken, {}));
+  assert.equal((await open()).status, 403); // Unverified account cannot claim private quotes.
+  await getAdminAuth(adminApp).updateUser(auth.currentUser.uid, { emailVerified: true });
+  await reload(auth.currentUser); customerToken = await auth.currentUser.getIdToken(true);
+  assert.equal((await fetch(`${base}/api/custom-quotes/${id}`, authorized(adminToken, {}))).status, 403);
+  const response = await open();
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).pricing.total, 1250.75);
+  const q = (await db.doc(`quotes/${id}`).get()).data();
+  assert.equal(q.customerId, auth.currentUser.uid);
+  assert.equal(q.termsAcceptance, undefined); // Opening is not consent.
+  assert.equal((await open()).status, 200);
+  const checkout = body => fetch(`${base}/api/stripe/quote-checkout`, authorized(customerToken, { quoteId: id, termsAccepted: true, termsVersion: TERMS_VERSION, ...body }));
+  assert.equal((await checkout({ total: 1 })).status, 503); // Valid quote reaches disabled test payment configuration; never Stripe.
+  await db.doc(`quotes/${id}`).update({ pricing: { type: 'hourly', hourlyRate: 125, minimumHours: 2, estimatedHours: 3 } });
+  const hourly = await checkout({}); assert.equal(hourly.status, 409); assert.match((await hourly.json()).error, /Hourly estimates/);
+  await db.doc(`quotes/${id}`).update({ pricing: { type: 'fixed', total: 1250.75 }, expiresAt: Timestamp.fromMillis(0) });
+  assert.equal((await checkout({})).status, 409);
+  await db.doc(`quotes/${id}`).update({ expiresAt: Timestamp.fromMillis(Date.now() + 86400000), email: 'someone-else@example.com' });
+  assert.equal((await open()).status, 404);
+  // Restore the shared fixture for the subsequent verification-email test.
+  await getAdminAuth(adminApp).updateUser(auth.currentUser.uid, { emailVerified: false });
+  await reload(auth.currentUser); customerToken = await auth.currentUser.getIdToken(true);
+});
+
 test('checkout requires explicit current terms before any payment session or booking can be created', async () => {
   const beforeJobs = (await db.collection('jobs').get()).size;
   for (const route of ['/api/stripe/checkout', '/api/stripe/quote-checkout']) {
@@ -48,7 +93,7 @@ test('checkout requires explicit current terms before any payment session or boo
     // Test payment keys deliberately remain unconfigured: passing this gate
     // reaches the payment-config guard, without contacting Stripe or charging.
     const accepted = await fetch(`${base}${route}`, { ...json({ termsAccepted: true, termsVersion: TERMS_VERSION }), headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${customerToken}` } });
-    assert.equal(accepted.status, 503);
+    assert.equal(accepted.status, route.endsWith('quote-checkout') ? 400 : 503);
   }
   assert.equal((await db.collection('jobs').get()).size, beforeJobs);
 });
@@ -129,6 +174,20 @@ async function webhook(event, valid = true) {
   const signature = stripe.webhooks.generateTestHeaderString({ payload: body, secret: valid ? 'whsec_integration_test' : 'whsec_wrong' });
   return fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'stripe-signature': signature }, body });
 }
+
+test('paid custom quote preserves its scope and price even when delivery arrives after expiry', async () => {
+  const quoteId = 'custom-paid-fixture', customerId = 'custom-buyer', sessionId = 'cs_custom_paid';
+  await db.doc(`quotes/${quoteId}`).set({ ...customDraft(), isCustomQuote: true, customerId, expiresAt: Timestamp.fromMillis(0), status: 'new', moveSize: 'custom' });
+  await db.doc(`checkoutTerms/${sessionId}`).set({ quoteId, customerId, termsAcceptance: termsAcceptance(customerId, 'booking', Timestamp.now()) });
+  const event = { id: 'evt_custom_paid', type: 'checkout.session.completed', data: { object: { id: sessionId, payment_status: 'paid', amount_total: 125075, payment_intent: 'pi_custom_paid', metadata: { flow: 'quote', quoteId, customerId, moveSize: 'custom', termsVersion: TERMS_VERSION } } } };
+  assert.equal((await webhook(event)).status, 200);
+  assert.equal((await webhook(event)).status, 200);
+  const job = (await db.doc(`jobs/job_quote_${quoteId}`).get()).data();
+  assert.equal(job.price, 1250.75);
+  assert.equal(job.serviceDescription, customDraft().description);
+  assert.deepEqual(job.quotedPricing, customDraft().pricing);
+  assert.equal(job.termsAcceptance.version, TERMS_VERSION);
+});
 
 test('paid quote fulfillment keeps the exact session agreement instead of a later attempt', async () => {
   const quoteId = 'terms-payment';
