@@ -4,6 +4,8 @@ import { stripe } from "@/lib/stripe";
 import { calculateMoveTotal } from "@/lib/pricing";
 import { adminDb } from "@/lib/server/firebase-admin";
 import { errorResponse, HttpError, isId, readJson, requireRole, requireStripe, siteOrigin } from "@/lib/server/auth";
+import { requireCurrentTerms, bookingTermsAcceptance } from '@/lib/server/terms';
+import { TERMS_VERSION } from '@/lib/terms';
 
 /**
  * Pays for a quote. The move size, add-ons and discounts are read from the
@@ -12,8 +14,10 @@ import { errorResponse, HttpError, isId, readJson, requireRole, requireStripe, s
 export async function POST(req: Request) {
   try {
     const { user } = await requireRole(req, ["customer", "admin"]);
+    const body = await readJson(req);
+    requireCurrentTerms(body);
     requireStripe();
-    const { quoteId } = await readJson(req);
+    const { quoteId } = body;
     if (!isId(quoteId)) throw new HttpError(400, "Choose a quote.");
 
     const quote = await adminDb().doc(`quotes/${quoteId}`).get();
@@ -55,14 +59,17 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
-      metadata: { flow: "quote", quoteId, customerId: user.uid, moveSize },
+      metadata: { flow: "quote", quoteId, customerId: user.uid, moveSize, termsVersion: TERMS_VERSION },
       success_url: `${origin}/dashboard/customer/moves?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/dashboard/customer/quotes?cancelled=true`,
     });
-    await adminDb().runTransaction(async tx => {
+    const db = adminDb();
+    await db.runTransaction(async tx => {
       const current = (await tx.get(quote.ref)).data();
-      if (!current || current.status === 'processed' || current.paymentStatus === 'paid') return;
-      tx.update(quote.ref, { checkoutSessionId: session.id, paymentStatus: 'pending', paymentFailedAt: FieldValue.delete() });
+      if (!current || current.status === 'processed' || current.paymentStatus === 'paid') throw new HttpError(409, 'This quote has already been booked.');
+      const acceptance = bookingTermsAcceptance(user.uid);
+      tx.set(db.doc(`checkoutTerms/${session.id}`), { customerId: user.uid, quoteId, termsAcceptance: acceptance });
+      tx.update(quote.ref, { checkoutSessionId: session.id, paymentStatus: 'pending', paymentFailedAt: FieldValue.delete(), bookingTermsAcceptance: acceptance });
     });
     return NextResponse.json({ url: session.url });
   } catch (error) {

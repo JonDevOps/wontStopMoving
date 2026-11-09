@@ -13,18 +13,21 @@ import { useState } from "react";
 import { calculateMoveTotal } from "@/lib/pricing";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
+import { TermsConfirmation } from '@/components/legal/terms-confirmation';
+import { TERMS_VERSION } from '@/lib/terms';
 
 export default function MyQuotesPage() {
   const { user } = useUser();
   const auth = useAuth();
   const { toast } = useToast();
   const [payingQuoteId, setPayingQuoteId] = useState<string | null>(null);
+  const [checkoutQuoteId, setCheckoutQuoteId] = useState<string | null>(null);
 
   const handlePayQuote = async (quoteId: string) => {
     setPayingQuoteId(quoteId);
     try {
       // The server reads your quote and calculates the total.
-      const { url } = await apiFetch<{ url: string }>(auth, "/api/stripe/quote-checkout", { quoteId });
+      const { url } = await apiFetch<{ url: string }>(auth, "/api/stripe/quote-checkout", { quoteId, termsAccepted: true, termsVersion: TERMS_VERSION });
       window.location.href = url;
     } catch (error) {
       toast({
@@ -164,7 +167,7 @@ export default function MyQuotesPage() {
                           <Button
                             type="button"
                             disabled={payingQuoteId === quote.id}
-                            onClick={() => handlePayQuote(quote.id)}
+                            onClick={() => setCheckoutQuoteId(quote.id)}
                             className="w-full rounded-full bg-primary hover:bg-primary/90 text-white font-bold gap-2 shadow-lg h-12 uppercase tracking-widest text-xs"
                           >
                             <CreditCard className="h-4 w-4" /> {payingQuoteId === quote.id ? "Opening Checkout..." : "Pay & Book"}
@@ -221,6 +224,7 @@ export default function MyQuotesPage() {
           )}
         </div>
       </div>
+      <TermsConfirmation open={!!checkoutQuoteId} title="Review terms before payment" description="Accept the Terms of Service to book the selected quote. Payment is collected securely at Stripe checkout." confirmLabel="Continue to payment" busy={!!payingQuoteId} onConfirm={() => { if (checkoutQuoteId) void handlePayQuote(checkoutQuoteId); }} onCancel={() => setCheckoutQuoteId(null)}/>
     </CustomerLayout>
   );
 }

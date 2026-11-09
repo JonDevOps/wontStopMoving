@@ -3,7 +3,8 @@
 import { test, before, after, beforeEach } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc, getDoc, getDocs, addDoc, collection } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, getDoc, getDocs, addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { TERMS_VERSION, TERMS_DOCUMENT_PATH, termsAcceptance } from '../src/lib/terms.ts';
 
 let env;
 before(async () => {
@@ -41,9 +42,33 @@ test('a new signup using the admin@ email cannot make itself admin', async () =>
 
 test('normal signups still work for customer, employee and provider', async () => {
   for (const role of ['customer', 'employee', 'provider']) {
-    await assertSucceeds(setDoc(doc(as(`u-${role}`), `users/u-${role}`), { role }));
+    const uid = `u-${role}`;
+    await assertSucceeds(setDoc(doc(as(uid), `users/${uid}`), { role, ...(role === 'customer' ? { termsAcceptance: termsAcceptance(uid, 'signup', serverTimestamp()) } : {}) }));
   }
 });
+
+test('customer signup requires explicit current terms with a Firebase-generated timestamp', async () => {
+  const uid = 'terms-signup';
+  const db = as(uid);
+  const valid = () => termsAcceptance(uid, 'signup', serverTimestamp());
+  await assertFails(setDoc(doc(db, `users/${uid}`), { role: 'customer' }));
+  for (const change of [{ accepted: false }, { version: 'old-version' }, { documentPath: '/terms/old' }, { acceptedBy: 'someone-else' }, { context: 'quote' }, { acceptedAt: Timestamp.fromMillis(0) }]) {
+    await assertFails(setDoc(doc(db, `users/${uid}`), { role: 'customer', termsAcceptance: { ...valid(), ...change } }));
+  }
+  await assertSucceeds(setDoc(doc(db, `users/${uid}`), { role: 'customer', termsAcceptance: valid() }));
+  const saved = (await getDoc(doc(db, `users/${uid}`))).data().termsAcceptance;
+  assertCurrentAgreement(saved, uid, 'signup');
+  for (const client of [db, as('boss')]) {
+    await assertFails(updateDoc(doc(client, `users/${uid}`), { 'termsAcceptance.accepted': false }));
+  }
+  await assertSucceeds(updateDoc(doc(db, `users/${uid}`), { name: 'Updated name' }));
+});
+
+function assertCurrentAgreement(saved, uid, context) {
+  if (saved.version !== TERMS_VERSION || saved.documentPath !== TERMS_DOCUMENT_PATH || saved.acceptedBy !== uid || saved.context !== context || saved.accepted !== true || Math.abs(Date.now() - saved.acceptedAt.toMillis()) > 30000) {
+    throw new Error('Agreement metadata was not stored with the current version and server timestamp.');
+  }
+}
 
 test('a user cannot change their own role to admin', async () => {
   await assertFails(updateDoc(doc(as('cust'), 'users/cust'), { role: 'admin' }));
@@ -72,6 +97,18 @@ test('support tickets and intake counters cannot be read or written directly by 
     await assertFails(updateDoc(doc(db, 'supportTickets/private'), { status: 'resolved' }));
     await assertFails(getDoc(doc(db, 'supportIntakeLimits/private')));
     await assertFails(setDoc(doc(db, 'supportIntakeLimits/private'), { count: 0 }));
+  }
+});
+
+test('per-checkout agreement receipts are private and server-managed', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'checkoutTerms/private'), { customerId: 'cust', quoteId: 'q', termsAcceptance: { accepted: true } });
+  });
+  for (const db of [env.unauthenticatedContext().firestore(), as('cust'), as('prov'), as('boss')]) {
+    await assertFails(getDoc(doc(db, 'checkoutTerms/private')));
+    await assertFails(getDocs(collection(db, 'checkoutTerms')));
+    await assertFails(setDoc(doc(db, 'checkoutTerms/forged'), { customerId: 'cust' }));
+    await assertFails(updateDoc(doc(db, 'checkoutTerms/private'), { 'termsAcceptance.accepted': false }));
   }
 });
 
@@ -130,14 +167,30 @@ test('quotes: only for yourself, starting as new; no reassigning or status chang
   await assertFails(addDoc(collection(env.unauthenticatedContext().firestore(), 'quotes'), { customerId: 'cust', status: 'new' }));
   await assertFails(addDoc(collection(as('prov'), 'quotes'), { customerId: 'cust', status: 'new' }));
   await assertFails(setDoc(doc(as('cust'), 'quotes/q1'), { customerId: 'cust', status: 'processed' }));
-  await assertSucceeds(setDoc(doc(as('cust'), 'quotes/q1'), { customerId: 'cust', status: 'new', moveSize: '2br' }));
+  await assertSucceeds(setDoc(doc(as('cust'), 'quotes/q1'), { customerId: 'cust', status: 'new', moveSize: '2br', termsAcceptance: termsAcceptance('cust', 'quote', serverTimestamp()) }));
   await assertSucceeds(updateDoc(doc(as('cust'), 'quotes/q1'), { moveSize: '3br' }));
   await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), { status: 'processed' }));
   await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), { customerId: 'prov' }));
-  for (const change of [{ paymentStatus: 'paid' }, { checkoutSessionId: 'cs_forged' }, { paymentFailedAt: 'forged' }]) {
+  for (const change of [{ paymentStatus: 'paid' }, { checkoutSessionId: 'cs_forged' }, { paymentFailedAt: 'forged' }, { bookingTermsAcceptance: { accepted: true } }]) {
     await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), change));
     await assertFails(setDoc(doc(as('cust'), 'quotes/q-new'), { customerId: 'cust', status: 'new', ...change }));
   }
+});
+
+test('customer quotes reject missing or forged agreement metadata and preserve acceptance on edits', async () => {
+  const db = as('cust');
+  const ref = doc(db, 'quotes/terms-quote');
+  const quote = { customerId: 'cust', status: 'new', moveSize: 'studio' };
+  await assertFails(setDoc(ref, quote));
+  for (const change of [{ accepted: false }, { version: 'old-version' }, { acceptedBy: 'boss' }, { context: 'signup' }, { acceptedAt: Timestamp.fromMillis(0) }]) {
+    await assertFails(setDoc(ref, { ...quote, termsAcceptance: { ...termsAcceptance('cust', 'quote', serverTimestamp()), ...change } }));
+  }
+  await assertSucceeds(setDoc(ref, { ...quote, termsAcceptance: termsAcceptance('cust', 'quote', serverTimestamp()) }));
+  assertCurrentAgreement((await getDoc(ref)).data().termsAcceptance, 'cust', 'quote');
+  for (const client of [db, as('boss')]) {
+    await assertFails(updateDoc(doc(client, 'quotes/terms-quote'), { 'termsAcceptance.version': 'rewritten' }));
+  }
+  await assertSucceeds(updateDoc(ref, { phone: '6505550100' }));
 });
 
 test('job chat: participants post only as themselves', async () => {

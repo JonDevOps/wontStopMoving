@@ -3,6 +3,8 @@ import { FieldValue } from "firebase-admin/firestore";
 import { stripe } from "@/lib/stripe";
 import { adminDb } from "@/lib/server/firebase-admin";
 import { errorResponse, HttpError, isId, readJson, requireRole, requireStripe, siteOrigin } from "@/lib/server/auth";
+import { requireCurrentTerms, bookingTermsAcceptance } from '@/lib/server/terms';
+import { TERMS_VERSION } from '@/lib/terms';
 
 const DEFAULT_HOURLY_RATE = 50;
 
@@ -14,8 +16,9 @@ const DEFAULT_HOURLY_RATE = 50;
 export async function POST(req: Request) {
   try {
     const { user } = await requireRole(req, ["customer", "admin"]);
-    requireStripe();
     const body = await readJson(req);
+    requireCurrentTerms(body);
+    requireStripe();
     const { providerId, moveDate, pickupAddress, dropoffAddress } = body;
     const hours = Number(body.hours);
 
@@ -51,6 +54,7 @@ export async function POST(req: Request) {
       hoursReserved: hours,
       price,
       createdAt: FieldValue.serverTimestamp(),
+      termsAcceptance: bookingTermsAcceptance(user.uid),
     });
 
     const origin = siteOrigin(req);
@@ -71,7 +75,7 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
-      metadata: { flow: "booking", jobId: jobRef.id, customerId: user.uid, providerId },
+      metadata: { flow: "booking", jobId: jobRef.id, customerId: user.uid, providerId, termsVersion: TERMS_VERSION },
       success_url: `${origin}/dashboard/customer/moves?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/book/${providerId}?canceled=true`,
     });

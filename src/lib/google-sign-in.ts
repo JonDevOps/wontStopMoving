@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   type Firestore,
 } from "firebase/firestore";
+import { termsAcceptance } from './terms';
 
 export type SelfServiceRole = "customer" | "provider";
 
@@ -38,8 +39,11 @@ export async function getProfileRole(firestore: Firestore, uid: string): Promise
 export async function createSelfServiceProfile(
   firestore: Firestore,
   user: User,
-  details: { role: SelfServiceRole; name?: string; state?: string }
+  details: { role: SelfServiceRole; name?: string; state?: string; termsAccepted?: boolean }
 ): Promise<void> {
+  if (details.role === 'customer' && details.termsAccepted !== true) {
+    throw new Error('Review and accept the Terms of Service to create your account.');
+  }
   const email = user.email ?? "";
   const name = details.name || user.displayName || email.split("@")[0];
   await setDoc(doc(firestore, "users", user.uid), {
@@ -49,6 +53,7 @@ export async function createSelfServiceProfile(
     role: details.role,
     state: details.state ?? "",
     createdAt: serverTimestamp(),
+    ...(details.termsAccepted ? { termsAcceptance: termsAcceptance(user.uid, 'signup', serverTimestamp()) } : {}),
   });
   if (details.role === "provider") {
     await setDoc(doc(firestore, "providers", user.uid), {

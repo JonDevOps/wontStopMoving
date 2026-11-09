@@ -38,6 +38,8 @@ import { sendSignupVerification } from '@/lib/email-verification';
 import { useToast } from "@/hooks/use-toast";
 import { calculateMoveTotal } from "@/lib/pricing";
 import Link from "next/link";
+import { TermsAcceptance } from '@/components/legal/terms-acceptance';
+import { termsAcceptance } from '@/lib/terms';
 
 const formSchema = z.object({
   pickupZip: z.string().min(5, "Invalid Zip"),
@@ -69,6 +71,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function QuoteForm({ providerId }: { providerId?: string }) {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const totalSteps = 5;
   const firestore = useFirestore();
   const auth = useAuth();
@@ -126,6 +129,10 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
   }, [user, isUserLoading, setValue, firestore]);
 
   const onSubmit = async (data: FormValues) => {
+    if (!termsAccepted) {
+      toast({ variant: 'destructive', title: 'Accept the Terms of Service', description: 'Review the terms and check the agreement box before submitting your request.' });
+      return;
+    }
     setIsSubmitting(true);
     let currentUserId = user?.uid;
 
@@ -156,6 +163,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
             role: 'customer',
             state: "New",
             createdAt: serverTimestamp(),
+            termsAcceptance: termsAcceptance(currentUserId, 'signup', serverTimestamp()),
           });
           const verificationSent = await sendSignupVerification(newUser);
           toast({ title: 'Account created', description: verificationSent
@@ -186,6 +194,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
         customerId: currentUserId,
         preferredProviderId: providerId || null,
         status: 'new',
+        termsAcceptance: termsAcceptance(currentUserId!, 'quote', serverTimestamp()),
         createdAt: serverTimestamp(),
         details: JSON.stringify({
           pickupZip: data.pickupZip,
@@ -503,9 +512,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
                   )}
                 </div>
               </div>
-              <div className="p-4 bg-primary/5 rounded-xl text-xs text-primary leading-relaxed">
-                By clicking "Submit Request", you agree to our <Link href="/terms" className="underline font-bold">terms of service</Link>.
-              </div>
+              <TermsAcceptance id="quote-terms" checked={termsAccepted} onChange={setTermsAccepted} disabled={isSubmitting}/>
             </div>
           )}
 
@@ -517,7 +524,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
             ) : <div />}
 
             {step < totalSteps ? (
-              <Button type="button" onClick={nextStep} className="bg-primary rounded-full px-10 h-12 font-bold flex items-center gap-2 shadow-lg shadow-primary/10">
+              <Button type="button" onClick={event => { event.preventDefault(); void nextStep(); }} className="bg-primary rounded-full px-10 h-12 font-bold flex items-center gap-2 shadow-lg shadow-primary/10">
                 Next <ChevronRight className="h-4 w-4" />
               </Button>
             ) : (
