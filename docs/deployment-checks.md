@@ -10,8 +10,13 @@ Java is version 21, Firebase CLI is pinned in the workflow, and GitHub Actions
 are pinned to immutable commits with read-only repository permissions.
 
 Next.js's default TypeScript validation is enabled. A type error fails
-`npm run build`, including Firebase App Hosting builds. Linting is not part of
-this check; the repository does not yet have an ESLint configuration.
+`npm run build`, including Firebase App Hosting builds.
+
+`npm run lint` runs ESLint with Next.js's recommended rules
+(`eslint.config.mjs`). Rules that catch real bugs, such as the React hooks
+rules and missing list keys, are errors and fail CI. Style rules the existing
+code breaks in many places (unused variables, `any`, unescaped apostrophes)
+are warnings for now; tighten them to errors as the code is cleaned up.
 
 ## Publishing changes
 
@@ -37,6 +42,7 @@ Use Node from `.nvmrc` and Java 21, then run:
 ```sh
 npm ci
 npm run typecheck
+npm run lint
 npm run build
 npx --yes firebase-tools@15.34.2 emulators:exec --only auth,firestore --project demo-wsm "npm run test:support"
 ```

@@ -28,15 +28,20 @@ export async function idTokenOf(auth: Auth): Promise<string> {
 }
 
 /**
- * Emails a provider or employee that their account was approved. Returns
- * false instead of throwing, so a mail problem never undoes the approval.
- * Safe to repeat: the server sends each approval email at most once.
+ * Changes a provider's, employee's or job application's status on the server,
+ * which also sends the approval email when an account becomes approved.
  */
-export async function sendApprovalEmail(auth: Auth, kind: "provider" | "employee", id: string): Promise<boolean> {
-  try {
-    await apiFetch(auth, "/api/admin/notifications", { kind, id });
-    return true;
-  } catch {
-    return false;
-  }
+export async function updateApproval(
+  auth: Auth,
+  body: { kind: "provider" | "employee" | "application"; id: string; status: string; region?: string }
+): Promise<{ status: string; email: "sent" | "queued" | "failed" | "none" }> {
+  return apiFetch(auth, "/api/admin/approvals", body);
+}
+
+/** The toast text for the approval email outcome, if any. */
+export function approvalEmailNote(email: "sent" | "queued" | "failed" | "none"): string {
+  return email === "sent" ? " Approval email sent."
+    : email === "queued" ? " Approval email is waiting in Admin > Emails."
+    : email === "failed" ? " The approval email couldn't be sent; retry it from Admin > Emails."
+    : "";
 }

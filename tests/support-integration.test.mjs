@@ -307,6 +307,30 @@ test('blog posts appear only when scheduled and due, and only admins manage them
   assert.equal((await fetch(`${base}/blog/packing-fragile-items-movers-secret-guide`)).status, 200); // Existing posts still render.
 });
 
+test('admin approvals change status on the server and queue the approval email once', async () => {
+  const approve = (token, body) => fetch(`${base}/api/admin/approvals`, authorized(token, body));
+  const provider = await getAdminAuth(adminApp).createUser({ email: 'test-provider-approval@example.com', password: 'test-only-password' });
+  await db.doc(`providers/${provider.uid}`).set({ uid: provider.uid, status: 'pending', businessName: 'Test Movers' });
+  assert.equal((await approve(customerToken, { kind: 'provider', id: provider.uid, status: 'approved' })).status, 403);
+  assert.equal((await approve(adminToken, { kind: 'provider', id: provider.uid, status: 'owner' })).status, 400);
+  const first = await approve(adminToken, { kind: 'provider', id: provider.uid, status: 'approved' });
+  assert.equal(first.status, 200);
+  assert.deepEqual(await first.json(), { status: 'approved', email: 'queued' }); // Mail is off in tests.
+  assert.equal((await db.doc(`providers/${provider.uid}`).get()).data().status, 'approved');
+  assert.equal((await (await approve(adminToken, { kind: 'provider', id: provider.uid, status: 'approved' })).json()).email, 'none'); // Already approved.
+  const outbox = await db.collection('emailOutbox').where('referenceId', '==', provider.uid).get();
+  assert.equal(outbox.size, 1);
+  assert.equal(outbox.docs[0].data().to, 'test-provider-approval@example.com');
+  assert.equal((await (await approve(adminToken, { kind: 'provider', id: provider.uid, status: 'suspended' })).json()).email, 'none');
+  await db.doc('applications/test-app').set({ userId: provider.uid, status: 'new' });
+  await db.doc(`employees/${provider.uid}`).set({ status: 'applicant' });
+  const app = await (await approve(adminToken, { kind: 'application', id: 'test-app', status: 'active' })).json();
+  assert.equal(app.status, 'active');
+  assert.equal((await db.doc('applications/test-app').get()).data().status, 'approved');
+  assert.equal((await db.doc(`employees/${provider.uid}`).get()).data().status, 'active');
+  assert.equal((await approve(adminToken, { kind: 'employee', id: provider.uid, status: 'active', region: '<script>' })).status, 400);
+});
+
 test('creating a custom quote queues one email to the customer with the private link', async () => {
   const created = await fetch(`${base}/api/admin/quotes`, authorized(adminToken, customDraft()));
   assert.equal(created.status, 201);

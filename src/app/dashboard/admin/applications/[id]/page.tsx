@@ -1,8 +1,8 @@
 "use client";
 
 import { useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
-import { idTokenOf, sendApprovalEmail } from "@/lib/api-client";
-import { doc, updateDoc } from "firebase/firestore";
+import { idTokenOf, updateApproval, approvalEmailNote } from "@/lib/api-client";
+import { doc } from "firebase/firestore";
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,18 +41,11 @@ function ApplicationReviewContent({ id }: { id: string }) {
     
     setIsProcessing(true);
     try {
-      await updateDoc(doc(firestore, "applications", id), {
-        status: newStatus === 'active' ? 'approved' : newStatus
-      });
-
-      await updateDoc(doc(firestore, "employees", application.userId), {
-        status: newStatus
-      });
-      const emailed = newStatus === 'active' ? await sendApprovalEmail(auth, 'employee', application.userId) : null;
+      const { email } = await updateApproval(auth, { kind: 'application', id, status: newStatus });
 
       toast({
         title: "Status Updated",
-        description: `Candidate status has been set to ${newStatus}. Their dashboard has been updated.${emailed === true ? ' Approval email sent.' : emailed === false ? " The approval email couldn't be sent." : ''}`,
+        description: `Candidate status has been set to ${newStatus}. Their dashboard has been updated.${approvalEmailNote(email)}`,
       });
     } catch (error: any) {
       console.error("Status Update Error:", error);
