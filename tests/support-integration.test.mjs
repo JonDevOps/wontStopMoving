@@ -307,6 +307,16 @@ test('blog posts appear only when scheduled and due, and only admins manage them
   assert.equal((await fetch(`${base}/blog/packing-fragile-items-movers-secret-guide`)).status, 200); // Existing posts still render.
 });
 
+test('ZIP lookup returns the city, state and service-area page, and rejects unknown ZIPs', async () => {
+  const dallas = await fetch(`${base}/api/zip/75201`);
+  assert.equal(dallas.status, 200);
+  assert.deepEqual(await dallas.json(), { zip: '75201', city: 'Dallas', stateCode: 'TX', state: 'Texas', servedState: true, servedCity: true, href: '/locations/texas/dallas' });
+  const stLouis = await (await fetch(`${base}/api/zip/63101`)).json();
+  assert.equal(stLouis.city, 'Saint Louis');
+  assert.equal(stLouis.href, '/locations/missouri/saint-louis');
+  for (const zip of ['00000', 'abcde', '1234']) assert.equal((await fetch(`${base}/api/zip/${zip}`)).status, 404);
+});
+
 test('creating a custom quote queues one email to the customer with the private link', async () => {
   const created = await fetch(`${base}/api/admin/quotes`, authorized(adminToken, customDraft()));
   assert.equal(created.status, 201);
