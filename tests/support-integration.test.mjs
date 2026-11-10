@@ -11,6 +11,7 @@ import { syncConnectedAccountStatus } from '../src/lib/server/connect-status.ts'
 import { TERMS_VERSION, TERMS_DOCUMENT_PATH, termsAcceptance } from '../src/lib/terms.ts';
 import { customQuoteSchema, customQuoteTotal } from '../src/lib/custom-quotes.ts';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
+import { dueFollowUpStep, followUpEmail } from '../src/lib/quote-followups.ts';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -400,6 +401,50 @@ test('new quotes alert the team once; the lead inbox tracks contact, loss and re
   await db.doc('quotes/test-lead-2').set({ customerId: uid, status: 'new', name: 'Second Lead', phone: '555-0102', moveSize: 'studio', estimatedTotal: 825, createdAt: Timestamp.now() });
   await fetch(`${base}/api/sales/calls`, authorized(adminToken, { action: 'log', callType: 'web-lead', service: 'residential', disposition: 'booked', customerName: 'Second Lead', customerPhone: '555-0102', leadId: 'test-lead-2' }));
   assert.equal((await inbox()).leads.find(l => l.id === 'test-lead-2').status, 'contacted');
+});
+
+test('quote follow-ups go out at 1, 3 and 7 days, never in a burst, and stop when they should', () => {
+  const hour = 3600000, created = Date.UTC(2026, 0, 1);
+  const base = { createdAtMs: created, sentStep: 0, hasEmail: true, booked: false, lost: false, stopped: false, suppressed: false };
+  assert.equal(dueFollowUpStep(base, created + 23 * hour), null);
+  assert.equal(dueFollowUpStep(base, created + 25 * hour), 1);
+  assert.equal(dueFollowUpStep({ ...base, sentStep: 1 }, created + 30 * hour), null);
+  assert.equal(dueFollowUpStep({ ...base, sentStep: 1 }, created + 73 * hour), 2);
+  assert.equal(dueFollowUpStep(base, created + 100 * hour), 2); // Missed step 1: send only the latest due one.
+  assert.equal(dueFollowUpStep({ ...base, sentStep: 2 }, created + 170 * hour), 3);
+  assert.equal(dueFollowUpStep({ ...base, sentStep: 3 }, created + 180 * hour), null);
+  assert.equal(dueFollowUpStep(base, created + 200 * hour), null); // Too old.
+  for (const stop of ['booked', 'lost', 'stopped', 'suppressed']) assert.equal(dueFollowUpStep({ ...base, [stop]: true }, created + 25 * hour), null);
+  assert.equal(dueFollowUpStep({ ...base, hasEmail: false }, created + 25 * hour), null);
+  const links = { bookUrl: 'https://x/book', quoteUrl: 'https://x/quote', unsubscribeUrl: 'https://x/unsub', phone: '(415) 214-5474' };
+  for (const step of [1, 2, 3]) {
+    const { subject, text } = followUpEmail(step, { name: 'Sam', moveLabel: '2-Bedroom Home', route: '75201 → 10001', moveDate: '2026-12-20', total: 1850 }, links);
+    assert.ok(subject.length > 5);
+    assert.ok(text.includes('https://x/unsub') && text.includes('(415) 214-5474'));
+    assert.ok(!/escrow/i.test(text));
+  }
+});
+
+test('the hourly follow-up job rejects calls without a valid scheduler token', async () => {
+  for (const headers of [{}, { Authorization: 'Bearer forged' }]) assert.equal((await fetch(`${base}/api/cron/quote-followups`, { method: 'POST', headers })).status, 401);
+});
+
+test('unsubscribe links stop follow-ups and add the address to the suppression list', async () => {
+  const token = 'a'.repeat(36), q = db.doc('quotes/test-unsub');
+  await q.set({ customerId: 'someone', status: 'new', email: 'Unsub-Test@Example.com', followUpToken: token, followUpStep: 1, createdAt: Timestamp.now() });
+  const post = body => fetch(`${base}/api/unsubscribe`, json(body));
+  assert.equal((await post({ quoteId: 'test-unsub', token: 'b'.repeat(36) })).status, 400);
+  assert.equal((await post({ quoteId: 'test-unsub', token: 'short' })).status, 400);
+  assert.equal((await q.get()).data().followUpsStopped, undefined);
+  assert.equal((await post({ quoteId: 'test-unsub', token })).status, 200);
+  assert.equal((await q.get()).data().followUpsStopped, true);
+  const { createHash } = await import('node:crypto');
+  assert.ok((await db.doc(`emailSuppressions/${createHash('sha256').update('unsub-test@example.com').digest('hex')}`).get()).exists);
+  // One-click unsubscribe from mail apps: form POST to the List-Unsubscribe URL.
+  await q.update({ followUpsStopped: false });
+  const oneClick = await fetch(`${base}/api/unsubscribe?q=test-unsub&t=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' });
+  assert.equal(oneClick.status, 200);
+  assert.equal((await q.get()).data().followUpsStopped, true);
 });
 
 test('creating a custom quote queues one email to the customer with the private link', async () => {

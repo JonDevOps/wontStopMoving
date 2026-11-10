@@ -14,6 +14,7 @@ type Lead = {
   id: string; status: LeadStatus; name: string; phone: string; email: string; moveSize: string; pickup: string; dropoff: string;
   moveDate: string; estimatedTotal: number; assignedTo: string | null; assignedName: string | null; lostReason: string | null;
   createdAt: number | null; firstContactAt: number | null; lastContactAt: number | null; responseMinutes: number | null;
+  followUpStep: number; followUpsStopped: string | null;
 };
 type Metrics = { today: number; waiting: number; medianResponseMinutes: number | null; within5Percent: number | null; bookedPercent: number | null; bookedRevenue: number; pipelineValue: number };
 type Filter = 'new' | 'mine' | 'contacted' | 'booked' | 'lost' | 'all';
@@ -110,6 +111,7 @@ export function LeadInbox({ playbookPath }: { playbookPath: string }) {
                 {l.responseMinutes !== null ? ` · first contact after ${minutes(l.responseMinutes)}` : ''}
                 {l.assignedName ? ` · ${l.assignedName}` : ' · unassigned'}
                 {l.lostReason ? ` · lost: ${l.lostReason}` : ''}
+                {l.status !== 'booked' && (l.followUpsStopped ? ` · reminders stopped (${l.followUpsStopped.replace(/-/g, ' ')})` : l.followUpStep ? ` · reminder ${l.followUpStep} of 3 sent` : '')}
               </p>
               <p className="text-xs">{l.phone && <a className="underline mr-3" href={`tel:${l.phone}`}>{l.phone}</a>}{l.email && <a className="underline" href={`mailto:${l.email}`}>{l.email}</a>}</p>
             </div>

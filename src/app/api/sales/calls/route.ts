@@ -85,7 +85,13 @@ export async function POST(req: Request) {
     });
     // A call about a lead counts as contacting it (and starts its response time).
     if (isId(body.leadId)) {
-      try { await markLeadContacted(db, body.leadId, user.uid); } catch (error) { console.error('Could not mark lead contacted', body.leadId, error); }
+      try {
+        await markLeadContacted(db, body.leadId, user.uid);
+        // No more automatic reminders once the customer has booked or said no.
+        if (['booked', 'not-interested', 'do-not-call'].includes(disposition.id)) {
+          await db.doc(`quotes/${body.leadId}`).update({ followUpsStopped: true, followUpsStoppedReason: disposition.id, followUpsStoppedAt: FieldValue.serverTimestamp() });
+        }
+      } catch (error) { console.error('Could not update lead', body.leadId, error); }
     }
     return NextResponse.json({ id: ref.id, estimatedTotal }, { status: 201 });
   } catch (error) { return errorResponse(error); }
