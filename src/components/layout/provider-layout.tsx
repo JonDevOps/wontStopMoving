@@ -1,5 +1,6 @@
 "use client";
 import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
+import { Notifications } from '@/components/auth/notifications';
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -151,9 +152,7 @@ export function ProviderLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative text-primary">
-              <Bell className="h-5 w-5" />
-            </Button>
+            <Notifications />
             <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-black">
               {profile?.name?.[0] || 'P'}
             </div>

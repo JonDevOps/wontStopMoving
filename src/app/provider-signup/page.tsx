@@ -36,6 +36,8 @@ const signUpSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email address"),
   phone: z.string().min(10, "Invalid phone number"),
+  businessName: z.string().trim().min(1, 'Business name is required').max(160),
+  businessDescription: z.string().trim().min(1, 'Describe your services').max(3000),
   password: z.string().regex(
     passwordRegex,
     "Password must be 8-30 characters, contain 1 uppercase, 1 lowercase, 1 number and 1 special character"
@@ -92,7 +94,8 @@ export default function ProviderSignUpPage() {
       // Create Provider Record
       await setDoc(doc(firestore, "providers", user.uid), {
         uid: user.uid,
-        businessName: `${data.firstName} ${data.lastName}`,
+        businessName: data.businessName,
+        bio: data.businessDescription,
         email: data.email,
         phone: data.phone,
         status: "pending",
@@ -207,6 +210,8 @@ export default function ProviderSignUpPage() {
                     <Input id="email" type="email" {...register("email")} placeholder="jane@example.com" className="h-14 border-gray-100 bg-gray-50/50 rounded-xl focus:ring-accent focus:border-accent font-medium" />
                     {errors.email && <p className="text-xs text-destructive font-bold">{errors.email.message}</p>}
                   </div>
+                  <div className="space-y-2"><Label htmlFor="businessName">Business name</Label><Input id="businessName" {...register('businessName')} maxLength={160}/>{errors.businessName && <p className="text-destructive text-xs">{errors.businessName.message}</p>}</div>
+                  <div className="space-y-2"><Label htmlFor="businessDescription">Business description and services offered</Label><textarea id="businessDescription" {...register('businessDescription')} maxLength={3000} className="w-full border rounded-xl p-3"/>{errors.businessDescription && <p className="text-destructive text-xs">{errors.businessDescription.message}</p>}</div>
   
                   <div className="space-y-2">
                     <Label htmlFor="phone" className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400">Phone Number</Label>
@@ -263,7 +268,7 @@ export default function ProviderSignUpPage() {
   
                                   <section className="space-y-4">
                                     <h3 className="text-primary font-black uppercase text-sm tracking-widest">2. Compensation & Fees</h3>
-                                    <p>The marketplace fee is automatically set at 15% of the gross booking value. Payouts are processed via Stripe Connect upon successful job completion and customer verification.</p>
+                                    <p>The provider receives 85% of the gross booking value. The remaining 15% is the W3Develops platform fee. Payouts are processed via Stripe Connect upon successful job completion and customer verification.</p>
                                   </section>
   
                                   <section className="space-y-4">

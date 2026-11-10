@@ -381,7 +381,7 @@ function ProviderDashboardContent() {
   ];
 
   const completionPercentage = Math.round(
-    (actionTasks.filter((s) => s.done).length / actionTasks.length) * 100
+    (actionTasks.filter((s) => s.done).length / actionTasks.length) * 75 + (providerInfo?.status === 'approved' ? 25 : 0)
   );
 
   const idUploadItems = [

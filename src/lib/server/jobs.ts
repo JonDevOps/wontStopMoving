@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import { HttpError, isId } from "./auth";
+import { notifyPaidJob } from "./notifications";
 import { stripe } from "@/lib/stripe";
 
 /**
@@ -11,7 +12,7 @@ import { stripe } from "@/lib/stripe";
  * and admins can read, never on the job document that providers can see.
  */
 
-/** Providers keep 85% of what the customer paid; the marketplace fee is 15%. */
+/** Providers receive 85% of what the customer paid; W3Develops retains its 15% platform fee. */
 export const PROVIDER_SHARE = 0.85;
 const MAX_CODE_ATTEMPTS = 5;
 
@@ -58,6 +59,7 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
       tx.update(jobRef, payment);
       if (!secret.exists) tx.set(secretRef, { customerId, releaseCode: newReleaseCode(), failedAttempts: 0 });
     });
+    await notifyPaidJob(md.jobId);
     return { jobId: md.jobId };
   }
 
@@ -110,6 +112,7 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
       tx.update(quoteRef, { status: "processed", paymentStatus: "paid", checkoutSessionId: session.id, paymentFailedAt: FieldValue.delete() });
       if (!secret.exists) tx.set(secretRef, { customerId, releaseCode: newReleaseCode(), failedAttempts: 0 });
     });
+    await notifyPaidJob(jobId);
     return { jobId };
   }
 

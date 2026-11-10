@@ -24,7 +24,7 @@ export function getEmailProviderConfig() {
   const zohoPass = process.env.ZOHO_SMTP_PASS || "";
 
   const fromAddress =
-    process.env.EMAIL_FROM_ADDRESS || "Wont Stop Moving <quotes@wontstopmoving.com>";
+    process.env.EMAIL_FROM_ADDRESS || "Wont Stop Moving <noreply@wontstopmoving.com>";
   const replyToAddress =
     process.env.EMAIL_REPLY_TO || "support@wontstopmoving.com";
 

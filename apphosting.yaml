@@ -31,3 +31,34 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  # Outbound email via Zoho Mail. Sign in as the real mailbox; send from the
+  # noreply@wontstopmoving.com alias on it.
+  - variable: ZOHO_SMTP_HOST
+    value: smtppro.zoho.com
+    availability:
+      - RUNTIME
+  - variable: ZOHO_SMTP_PORT
+    value: "465"
+    availability:
+      - RUNTIME
+  - variable: ZOHO_SMTP_USER
+    value: jonathan@w3develops.org
+    availability:
+      - RUNTIME
+  - variable: ZOHO_SMTP_PASS
+    secret: ZOHO_SMTP_PASS
+    availability:
+      - RUNTIME
+  - variable: EMAIL_FROM_ADDRESS
+    value: "Wont Stop Moving <noreply@wontstopmoving.com>"
+    availability:
+      - RUNTIME
+  - variable: EMAIL_REPLY_TO
+    value: support@wontstopmoving.com
+    availability:
+      - RUNTIME
+  # Where "new paid booking" alerts go.
+  - variable: ADMIN_NOTIFICATION_EMAIL
+    value: jonathan@w3develops.org
+    availability:
+      - RUNTIME

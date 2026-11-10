@@ -243,6 +243,27 @@ test('paid checkout webhook confirms the booking once even with concurrent retri
   assert.equal(job.amountPaid, 100);
 });
 
+test('a paid booking queues one admin alert, skips missing accounts, and retries never duplicate it', async () => {
+  const outbox = await db.collection('emailOutbox').where('referenceId', '==', 'webhook-test').get();
+  const messages = outbox.docs.map(doc => doc.data());
+  assert.equal(messages.length, 1); // The test buyer has no Auth account, so only the admin alert exists.
+  assert.equal(messages[0].to, 'admin-alerts@example.com');
+  assert.equal(messages[0].category, 'job');
+  assert.equal(messages[0].status, 'pending'); // Mail is not configured in tests, so nothing is sent.
+});
+
+test('creating a custom quote queues one email to the customer with the private link', async () => {
+  const created = await fetch(`${base}/api/admin/quotes`, authorized(adminToken, customDraft()));
+  assert.equal(created.status, 201);
+  const { id, emailStatus } = await created.json();
+  assert.equal(emailStatus, 'pending_configuration');
+  const outbox = await db.collection('emailOutbox').where('referenceId', '==', id).get();
+  assert.equal(outbox.size, 1);
+  const message = outbox.docs[0].data();
+  assert.equal(message.to, 'test-customer@example.com');
+  assert.ok(message.text.includes(`/custom-quotes/${id}`));
+});
+
 test('failed delayed booking is recorded once and a late failure never downgrades a paid booking', async () => {
   const ref = db.doc('jobs/delayed-failure');
   await ref.set({ customerId: 'test-buyer', status: 'pending_payment', paymentStatus: 'unpaid', checkoutSessionId: 'cs_delayed_failure' });

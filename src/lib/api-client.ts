@@ -26,3 +26,17 @@ export async function apiFetch<T = any>(
 export async function idTokenOf(auth: Auth): Promise<string> {
   return auth.currentUser ? auth.currentUser.getIdToken() : "";
 }
+
+/**
+ * Emails a provider or employee that their account was approved. Returns
+ * false instead of throwing, so a mail problem never undoes the approval.
+ * Safe to repeat: the server sends each approval email at most once.
+ */
+export async function sendApprovalEmail(auth: Auth, kind: "provider" | "employee", id: string): Promise<boolean> {
+  try {
+    await apiFetch(auth, "/api/admin/notifications", { kind, id });
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -2,7 +2,8 @@
 
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useCollection, useFirestore } from "@/firebase";
+import { useAuth, useCollection, useFirestore } from "@/firebase";
+import { sendApprovalEmail } from "@/lib/api-client";
 import { collection, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 function ProviderManagementContent() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const auth = useAuth();
 
   const providersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -27,9 +29,10 @@ function ProviderManagementContent() {
       await updateDoc(doc(firestore, "providers", providerId), {
         status: newStatus
       });
+      const emailed = newStatus === "approved" ? await sendApprovalEmail(auth, "provider", providerId) : null;
       toast({
         title: "Status Updated",
-        description: `Provider status changed to ${newStatus}.`,
+        description: `Provider status changed to ${newStatus}.${emailed === true ? " Approval email sent." : emailed === false ? " The approval email couldn't be sent." : ""}`,
       });
       
       // Also update users collection if we approve them so they can login smoothly

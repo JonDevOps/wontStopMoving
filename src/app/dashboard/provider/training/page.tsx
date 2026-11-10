@@ -6,23 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { GraduationCap, PlayCircle, FileText, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { TrainingQuiz } from '@/components/auth/training-quiz';
 
 export default function ProviderTrainingPage() {
   const { toast } = useToast();
-  const [completedIds, setCompletedIds] = useState<string[]>(["intro"]);
+  const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
 
   const courses = [
     {
       id: "intro",
       title: "Welcome to Wont Stop Moving",
-      description: "Learn how our platform works, how to accept jobs, and how escrows guarantee your payment.",
+      description: "Learn how our platform works, how to accept jobs, and how customer payments are confirmed.",
       duration: "5 min",
       type: "video",
       icon: PlayCircle,
       keyPoints: [
         "Customers book you directly at your hourly rate and minimum hours.",
-        "Customer funds are held in Stripe Escrow before you arrive.",
+        "Confirm the customer’s payment status in your assigned job before you arrive.",
         "When the move finishes, collect the customer's 6-digit Release Code to unlock your 85% payout."
       ]
     },
@@ -81,6 +82,7 @@ export default function ProviderTrainingPage() {
   return (
     <ProviderLayout>
       <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <TrainingQuiz />
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center space-x-3">
             <div className="bg-blue-100 p-2 rounded-xl text-blue-600">

@@ -101,9 +101,10 @@ export default function FAQPage() {
                 <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-10 h-14 font-black uppercase tracking-widest text-xs">
                   <Link href="/contact">Contact Support</Link>
                 </Button>
-                <Button asChild size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10 rounded-full px-10 h-14 font-black uppercase tracking-widest text-xs">
+                <Button asChild size="lg" variant="outline" className="bg-white text-primary hover:bg-gray-100 hover:text-primary rounded-full px-10 h-14 font-black uppercase tracking-widest text-xs">
                   <Link href="/quote">Get Instant Quote</Link>
                 </Button>
+                <Button asChild size="lg" className="bg-white text-black hover:bg-gray-100 rounded-full px-10 h-14 font-black uppercase tracking-widest text-xs"><Link href="/book">Book Now</Link></Button>
               </div>
             </div>
           </div>

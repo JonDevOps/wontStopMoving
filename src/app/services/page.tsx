@@ -169,10 +169,11 @@ export default function ServicesPage() {
             <p className="text-lg sm:text-xl opacity-80 max-w-2xl mx-auto leading-relaxed px-4">
               From premium residential packing to complex nationwide enterprise logistics, we provide a full suite of relocation solutions tailored to your scale.
             </p>
-            <div className="mt-10 px-4">
+            <div className="mt-10 px-4 flex flex-col sm:flex-row justify-center gap-4">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-8 sm:px-12 h-14 sm:h-16 text-lg sm:text-xl font-bold w-full sm:w-auto">
                 <Link href="/quote">Get Your Free Quote</Link>
               </Button>
+              <Button asChild size="lg" className="bg-primary text-white hover:bg-primary/90 rounded-full px-8 h-16 text-lg font-bold"><Link href="/book">Book Now</Link></Button>
             </div>
           </div>
         </section>
