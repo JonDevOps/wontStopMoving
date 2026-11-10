@@ -35,6 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry('/privacy', 0.2, 'yearly'),
     entry('/terms', 0.2, 'yearly'),
     entry('/accessibility', 0.2, 'yearly'),
+    entry('/moving-checklist.pdf', 0.4, 'yearly'),
     ...['/llms.txt', '/llms-full.txt', '/pricing.md', '/how-booking-works.md', '/faq.md', '/service-area.md', '/AGENTS.md'].map((p) => entry(p, 0.4)),
   ];
 
