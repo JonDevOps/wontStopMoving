@@ -116,7 +116,7 @@ function CustomerDashboardContent() {
     {
       label: "Completed Moves",
       value: String(completedJobs),
-      sub: "Escrow-protected relocations",
+      sub: "Movers paid after completion",
       icon: Package,
       color: "text-green-600",
       bg: "bg-green-500/10",
@@ -263,7 +263,7 @@ function CustomerDashboardContent() {
                 Save 5%–15% by Booking Early
               </h3>
               <p className="text-xs text-white/80 leading-relaxed">
-                Mid-week moves (Tuesday–Thursday) have the highest crew availability. Remember: your payment is held in escrow until your move is completed!
+                Mid-week moves (Tuesday–Thursday) have the highest crew availability. Remember: your mover is only paid after your move is completed!
               </p>
             </CardContent>
           </Card>

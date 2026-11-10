@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 export default function AboutPage() {
   const values = [
-    { title: "Nationwide Reliability", desc: "We connect you with vetted, independent movers and hold your payment in escrow until the job is done.", icon: Globe },
+    { title: "Nationwide Reliability", desc: "We connect you with vetted, independent movers and pay your mover only after the job is done.", icon: Globe },
     { title: "Transparency First", desc: "No hidden fees, no surprises. Our AI-driven quoting system ensures you know exactly what to expect.", icon: Shield },
     { title: "Customer Centric", desc: "Every move is unique. We tailor our logistics to fit your specific timeline and requirements.", icon: Heart },
     { title: "Professional Excellence", desc: "Our teams undergo rigorous training to handle everything from fine art to heavy industrial equipment.", icon: Award },
@@ -39,7 +39,7 @@ export default function AboutPage() {
                   Founded on the principle that moving shouldn't be a source of stress, Wont Stop Moving began as a local operation with a single truck and a big vision. We saw an industry plagued by fragmentation and lack of accountability.
                 </p>
                 <p className="text-lg text-muted-foreground leading-relaxed">
-                  Today, we connect customers with independent, vetted moving professionals across the United States, Puerto Rico and Canada, with online booking, upfront pricing and payments held in escrow until the job is done.
+                  Today, we connect customers with independent, vetted moving professionals across the United States, Puerto Rico and Canada, with online booking, upfront pricing, and movers paid only after the job is done.
                 </p>
                 <div className="pt-4">
                   <Button asChild className="rounded-full bg-primary px-8 h-12 font-bold">
@@ -96,7 +96,7 @@ export default function AboutPage() {
               {[
                 { label: "Service Area", value: "US · PR · CA" },
                 { label: "Online Booking", value: "24/7" },
-                { label: "Payment Held In", value: "Escrow" },
+                { label: "Movers Paid", value: "After" },
                 { label: "Upfront", value: "Pricing" },
               ].map((stat, i) => (
                 <div key={i} className="text-center">

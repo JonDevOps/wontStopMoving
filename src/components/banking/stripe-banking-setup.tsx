@@ -34,7 +34,7 @@ const BANK_CHECKLIST = [
   {
     id: "bank_open",
     title: "3. Open Your Business Checking Account",
-    desc: "Recommended for logistics & Stripe startups: Mercury (mercury.com — $0 fees, fast online approval, virtual cards), Relay Financial (relayfi.com — great for separating 15% platform revenue vs 85% escrow), or Chase Business Complete Banking.",
+    desc: "Recommended for logistics & Stripe startups: Mercury (mercury.com — $0 fees, fast online approval, virtual cards), Relay Financial (relayfi.com — great for separating 15% platform revenue vs 85% provider payouts), or Chase Business Complete Banking.",
   },
   {
     id: "bank_routing",
@@ -126,7 +126,7 @@ export function StripeBankingSetup() {
         <CardContent className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <Badge className="bg-accent text-white border-none text-[10px] font-black uppercase tracking-widest">
-              Financial Infrastructure & Escrow Setup
+              Financial Infrastructure & Payout Setup
             </Badge>
             <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter">
               Business Bank & <span className="text-accent">Stripe Payments</span>

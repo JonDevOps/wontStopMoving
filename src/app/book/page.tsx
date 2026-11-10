@@ -55,7 +55,7 @@ export default function BookingPage() {
                   <div className="space-y-2">
                     <h3 className="text-2xl font-black text-primary uppercase tracking-tight">Provider Marketplace</h3>
                     <p className="text-muted-foreground leading-relaxed text-sm">
-                      Browse independent, background-checked moving crews in your area and book them directly by the hour with escrow protection.
+                      Browse independent, background-checked moving crews in your area and book them directly by the hour. Your mover is paid only after the job is done.
                     </p>
                   </div>
                   <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl h-14 text-base font-bold group-hover:gap-4 transition-all">
@@ -104,7 +104,7 @@ export default function BookingPage() {
                   <p className="text-sm font-bold uppercase tracking-widest opacity-60">Pricing</p>
                 </div>
                 <div className="space-y-3">
-                  <h4 className="text-accent text-4xl font-black">Escrow</h4>
+                  <h4 className="text-accent text-4xl font-black">Pay After</h4>
                   <p className="text-sm font-bold uppercase tracking-widest opacity-60">Payment Protection</p>
                 </div>
               </div>

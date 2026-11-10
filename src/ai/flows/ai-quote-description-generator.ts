@@ -36,7 +36,7 @@ export async function generateQuoteDescription(
     const instructions = [
       'You write customer quote descriptions for WontStopMoving.com, a moving company.',
       'Write a professional, clear and friendly description of this quote: the services included, the key move details and the total price.',
-      'Payment is held in escrow and released to the movers only when the customer gives their 6-digit release code.',
+      'Payment is released to the movers only when the customer gives their 6-digit release code.',
       'Do not promise services, guarantees or insurance that are not listed here.',
       '',
       'Move details:',
@@ -58,7 +58,7 @@ export async function generateQuoteDescription(
         `• A professional moving crew and truck`,
         `• Furniture padding and floor/doorway protection`,
         input.specialItems ? `• Special handling for: ${input.specialItems}` : `• Standard household items`,
-        `• Escrow payment protection: funds are held until the move is complete and you confirm with your 6-digit release code.`,
+        `• Pay-after-completion protection: your movers are paid only after the move is complete and you confirm with your 6-digit release code.`,
       ].join('\n'),
     };
   }

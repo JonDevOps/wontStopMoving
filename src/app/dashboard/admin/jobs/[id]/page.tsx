@@ -89,7 +89,7 @@ export default function AdminJobDetailsPage() {
     setUpdating(true);
     try {
       await updateDoc(jobRef, { status: "completed" });
-      toast({ title: "Job Force Completed", description: "Escrow funds manually released to provider." });
+      toast({ title: "Job Force Completed", description: "Payment manually released to the provider." });
     } catch (error) {
       toast({ variant: "destructive", title: "Action Failed", description: "Could not modify job state." });
     } finally {
@@ -102,7 +102,7 @@ export default function AdminJobDetailsPage() {
     setUpdating(true);
     try {
       await updateDoc(jobRef, { status: "cancelled" });
-      toast({ title: "Job Cancelled & Refunded", description: "Escrow hold has been cancelled and marked for customer refund." });
+      toast({ title: "Job Cancelled & Refunded", description: "Payment hold cancelled and marked for customer refund." });
     } catch (error) {
       toast({ variant: "destructive", title: "Action Failed", description: "Could not refund job." });
     } finally {
@@ -174,10 +174,10 @@ export default function AdminJobDetailsPage() {
             </CardContent>
           </Card>
 
-          {/* Escrow Management Card */}
+          {/* Payment and payout card */}
           <Card className="border-2 border-accent/20 bg-accent/5">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-accent"><DollarSign className="h-5 w-5" /> Financial & Escrow</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-accent"><DollarSign className="h-5 w-5" /> Payment & Payout</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-accent/10">
@@ -195,7 +195,7 @@ export default function AdminJobDetailsPage() {
               </div>
 
               <div className="flex justify-between items-center py-2 border-b border-accent/10">
-                <p className="text-xs font-bold text-muted-foreground uppercase">Escrow State</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase">Payout State</p>
                 {job.status === 'confirmed' || job.status === 'in-progress' ? (
                   <Badge className="bg-orange-500 hover:bg-orange-600 text-[10px] uppercase">Locked</Badge>
                 ) : job.status === 'completed' ? (

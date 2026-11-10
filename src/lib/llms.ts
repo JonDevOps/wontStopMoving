@@ -59,7 +59,7 @@ export function howBookingWorksMd(): string {
 
 1. **Get a quote.** Enter your ZIP codes, move size, date and any add-ons at ${SITE_URL}/quote. You get an instant estimate from our price list (${SITE_URL}/pricing.md).
 2. **Create a free account.** Sign up with Google or email to save and pay for your quote. You can also book an individual mover from the marketplace (${SITE_URL}/marketplace).
-3. **Pay securely.** Payment is by card through Stripe. Your money is held in **escrow**; it is not released to the mover yet.
+3. **Pay securely.** Payment is by card through Stripe. Wont Stop Moving holds the payment; it is not released to the mover yet.
 4. **Get your release code.** Once paid, your dashboard shows a private 6-digit release code. Only you can see it. Movers can't.
 5. **Move day.** Follow your move's status (confirmed, in progress, completed) in your dashboard and message your mover.
 6. **Release payment.** When the job is done to your satisfaction, give your mover the 6-digit code. Entering it marks the move complete and pays the mover (providers receive 85%; W3Develops retains its 15% platform fee).
@@ -107,7 +107,7 @@ ${DEFAULT_DESCRIPTION}
 ## How an agent can help a person
 
 - **Estimate a price** from the public price list: ${SITE_URL}/pricing.md
-- **Explain booking and escrow:** ${SITE_URL}/how-booking-works.md
+- **Explain booking and payment release:** ${SITE_URL}/how-booking-works.md
 - **Answer common questions:** ${SITE_URL}/faq.md
 - **Check coverage** for a state or city: ${SITE_URL}/service-area.md
 - **Send the person to book:** ${SITE_URL}/quote (instant quote) or ${SITE_URL}/marketplace (pick a specific mover)
@@ -133,13 +133,13 @@ export function llmsTxt(): string {
 Key facts:
 - Service area: United States, Puerto Rico and Canada, through vetted, independent local movers.
 - Instant quotes from a published price list; for example, studio/1-bedroom moves start at ${usd(MOVE_PRICING.studio.baseFee)} and 2-bedroom moves at ${usd(MOVE_PRICING['2br'].baseFee)}.
-- Payment by card via Stripe, held in escrow until the customer gives the mover a private 6-digit release code.
+- Payment by card via Stripe, released to the mover only after the customer gives the mover a private 6-digit release code.
 - Contact: ${SITE_EMAIL}
 
 ## Guides for AI assistants
 
 - [Pricing](${SITE_URL}/pricing.md): base prices, add-ons, express and discounts
-- [How booking works](${SITE_URL}/how-booking-works.md): quote, payment, escrow and the release code
+- [How booking works](${SITE_URL}/how-booking-works.md): quote, payment and the release code
 - [FAQ](${SITE_URL}/faq.md)
 - [Service areas](${SITE_URL}/service-area.md): every state and province with city counts
 - [For AI agents](${SITE_URL}/AGENTS.md)

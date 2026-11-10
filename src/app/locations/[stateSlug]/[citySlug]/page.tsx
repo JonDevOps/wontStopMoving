@@ -83,7 +83,7 @@ export default async function CityPage({ params }: { params: Promise<{ stateSlug
                 </div>
                 <div className="space-y-2">
                   <ShieldCheck className="h-8 w-8 text-accent mx-auto mb-4" />
-                  <h4 className="text-2xl font-black uppercase">Escrow</h4>
+                  <h4 className="text-2xl font-black uppercase">Pay After</h4>
                   <p className="text-xs font-bold uppercase tracking-widest opacity-60">Payment Protection</p>
                 </div>
               </div>

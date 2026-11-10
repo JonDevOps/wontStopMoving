@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!place) return { title: 'Location not found', robots: { index: false } };
   return pageMetadata({
     title: `Movers in ${place.city}, ${place.state}`,
-    description: `Local and long-distance movers in ${place.city}, ${place.state}. Packing, specialty items and storage, with an instant quote, upfront pricing and payment held in escrow until the job is done.`,
+    description: `Local and long-distance movers in ${place.city}, ${place.state}. Packing, specialty items and storage, with an instant quote, upfront pricing, and movers paid only after the job is done.`,
     path: `/locations/${stateSlug}/${citySlug}`,
   });
 }

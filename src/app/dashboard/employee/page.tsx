@@ -152,7 +152,7 @@ function EmployeeDashboardContent() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Badge className="bg-accent text-white border-none text-[10px] font-black uppercase tracking-widest">
-              {profile?.status === "approved"
+              {profile?.status === "active"
                 ? "Active Field Crew"
                 : "Onboarding & Operations"}
             </Badge>
