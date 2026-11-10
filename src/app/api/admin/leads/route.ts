@@ -32,6 +32,7 @@ export async function GET(req: Request) {
         assignedTo: q.assignedTo || null, assignedName: q.assignedTo ? reps[q.assignedTo] || 'Rep' : null,
         lostReason: q.lostReason || null, createdAt: created, firstContactAt: first, lastContactAt: ms(q.lastContactAt),
         responseMinutes: created && first ? Math.max(0, Math.round((first - created) / 60000)) : null,
+        followUpStep: Number(q.followUpStep || 0), followUpsStopped: q.followUpsStopped === true ? (q.followUpsStoppedReason || 'stopped') : null,
       };
     });
 

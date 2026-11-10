@@ -23,7 +23,8 @@ export async function deliverEmail(id: string) {
     const port = Number(process.env.ZOHO_SMTP_PORT || 465);
     const transport = nodemailer.createTransport({ host: process.env.ZOHO_SMTP_HOST || 'smtppro.zoho.com', port, secure: port === 465, requireTLS: port !== 465, auth: { user: process.env.ZOHO_SMTP_USER, pass: process.env.ZOHO_SMTP_PASS }, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 });
     try {
-      const result = await transport.sendMail({ from: process.env.EMAIL_FROM_ADDRESS || 'Wont Stop Moving <noreply@wontstopmoving.com>', replyTo: process.env.EMAIL_REPLY_TO || 'support@wontstopmoving.com', to: message.to, subject: message.subject, text: message.text, messageId: `<${id}@wontstopmoving.com>` });
+      const unsubscribe = typeof message.unsubscribeUrl === 'string' && message.unsubscribeUrl.startsWith('https://') ? message.unsubscribeUrl : null;
+      const result = await transport.sendMail({ from: process.env.EMAIL_FROM_ADDRESS || 'Wont Stop Moving <noreply@wontstopmoving.com>', replyTo: process.env.EMAIL_REPLY_TO || 'support@wontstopmoving.com', to: message.to, subject: message.subject, text: message.text, messageId: `<${id}@wontstopmoving.com>`, ...(unsubscribe ? { headers: { 'List-Unsubscribe': `<${unsubscribe}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } } : {}) });
       if (!result.accepted?.length) throw new Error('SMTP_REJECTED');
       await ref.update({ status: 'sent', sentAt: FieldValue.serverTimestamp() });
       return 'sent';
@@ -36,7 +37,7 @@ export async function deliverEmail(id: string) {
   }
 }
 
-export async function enqueueEmail(key: string, message: { to: string; subject: string; text: string; category: string; referenceId: string }) {
+export async function enqueueEmail(key: string, message: { to: string; subject: string; text: string; category: string; referenceId: string; unsubscribeUrl?: string }) {
   const id = createHash('sha256').update(key).digest('hex');
   const ref = adminDb().doc(`emailOutbox/${id}`);
   await adminDb().runTransaction(async tx => { if (!(await tx.get(ref)).exists) tx.create(ref, { ...message, status: 'pending', createdAt: FieldValue.serverTimestamp() }); });

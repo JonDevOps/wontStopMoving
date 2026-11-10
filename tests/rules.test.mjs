@@ -186,7 +186,7 @@ test('quotes: only for yourself, starting as new; no reassigning or status chang
   await assertSucceeds(updateDoc(doc(as('cust'), 'quotes/q1'), { moveSize: '3br' }));
   await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), { status: 'processed' }));
   // Lead tracking is server-only: customers can't mark their own lead contacted, assigned or lost.
-  for (const change of [{ leadStatus: 'lost' }, { assignedTo: 'cust' }, { firstContactAt: serverTimestamp() }, { leadNotifiedAt: serverTimestamp() }]) await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), change));
+  for (const change of [{ leadStatus: 'lost' }, { assignedTo: 'cust' }, { firstContactAt: serverTimestamp() }, { leadNotifiedAt: serverTimestamp() }, { followUpsStopped: false }, { followUpStep: 0 }, { followUpToken: 'x' }]) await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), change));
   await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), { customerId: 'prov' }));
   for (const change of [{ paymentStatus: 'paid' }, { checkoutSessionId: 'cs_forged' }, { paymentFailedAt: 'forged' }, { bookingTermsAcceptance: { accepted: true } }]) {
     await assertFails(updateDoc(doc(as('cust'), 'quotes/q1'), change));
