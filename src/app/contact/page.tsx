@@ -48,17 +48,12 @@ export default function ContactPage() {
     } finally { setIsSubmitting(false); }
   };
 
-  const offices = [
-    { name: "Global Headquarters", type: "HQ" },
-    { name: "Texas Regional Hub", type: "Regional" },
-    { name: "New York Operations", type: "Regional" },
-    { name: "Puerto Rico Center", type: "Regional" },
-    { name: "Ohio Logistics Hub", type: "Regional" },
-    { name: "Ontario Operations", type: "Regional" },
-    { name: "British Columbia Hub", type: "Regional" },
-    { name: "Alberta Regional Center", type: "Regional" },
-    { name: "PEI Service Center", type: "Regional" },
-    { name: "Yukon Territory Hub", type: "Regional" },
+  const serviceAreas = [
+    'Boston, Massachusetts', 'New York, New York', 'Philadelphia, Pennsylvania',
+    'Cleveland, Ohio', 'Richmond, Virginia', 'Atlanta, Georgia', 'Chicago, Illinois',
+    'St. Louis, Missouri', 'Minneapolis, Minnesota', 'Kansas City, Missouri',
+    'Dallas, Texas', 'San Francisco, California', 'Vancouver, British Columbia',
+    'Calgary, Alberta', 'Toronto, Ontario', 'Montreal, Quebec', 'Halifax, Nova Scotia',
   ];
 
   return (
@@ -179,14 +174,15 @@ export default function ContactPage() {
                 </div>
 
                 <div className="space-y-6">
-                  <h3 className="text-xl font-black text-primary uppercase">REGIONAL OFFICES</h3>
+                  <h3 className="text-xl font-black text-primary uppercase">SERVICE AREAS</h3>
+                  <p className="text-muted-foreground">Contact us to confirm crew availability and scheduling for your route.</p>
                   <div className="grid gap-4 max-h-[600px] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-accent">
-                    {offices.map((office) => (
-                      <div key={office.name} className="p-4 bg-gray-50 rounded-2xl flex items-center gap-4 hover:bg-gray-100 transition-colors border border-transparent hover:border-accent/10">
+                    {serviceAreas.map((area) => (
+                      <div key={area} className="p-4 bg-gray-50 rounded-2xl flex items-center gap-4 hover:bg-gray-100 transition-colors border border-transparent hover:border-accent/10">
                         <MapPin className="h-5 w-5 text-accent shrink-0" />
                         <div className="flex items-center gap-2">
-                          <p className="font-bold text-primary">{office.name}</p>
-                          <span className="text-[10px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded uppercase">{office.type}</span>
+                          <p className="font-bold text-primary">{area}</p>
+                          <span className="text-[10px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded uppercase">Service area</span>
                         </div>
                       </div>
                     ))}

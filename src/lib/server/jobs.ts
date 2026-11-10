@@ -11,7 +11,7 @@ import { stripe } from "@/lib/stripe";
  * and admins can read, never on the job document that providers can see.
  */
 
-/** Providers keep 85% of what the customer paid; the marketplace fee is 15%. */
+/** Providers receive 85% of what the customer paid; W3Develops retains its 15% platform fee. */
 export const PROVIDER_SHARE = 0.85;
 const MAX_CODE_ATTEMPTS = 5;
 

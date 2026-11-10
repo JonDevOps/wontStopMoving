@@ -62,7 +62,7 @@ export function howBookingWorksMd(): string {
 3. **Pay securely.** Payment is by card through Stripe. Your money is held in **escrow**; it is not released to the mover yet.
 4. **Get your release code.** Once paid, your dashboard shows a private 6-digit release code. Only you can see it. Movers can't.
 5. **Move day.** Follow your move's status (confirmed, in progress, completed) in your dashboard and message your mover.
-6. **Release payment.** When the job is done to your satisfaction, give your mover the 6-digit code. Entering it marks the move complete and pays the mover (movers receive 85%; the platform fee is 15%).
+6. **Release payment.** When the job is done to your satisfaction, give your mover the 6-digit code. Entering it marks the move complete and pays the mover (providers receive 85%; W3Develops retains its 15% platform fee).
 
 Questions: ${SITE_EMAIL}
 `;

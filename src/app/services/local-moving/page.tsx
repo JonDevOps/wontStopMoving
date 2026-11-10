@@ -57,6 +57,7 @@ export default function LocalMovingPage() {
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 rounded-full px-10 h-16 text-lg font-bold">
                 <Link href="/quote">Start Local Quote</Link>
               </Button>
+              <Button asChild size="lg" className="rounded-full px-10 h-16 text-lg font-bold ml-0 sm:ml-4 mt-4 sm:mt-0"><Link href="/book">Book Now</Link></Button>
             </div>
           </div>
           {/* Decorative Background Element */}

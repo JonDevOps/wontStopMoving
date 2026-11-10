@@ -25,6 +25,7 @@ import {
 import { useState, useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
+import { useAccountActivity } from '@/hooks/use-account-activity';
 
 type CustomerCategory = 'Potential' | 'Current' | 'Past' | 'Repeat';
 
@@ -55,6 +56,7 @@ function AdminCustomersContent() {
 
   const { data: rawCustomers, isLoading: customersLoading } = useCollection(customersQuery);
   const { data: allJobs, isLoading: jobsLoading } = useCollection(jobsQuery);
+  const { accounts, error: activityError } = useAccountActivity((rawCustomers || []).map(customer => customer.id));
 
   const customers = useMemo(() => {
     if (!rawCustomers || !allJobs) return [];
@@ -165,6 +167,7 @@ function AdminCustomersContent() {
           </div>
         </div>
 
+        {activityError && <p role="status">{activityError}</p>}
         <Card className="border-none shadow-sm overflow-hidden bg-white">
           <CardContent className="p-0">
             {customersLoading || jobsLoading ? (
@@ -187,6 +190,7 @@ function AdminCustomersContent() {
                             </h3>
                             {getCategoryBadge(customer.category)}
                           </div>
+                          <p className="text-xs text-muted-foreground">Created: {accounts[customer.id]?.createdAt ? new Date(accounts[customer.id].createdAt!).toLocaleDateString() : 'Unknown'} · Last sign-in: {accounts[customer.id]?.lastSignInAt ? new Date(accounts[customer.id].lastSignInAt!).toLocaleString() : 'Unknown'}</p>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] md:text-xs text-muted-foreground font-medium">
                             <span className="flex items-center gap-1.5 min-w-0 truncate"><Mail className="h-3 w-3 shrink-0" /> {customer.email}</span>
                             {customer.phone && <span className="flex items-center gap-1.5 shrink-0"><Phone className="h-3 w-3 shrink-0" /> {customer.phone}</span>}

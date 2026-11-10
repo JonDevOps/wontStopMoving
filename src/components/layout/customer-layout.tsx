@@ -20,6 +20,7 @@ import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from "@/fireb
 import { doc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
+import { Notifications } from '@/components/auth/notifications';
 
 interface NavItem {
   label: string;
@@ -157,10 +158,7 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative text-primary">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-accent rounded-full border-2 border-white" />
-            </Button>
+            <Notifications />
             <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-black">
               {profile?.name?.[0] || 'C'}
             </div>

@@ -32,6 +32,7 @@ import { collection, query, orderBy, limit, doc } from "firebase/firestore";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { TrainingQuiz } from '@/components/auth/training-quiz';
 
 function EmployeeDashboardContent() {
   const { user } = useUser();
@@ -106,7 +107,7 @@ function EmployeeDashboardContent() {
   const completedTasksCount = [detailsDone, idVerifiedDone].filter(
     Boolean
   ).length;
-  const readinessPercent = Math.round(((completedTasksCount + 1) / 3) * 100);
+  const readinessPercent = Math.round(((completedTasksCount + 1 + (profile?.status === 'active' ? 1 : 0)) / 4) * 100);
 
   const stats = [
     {
@@ -145,6 +146,7 @@ function EmployeeDashboardContent() {
 
   return (
     <div className="space-y-8 animate-fade-in max-w-[1400px] mx-auto">
+      <TrainingQuiz />
       {/* Header with Quick Actions */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">

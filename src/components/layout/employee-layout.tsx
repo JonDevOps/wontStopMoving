@@ -7,6 +7,7 @@ import {
   Truck, 
   LayoutDashboard, 
   Calendar, 
+  Clock,
   User, 
   Bell, 
   LogOut, 
@@ -27,6 +28,7 @@ import { doc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { useAuth } from "@/firebase";
 import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
+import { Notifications } from '@/components/auth/notifications';
 
 interface NavItem {
   label: string;
@@ -96,6 +98,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Sales Call Script", href: "/dashboard/admin/sales-script", icon: PhoneCall },
     { label: "Stripe & Banking", href: "/dashboard/admin/banking", icon: Landmark },
     { label: "Customers", href: "/dashboard/admin/customers", icon: User },
+    { label: "Account Activity", href: "/dashboard/admin/activity", icon: Clock },
     { label: "Quotes", href: "/dashboard/admin/quotes", icon: Calculator },
     { label: "Jobs", href: "/dashboard/admin/jobs", icon: Truck },
     { label: "Support", href: "/dashboard/admin/support", icon: MessageSquare },
@@ -185,10 +188,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
           </div>
 
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative text-primary">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-accent rounded-full border-2 border-white" />
-            </Button>
+            <Notifications />
             <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-black">
               {profile?.name?.[0] || 'M'}
             </div>

@@ -95,14 +95,21 @@ service cloud.firestore {
     match /employees/{employeeUid} {
       allow get: if isOwner(employeeUid) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isAdmin() || (
+      allow create: if (!('applicationAcknowledgment' in request.resource.data) || (
+        isOwner(employeeUid) &&
+        request.resource.data.applicationAcknowledgment.keys().hasOnly(['accepted', 'version', 'acceptedBy', 'acceptedAt']) &&
+        request.resource.data.applicationAcknowledgment.accepted == true &&
+        request.resource.data.applicationAcknowledgment.version == '2026-11-08' &&
+        request.resource.data.applicationAcknowledgment.acceptedBy == request.auth.uid &&
+        request.resource.data.applicationAcknowledgment.acceptedAt == request.time
+      )) && (isAdmin() || (
         isOwner(employeeUid) &&
         (!('status' in request.resource.data) || request.resource.data.status != 'active')
-      );
-      allow update: if isAdmin() || (
+      ));
+      allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['applicationAcknowledgment']) && (isAdmin() || (
         isOwner(employeeUid) &&
         (!('status' in request.resource.data) || request.resource.data.status == resource.data.status)
-      );
+      ));
       allow delete: if isAdmin();
     }
 

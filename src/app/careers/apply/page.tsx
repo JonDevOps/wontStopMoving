@@ -92,6 +92,7 @@ export default function EmployeeSignUpPage() {
         userId: user.uid,
         status: 'applicant',
         onboardingStep: 2,
+        applicationAcknowledgment: { accepted: true, version: '2026-11-08', acceptedBy: user.uid, acceptedAt: serverTimestamp() },
         createdAt: serverTimestamp(),
       });
 
@@ -219,60 +220,19 @@ export default function EmployeeSignUpPage() {
                             
                             <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 bg-white">
                               <div className="prose prose-sm prose-primary max-w-none text-muted-foreground">
-                                <div>
-                                  <h2 className="text-primary font-black uppercase text-lg">Wont Stop Moving® Affiliate Agreement</h2>
-                                  <p className="font-bold text-primary">Effective July 26, 2023</p>
-                                </div>
-
-                                <section>
-                                  <h3 className="text-primary font-bold uppercase mt-6">AGREEMENT:</h3>
-                                  <p>You acknowledge and agree to the following terms and conditions when You use the Wont Stop Moving® MarketPlace. Our responsibilities are specific and limited to the terms of this Agreement. You must read, agree with, and accept all of the terms and conditions contained in this Agreement which are those terms, conditions and definitions expressly set out below.</p>
-                                </section>
-
-                                <section>
-                                  <h3 className="text-primary font-bold uppercase mt-6">1. Arbitration Agreement:</h3>
-                                  <p><strong>YOU ACKNOWLEDGE AND AGREE THAT THIS AGREEMENT INCLUDES THE WONT STOP MOVING COMMERCIAL ARBITRATION AGREEMENT, THAT GOVERNS ANY DISPUTES BETWEEN YOU AND WONT STOP MOVING, INC.</strong> This arbitration agreement will eliminate your right to a jury trial and substantially affect your rights, including preventing you from bringing, joining, or participating in class action or consolidated proceedings.</p>
-                                </section>
-
-                                <section>
-                                  <h3 className="text-primary font-bold uppercase mt-6">2. Definitions:</h3>
-                                  <ul className="list-disc pl-5">
-                                    <li><strong>"You", "mover", "service provider"</strong> - you, individually, or for an entity, providing labor services to the public via our marketplace.</li>
-                                    <li><strong>"We", "Us", "Our"</strong> - WONT STOP MOVING, Inc., a Delaware Corporation.</li>
-                                    <li><strong>"MarketPlace"</strong> - Our online platform located at www.wontstopmoving.com.</li>
-                                  </ul>
-                                </section>
-
-                                <section>
-                                  <h3 className="text-primary font-bold uppercase mt-6">3. Professional Status:</h3>
-                                  <p>We function solely as a neutral venue and online clearinghouse. You do not work for Us or represent Us. You agree that We are not your employer. We do not provide any endorsement for You or Your Services.</p>
-                                </section>
-
-                                <section>
-                                  <h3 className="text-primary font-bold uppercase mt-6">4. Labor Only:</h3>
-                                  <p>You agree that the MarketPlace is a place where You offer labor services only and that the Services that You provide will only involve labor.</p>
-                                </section>
-
-                                <section>
-                                  <h3 className="text-primary font-bold uppercase mt-6">5. MarketPlace Fee:</h3>
-                                  <p>You acknowledge and agree that We shall receive a "MarketPlace Fee" calculated as a 15% cut from the total amount paid by the Customer for the Services. This is deducted from the payout, not added to the customer total.</p>
-                                </section>
-
-                                <section>
-                                  <h3 className="text-primary font-bold uppercase mt-6">6. Confidentiality:</h3>
-                                  <p>You agree that all Our documents, source code, business practices, and systems are Our sole and exclusive intellectual property. Unauthorized disclosure is strictly prohibited.</p>
-                                </section>
-
-                                <div className="text-[10px] text-center opacity-50 uppercase font-bold py-8">
-                                  Full Affiliate Agreement Version 2023.07.26 - All Rights Reserved
-                                </div>
+                                <h2 className="text-primary font-black uppercase text-lg">Employment application acknowledgment</h2>
+                                <p>Version: November 8, 2026</p>
+                                <p>I am applying to work as an employee of Wont Stop Moving. My application and account are subject to review.</p>
+                                <p>Submitting this application does not constitute an offer of employment. Employment terms, compensation, and duties will be provided separately before employment begins.</p>
+                                <p>I confirm that the information I provide is accurate and that identity documents I submit belong to me. I will use the secure verification flow for those documents.</p>
+                                <p>I understand that independent marketplace providers use a separate provider application and agreement.</p>
                               </div>
                             </div>
 
                             <DialogFooter className="p-6 border-t bg-gray-50 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                               <DialogClose asChild>
                                 <Button type="button" className="bg-primary text-white rounded-xl px-8 h-12 font-bold uppercase tracking-widest text-xs w-full sm:w-auto shadow-lg">
-                                  I have read and accept the affiliate terms
+                                  I have read the application acknowledgment
                                 </Button>
                               </DialogClose>
                             </DialogFooter>

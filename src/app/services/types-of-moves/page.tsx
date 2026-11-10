@@ -140,10 +140,11 @@ export default function TypesOfMovesPage() {
             <p className="text-base sm:text-xl max-w-2xl mx-auto opacity-80 leading-relaxed px-4">
               Our AI-driven quoting system accounts for the specific nuances of your move type to provide the most accurate estimate in the industry.
             </p>
-            <div className="flex justify-center px-4">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center px-4">
               <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-8 sm:px-12 h-14 sm:h-16 text-lg sm:text-xl font-bold shadow-2xl uppercase w-full sm:w-auto">
                 <Link href="/quote">GET INSTANT QUOTE</Link>
               </Button>
+              <Button asChild size="lg" className="bg-white text-primary hover:bg-gray-100 rounded-full px-8 h-16 text-lg font-bold"><Link href="/book">Book Now</Link></Button>
             </div>
           </div>
         </section>
