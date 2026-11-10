@@ -68,3 +68,8 @@ env:
     value: firebase-app-hosting-compute@studio-6652665935-1850d.iam.gserviceaccount.com
     availability:
       - RUNTIME
+  # Postal address in marketing email footers (required by CAN-SPAM).
+  - variable: BUSINESS_POSTAL_ADDRESS
+    value: "855 Maude Ave, Mountain View, CA 94043"
+    availability:
+      - RUNTIME
