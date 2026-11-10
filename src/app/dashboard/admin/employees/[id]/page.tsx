@@ -2,8 +2,8 @@
 "use client";
 
 import { useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
-import { sendApprovalEmail } from "@/lib/api-client";
-import { doc, updateDoc } from "firebase/firestore";
+import { updateApproval, approvalEmailNote } from "@/lib/api-client";
+import { doc } from "firebase/firestore";
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,14 +51,10 @@ function EmployeeDetailContent({ id }: { id: string }) {
     if (!profileRef) return;
     setIsSaving(true);
     try {
-      await updateDoc(profileRef, {
-        region,
-        status,
-      });
-      const emailed = status === "active" && profile?.status !== "active" ? await sendApprovalEmail(auth, "employee", profileRef.id) : null;
+      const { email } = await updateApproval(auth, { kind: "employee", id: profileRef.id, status, region });
       toast({
         title: "Employee Updated",
-        description: `Personnel records have been synchronized successfully.${emailed === true ? " Approval email sent." : emailed === false ? " The approval email couldn't be sent." : ""}`,
+        description: `Personnel records have been synchronized successfully.${approvalEmailNote(email)}`,
       });
     } catch (error: any) {
       console.error("Update Error:", error);
