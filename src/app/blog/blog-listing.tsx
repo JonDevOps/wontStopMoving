@@ -75,6 +75,9 @@ export function BlogListing({ posts: allPosts }: { posts: BlogPost[] }) {
             <p className="text-xl opacity-80 max-w-2xl mx-auto leading-relaxed">
               Expert advice, packing hacks, and logistics insights from the Wont Stop Moving team.
             </p>
+            <a href="/moving-checklist.pdf" download className="inline-flex items-center gap-2 mt-8 rounded-full bg-accent hover:bg-accent/90 text-white px-8 h-12 font-black uppercase tracking-widest text-xs">
+              Download the free moving checklist (PDF)
+            </a>
           </div>
         </section>
 

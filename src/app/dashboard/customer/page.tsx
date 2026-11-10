@@ -265,6 +265,9 @@ function CustomerDashboardContent() {
               <p className="text-xs text-white/80 leading-relaxed">
                 Mid-week moves (Tuesday–Thursday) have the highest crew availability. Remember: your mover is only paid after your move is completed!
               </p>
+              <a href="/moving-checklist.pdf" download className="inline-block text-xs font-black uppercase tracking-widest text-white underline underline-offset-4 hover:text-white/80">
+                Download your moving checklist (PDF)
+              </a>
             </CardContent>
           </Card>
 
