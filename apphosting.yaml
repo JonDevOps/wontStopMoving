@@ -62,3 +62,8 @@ env:
     value: jonathan@w3develops.org
     availability:
       - RUNTIME
+  # Shared secret Cloud Scheduler sends to /api/cron/blog-drafts.
+  - variable: CRON_SECRET
+    secret: CRON_SECRET
+    availability:
+      - RUNTIME

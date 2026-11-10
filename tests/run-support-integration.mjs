@@ -8,7 +8,8 @@ const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'star
   env: { ...process.env, GCLOUD_PROJECT: 'demo-wsm', STRIPE_SECRET_KEY: 'sk_test_placeholder_key_required', STRIPE_WEBHOOK_SECRET: 'whsec_integration_test', STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connect_integration_test',
     // Never send real email from tests, even when .env.local holds Zoho credentials:
     // a placeholder password marks mail as not configured, and the host is unroutable.
-    ZOHO_SMTP_USER: 'test@example.com', ZOHO_SMTP_PASS: 'test-placeholder', ZOHO_SMTP_HOST: '127.0.0.1', ZOHO_SMTP_PORT: '9', ADMIN_NOTIFICATION_EMAIL: 'admin-alerts@example.com' },
+    ZOHO_SMTP_USER: 'test@example.com', ZOHO_SMTP_PASS: 'test-placeholder', ZOHO_SMTP_HOST: '127.0.0.1', ZOHO_SMTP_PORT: '9', ADMIN_NOTIFICATION_EMAIL: 'admin-alerts@example.com',
+    CRON_SECRET: 'test-cron-secret-0123456789abcdef0123456789', GEMINI_API_KEY: '' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let logs = '';
