@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { BLOG_POSTS } from '@/app/blog/posts';
+import { allPublicPosts } from '@/lib/server/blog';
 import { ALL_LOCATIONS, CITIES_BY_STATE, slugify } from '@/lib/location-data';
 import { SERVICES, SITE_URL } from '@/lib/seo';
 
@@ -7,7 +7,10 @@ import { SERVICES, SITE_URL } from '@/lib/seo';
  * Public pages, including every state and city service-area page.
  * Agent guides remain public and discoverable here too.
  */
-export default function sitemap(): MetadataRoute.Sitemap {
+// Rebuilt hourly so newly published blog posts are listed.
+export const revalidate = 3600;
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const entry = (path: string, priority: number, changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'] = 'monthly') => ({
     url: `${SITE_URL}${path}`,
@@ -37,7 +40,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const services = Object.keys(SERVICES).map((slug) => entry(`/services/${slug}`, 0.8));
 
-  const blog = BLOG_POSTS.map((post) => {
+  const blog = (await allPublicPosts()).map((post) => {
     const date = new Date(post.date);
     return {
       ...entry(`/blog/${post.slug}`, 0.5, 'yearly'),

@@ -274,6 +274,39 @@ test('admins can review failed emails: retry or dismiss unsent ones, never resen
   assert.equal((await sent.get()).data().status, 'sent');
 });
 
+test('the weekly draft job rejects calls without a valid Google-signed scheduler token', async () => {
+  for (const headers of [{}, { Authorization: 'Bearer not-a-real-token' }, { Authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.eyJlbWFpbCI6InNjaGVkdWxlckBleGFtcGxlLmlhbS5nc2VydmljZWFjY291bnQuY29tIn0.forged' }]) {
+    assert.equal((await fetch(`${base}/api/cron/blog-drafts`, { method: 'POST', headers })).status, 401);
+  }
+  assert.equal((await db.collection('blogPosts').where('source', '==', 'ai').get()).size, 0);
+});
+
+test('blog posts appear only when scheduled and due, and only admins manage them', async () => {
+  const slug = 'test-scheduled-moving-guide';
+  const content = Array.from({ length: 4 }, (_, i) => `Paragraph ${i + 1}. ` + 'Plan your move carefully and label every box clearly. '.repeat(12)).join('\n\n');
+  await db.doc(`blogPosts/${slug}`).set({ slug, title: 'Test Scheduled Moving Guide', excerpt: 'A test post for the scheduler that should only appear once it is due.', content, category: 'Home Moves', topicId: 'home-moves', image: 'blog-home', status: 'draft', source: 'admin', publishAt: null, createdAt: Timestamp.now() });
+  const blog = (body, token = adminToken) => fetch(`${base}/api/admin/blog`, authorized(token, body));
+  const page = () => fetch(`${base}/blog/${slug}`);
+  assert.equal((await blog({ action: 'schedule', slug, publishAt: new Date().toISOString() }, customerToken)).status, 403);
+  assert.equal((await page()).status, 404); // Drafts are never public.
+  const future = new Date(Date.now() + 3 * 86400000).toISOString();
+  assert.equal((await (await blog({ action: 'schedule', slug, publishAt: future })).json()).status, 'scheduled');
+  assert.equal((await page()).status, 404); // Not due yet.
+  assert.equal((await (await blog({ action: 'schedule', slug, publishAt: new Date(Date.now() - 1000).toISOString() })).json()).status, 'published');
+  const live = await page();
+  assert.equal(live.status, 200);
+  assert.ok((await live.text()).includes('Test Scheduled Moving Guide'));
+  const listing = await fetch(`${base}/api/admin/blog`, { headers: { Authorization: `Bearer ${adminToken}` } });
+  assert.ok((await listing.json()).posts.some(p => p.slug === slug && p.status === 'scheduled'));
+  assert.equal((await blog({ action: 'reject', slug })).status, 409); // Only drafts can be rejected.
+  assert.equal((await (await blog({ action: 'unschedule', slug })).json()).status, 'draft');
+  assert.equal((await page()).status, 404); // Unscheduling removes it at once.
+  assert.equal((await blog({ action: 'save', slug, title: 'x', excerpt: 'short', content: 'too short', category: 'Home Moves' })).status, 400);
+  assert.equal((await (await blog({ action: 'reject', slug })).json()).status, 'rejected');
+  assert.equal((await blog({ action: 'schedule', slug, publishAt: new Date().toISOString() })).status, 409);
+  assert.equal((await fetch(`${base}/blog/packing-fragile-items-movers-secret-guide`)).status, 200); // Existing posts still render.
+});
+
 test('creating a custom quote queues one email to the customer with the private link', async () => {
   const created = await fetch(`${base}/api/admin/quotes`, authorized(adminToken, customDraft()));
   assert.equal(created.status, 201);

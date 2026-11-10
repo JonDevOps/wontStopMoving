@@ -1,6 +1,6 @@
 
 import { PublicLayout } from '@/components/layout/public-layout';
-import { BLOG_POSTS } from '../posts';
+import { allPublicPosts, findPublicPost } from '@/lib/server/blog';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 
 export default async function BlogPostDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const post = BLOG_POSTS.find(p => p.slug === slug);
+  const post = await findPublicPost(slug);
 
   if (!post) {
     notFound();
@@ -66,8 +66,8 @@ export default async function BlogPostDetail({ params }: { params: Promise<{ slu
                     {post.excerpt}
                   </p>
                   <div className="space-y-6">
-                    {post.content.split('. ').map((sentence, i) => (
-                      <p key={i} className="mb-4">{sentence}{i < post.content.split('. ').length - 1 ? '.' : ''}</p>
+                    {(post.content.includes('\n\n') ? post.content.split(/\n\s*\n/) : post.content.split('. ').map((sentence, i, all) => i < all.length - 1 ? `${sentence}.` : sentence)).map((paragraph, i) => (
+                      <p key={i} className="mb-4">{paragraph}</p>
                     ))}
                   </div>
                   
@@ -98,7 +98,7 @@ export default async function BlogPostDetail({ params }: { params: Promise<{ slu
                 <div className="bg-gray-50 p-8 rounded-3xl border border-gray-100">
                   <h4 className="text-primary font-black uppercase tracking-widest text-xs mb-6">Recent Articles</h4>
                   <div className="space-y-8">
-                    {BLOG_POSTS.filter(p => p.slug !== slug).slice(0, 3).map((recent) => (
+                    {(await allPublicPosts()).filter(p => p.slug !== slug).slice(0, 3).map((recent) => (
                       <Link key={recent.slug} href={`/blog/${recent.slug}`} className="group block space-y-2">
                         <span className="text-[10px] font-black text-accent uppercase tracking-widest">{recent.category}</span>
                         <h5 className="font-bold text-primary group-hover:text-accent transition-colors leading-tight">
