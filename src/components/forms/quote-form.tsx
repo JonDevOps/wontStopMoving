@@ -39,7 +39,10 @@ import { useToast } from "@/hooks/use-toast";
 import { calculateMoveTotal } from "@/lib/pricing";
 import Link from "next/link";
 import { TermsAcceptance } from '@/components/legal/terms-acceptance';
-import { termsAcceptance } from '@/lib/terms';
+import { termsAcceptance, TERMS_VERSION } from '@/lib/terms';
+import { TermsConfirmation } from '@/components/legal/terms-confirmation';
+import { apiFetch } from '@/lib/api-client';
+import { ZipHint } from '@/components/forms/zip-hint';
 
 const formSchema = z.object({
   pickupZip: z.string().min(5, "Invalid Zip"),
@@ -72,6 +75,9 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [startingCheckout, setStartingCheckout] = useState(false);
   const totalSteps = 5;
   const firestore = useFirestore();
   const auth = useAuth();
@@ -181,7 +187,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
 
       // 2. Save the Quote
       const quotesRef = collection(firestore, 'quotes');
-      await addDoc(quotesRef, {
+      const savedQuote = await addDoc(quotesRef, {
         name: data.name,
         email: data.email,
         phone: data.phone,
@@ -218,6 +224,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
         })
       });
 
+      setSavedQuoteId(savedQuote.id);
       setStep(6); // Success step
     } catch (error: any) {
       console.error("Quote submission failed:", error?.code || 'unknown');
@@ -263,6 +270,21 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
     { id: "expressMoving", label: "Express Moving", icon: Zap, desc: "Guaranteed fast delivery dates (25% fee)." },
   ];
 
+  // Book and pay for the quote right away, using the same server-priced
+  // checkout as the dashboard. The server recalculates the total.
+  const startCheckout = async () => {
+    if (!savedQuoteId) return;
+    setStartingCheckout(true);
+    try {
+      const { url } = await apiFetch<{ url: string }>(auth, "/api/stripe/quote-checkout", { quoteId: savedQuoteId, termsAccepted: true, termsVersion: TERMS_VERSION });
+      window.location.assign(url);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Couldn't start payment", description: `${error?.message || "Please try again."} You can also book from your dashboard.` });
+      setStartingCheckout(false);
+      setConfirmingPayment(false);
+    }
+  };
+
   if (step === 6) {
     return (
       <Card className="border-none shadow-2xl bg-white p-12 text-center animate-fade-in">
@@ -276,16 +298,22 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
         </div>
         <p className="text-muted-foreground mb-8 text-balance">
           Thank you, {watch("name")}! {user ? "Your quote has been added to your account." : "We've created your secure account and saved your quote."} 
-          You can now review your price and book your move directly from your dashboard.
+          Book and pay now to lock in your move, or review it later from your dashboard. Your mover is paid only after you confirm the job is done.
         </p>
         <div className="flex flex-wrap justify-center gap-4">
+          {savedQuoteId && (
+            <Button type="button" onClick={() => setConfirmingPayment(true)} disabled={startingCheckout} className="bg-accent hover:bg-accent/90 text-white rounded-full px-10 h-12 font-bold uppercase tracking-widest text-xs">
+              {startingCheckout ? "Opening secure checkout…" : `Book & Pay Now · $${estimatedTotal.toLocaleString()}`}
+            </Button>
+          )}
           <Button asChild className="bg-primary rounded-full px-10 h-12 font-bold uppercase tracking-widest text-xs">
-            <Link href="/dashboard/customer/quotes">Review & Book Move</Link>
+            <Link href="/dashboard/customer/quotes">Review & Book Later</Link>
           </Button>
           <Button asChild variant="outline" className="rounded-full px-8 h-12 font-bold uppercase tracking-widest text-xs">
             <Link href="/dashboard/customer">Go to My Dashboard</Link>
           </Button>
         </div>
+        <TermsConfirmation open={confirmingPayment} title="Review terms before payment" description="Accept the Terms of Service to book this quote. Payment is collected securely at Stripe checkout." confirmLabel="Continue to payment" busy={startingCheckout} onConfirm={() => { void startCheckout(); }} onCancel={() => setConfirmingPayment(false)} />
       </Card>
     );
   }
@@ -309,11 +337,13 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
                   <Label htmlFor="pickupZip">Pickup Zip Code</Label>
                   <Input id="pickupZip" {...register("pickupZip")} placeholder="e.g. 75201" className="h-12" />
                   {errors.pickupZip && <p className="text-xs text-destructive font-bold">{errors.pickupZip.message}</p>}
+                  <ZipHint value={watch("pickupZip")} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="dropoffZip">Dropoff Zip Code</Label>
                   <Input id="dropoffZip" {...register("dropoffZip")} placeholder="e.g. 10001" className="h-12" />
                   {errors.dropoffZip && <p className="text-xs text-destructive font-bold">{errors.dropoffZip.message}</p>}
+                  <ZipHint value={watch("dropoffZip")} />
                 </div>
               </div>
               <div className="space-y-2">

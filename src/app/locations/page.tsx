@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Search, MapPin, Globe, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { ALL_LOCATIONS, CITIES_BY_STATE, slugify } from '@/lib/location-data';
+import { useZipLookup } from '@/components/forms/zip-hint';
 
 interface SearchResult {
   type: 'state' | 'city';
@@ -16,6 +17,7 @@ interface SearchResult {
 
 export default function LocationsPage() {
   const [search, setSearch] = useState('');
+  const { info: zipInfo, notFound: zipNotFound } = useZipLookup(/^\d{5}$/.test(search.trim()) ? search : '');
 
   // Enhanced search that returns specific state and city objects
   const searchResults = useMemo(() => {
@@ -91,12 +93,29 @@ export default function LocationsPage() {
               </div>
               <Input 
                 type="text"
-                placeholder="Search city or state..."
+                placeholder="Search city, state or ZIP code..."
                 className="h-16 pl-14 pr-6 rounded-full border-none shadow-2xl text-lg bg-white focus:ring-2 focus:ring-accent"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+
+            {zipInfo && (
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-accent/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4" role="status">
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-6 w-6 text-accent shrink-0 mt-1" />
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">ZIP {zipInfo.zip}</p>
+                    <p className="text-2xl font-black text-primary">{zipInfo.city}, {zipInfo.state}</p>
+                    <p className={zipInfo.servedState ? 'text-sm font-bold text-green-700' : 'text-sm font-bold text-amber-700'}>{zipInfo.servedState ? 'We serve this area.' : 'This area is outside our listed service area. Contact us to check availability.'}</p>
+                  </div>
+                </div>
+                {zipInfo.href
+                  ? <Link href={zipInfo.href} className="inline-flex items-center justify-center gap-2 rounded-full bg-accent text-white px-6 h-12 font-black uppercase tracking-widest text-xs hover:bg-accent/90">Movers in {zipInfo.servedCity ? zipInfo.city : zipInfo.state} <ArrowRight className="h-4 w-4" /></Link>
+                  : <Link href="/contact" className="inline-flex items-center justify-center rounded-full border px-6 h-12 font-black uppercase tracking-widest text-xs">Contact us</Link>}
+              </div>
+            )}
+            {zipNotFound && <p className="text-center text-muted-foreground" role="status">We couldn’t find ZIP code {search.trim()}. Check it and try again.</p>}
 
             <div className="bg-white rounded-3xl p-8 md:p-12 shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">

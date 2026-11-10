@@ -331,6 +331,16 @@ test('admin approvals change status on the server and queue the approval email o
   assert.equal((await approve(adminToken, { kind: 'employee', id: provider.uid, status: 'active', region: '<script>' })).status, 400);
 });
 
+test('ZIP lookup returns the city, state and service-area page, and rejects unknown ZIPs', async () => {
+  const dallas = await fetch(`${base}/api/zip/75201`);
+  assert.equal(dallas.status, 200);
+  assert.deepEqual(await dallas.json(), { zip: '75201', city: 'Dallas', stateCode: 'TX', state: 'Texas', servedState: true, servedCity: true, href: '/locations/texas/dallas' });
+  const stLouis = await (await fetch(`${base}/api/zip/63101`)).json();
+  assert.equal(stLouis.city, 'Saint Louis');
+  assert.equal(stLouis.href, '/locations/missouri/saint-louis');
+  for (const zip of ['00000', 'abcde', '1234']) assert.equal((await fetch(`${base}/api/zip/${zip}`)).status, 404);
+});
+
 test('creating a custom quote queues one email to the customer with the private link', async () => {
   const created = await fetch(`${base}/api/admin/quotes`, authorized(adminToken, customDraft()));
   assert.equal(created.status, 201);
