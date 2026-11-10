@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Toaster } from '@/components/ui/toaster';
+import { AttributionCapture } from '@/components/analytics/attribution-capture';
 import { JsonLd } from '@/components/seo/json-ld';
 import { DEFAULT_DESCRIPTION, SITE_NAME, SITE_URL, SOCIAL_IMAGE, organizationJsonLd } from '@/lib/seo';
 
@@ -31,6 +32,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased bg-background text-foreground">
         <FirebaseClientProvider>
+          <AttributionCapture />
           {children}
           <Toaster />
         </FirebaseClientProvider>

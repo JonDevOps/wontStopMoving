@@ -27,6 +27,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { ReferralCard } from "@/components/dashboard/referral-card";
 
 function CustomerDashboardContent() {
   const { user } = useUser();
@@ -270,7 +271,7 @@ function CustomerDashboardContent() {
               </a>
             </CardContent>
           </Card>
-
+          <ReferralCard />
         </div>
       </div>
 

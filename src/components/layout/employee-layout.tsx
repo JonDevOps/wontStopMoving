@@ -22,7 +22,8 @@ import {
   MessageSquare,
   Mail,
   Newspaper,
-  Inbox
+  Inbox,
+  Gift
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -109,6 +110,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Support", href: "/dashboard/admin/support", icon: MessageSquare },
     { label: "Emails", href: "/dashboard/admin/emails", icon: Mail },
     { label: "Blog", href: "/dashboard/admin/blog", icon: Newspaper },
+    { label: "Referrals", href: "/dashboard/admin/referrals", icon: Gift },
     { label: "Providers", href: "/dashboard/admin/providers", icon: UserCheck },
     { label: "Employees", href: "/dashboard/admin/employees", icon: ShieldCheck },
     { label: "Applications", href: "/dashboard/admin/careers", icon: FileText },

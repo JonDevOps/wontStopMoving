@@ -3,7 +3,8 @@ import type Stripe from "stripe";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import { HttpError, isId } from "./auth";
-import { notifyPaidJob } from "./notifications";
+import { enqueueEmail, notifyPaidJob } from "./notifications";
+import { recordReferralForPaidQuote } from "./referrals";
 import { stripe } from "@/lib/stripe";
 
 /**
@@ -113,6 +114,7 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
       if (!secret.exists) tx.set(secretRef, { customerId, releaseCode: newReleaseCode(), failedAttempts: 0 });
     });
     await notifyPaidJob(jobId);
+    await recordReferralForPaidQuote(md.quoteId, jobId);
     return { jobId };
   }
 
@@ -156,6 +158,24 @@ export type CompletionResult = {
   payoutStatus: "paid" | "needs_manual_payout";
   transferId: string | null;
 };
+
+/** Asks the customer to review their mover once the job is complete. Never throws. */
+async function requestReview(jobId: string) {
+  try {
+    const db = adminDb();
+    const job = (await db.doc(`jobs/${jobId}`).get()).data();
+    if (!job?.customerId) return;
+    const customer = (await db.doc(`users/${job.customerId}`).get()).data();
+    if (!customer?.email) return;
+    await enqueueEmail(`review-request:${jobId}`, {
+      category: "review", referenceId: jobId, to: customer.email,
+      subject: "How did your move go?",
+      text: `Hi ${customer.name || "there"},\n\nThanks for moving with Wont Stop Moving. How did it go? Rating your mover takes 30 seconds and helps other families choose with confidence:\nhttps://wontstopmoving.com/dashboard/customer/moves/${jobId}\n\nIf anything wasn't right, reply to this email or call (415) 214-5474 and we'll make it right.\n\nWont Stop Moving`,
+    });
+  } catch (error) {
+    console.error("Review request failed", jobId, error);
+  }
+}
 
 /**
  * Completes a job when the assigned provider (or an admin) enters the
@@ -216,6 +236,8 @@ export async function completeJobWithCode(params: {
         : "Too many incorrect codes. Contact support to release this job."
     );
   }
+
+  await requestReview(jobId);
 
   let transferId: string | null = null;
   try {
