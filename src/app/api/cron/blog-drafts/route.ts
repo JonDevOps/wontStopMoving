@@ -1,23 +1,31 @@
 import { NextResponse } from 'next/server';
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { draftNextPosts } from '@/lib/server/blog';
 import { enqueueEmail } from '@/lib/server/notifications';
 
 /**
- * Called weekly by Google Cloud Scheduler with `Authorization: Bearer
- * <CRON_SECRET>`. Drafts the next topics in the rotation and emails the admin
- * that they're ready. Nothing is published until an admin schedules it.
+ * Called weekly by Google Cloud Scheduler. Drafts the next topics in the
+ * rotation and emails the admin that they're ready. Nothing is published
+ * until an admin schedules it.
+ *
+ * No shared secret: Cloud Scheduler signs each call with a Google ID token
+ * for CRON_SERVICE_ACCOUNT, and we accept only that account and audience.
  */
-function authorized(req: Request) {
-  const secret = process.env.CRON_SECRET || '';
-  const given = (req.headers.get('authorization') || '').replace(/^Bearer /, '');
-  if (secret.length < 32 || !given) return false;
-  const digest = (s: string) => createHash('sha256').update(s).digest();
-  return timingSafeEqual(digest(given), digest(secret));
+const AUDIENCE = process.env.CRON_AUDIENCE || 'https://wontstopmoving.com/api/cron/blog-drafts';
+const verifier = new OAuth2Client();
+
+async function authorized(req: Request) {
+  const allowed = process.env.CRON_SERVICE_ACCOUNT;
+  const token = (req.headers.get('authorization') || '').match(/^Bearer (.+)$/)?.[1];
+  if (!allowed || !token) return false;
+  try {
+    const payload = (await verifier.verifyIdToken({ idToken: token, audience: AUDIENCE })).getPayload();
+    return payload?.email === allowed && payload.email_verified === true;
+  } catch { return false; }
 }
 
 export async function POST(req: Request) {
-  if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!(await authorized(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const count = Math.min(Math.max(Number(new URL(req.url).searchParams.get('count')) || 3, 1), 5);
   const result = await draftNextPosts(count);
   if (result.drafted.length) {

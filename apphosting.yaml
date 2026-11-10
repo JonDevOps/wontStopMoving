@@ -62,8 +62,9 @@ env:
     value: jonathan@w3develops.org
     availability:
       - RUNTIME
-  # Shared secret Cloud Scheduler sends to /api/cron/blog-drafts.
-  - variable: CRON_SECRET
-    secret: CRON_SECRET
+  # Only Cloud Scheduler calls signed as this account may run the weekly
+  # blog draft job (/api/cron/blog-drafts).
+  - variable: CRON_SERVICE_ACCOUNT
+    value: firebase-app-hosting-compute@studio-6652665935-1850d.iam.gserviceaccount.com
     availability:
       - RUNTIME

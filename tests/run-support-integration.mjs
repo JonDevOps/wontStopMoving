@@ -9,7 +9,7 @@ const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'star
     // Never send real email from tests, even when .env.local holds Zoho credentials:
     // a placeholder password marks mail as not configured, and the host is unroutable.
     ZOHO_SMTP_USER: 'test@example.com', ZOHO_SMTP_PASS: 'test-placeholder', ZOHO_SMTP_HOST: '127.0.0.1', ZOHO_SMTP_PORT: '9', ADMIN_NOTIFICATION_EMAIL: 'admin-alerts@example.com',
-    CRON_SECRET: 'test-cron-secret-0123456789abcdef0123456789', GEMINI_API_KEY: '' },
+    CRON_SERVICE_ACCOUNT: 'scheduler@example.iam.gserviceaccount.com', GEMINI_API_KEY: '' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let logs = '';

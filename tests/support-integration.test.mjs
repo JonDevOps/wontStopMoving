@@ -274,8 +274,8 @@ test('admins can review failed emails: retry or dismiss unsent ones, never resen
   assert.equal((await sent.get()).data().status, 'sent');
 });
 
-test('the weekly draft job rejects calls without the scheduler secret', async () => {
-  for (const headers of [{}, { Authorization: 'Bearer wrong-secret' }, { Authorization: 'Bearer ' }]) {
+test('the weekly draft job rejects calls without a valid Google-signed scheduler token', async () => {
+  for (const headers of [{}, { Authorization: 'Bearer not-a-real-token' }, { Authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.eyJlbWFpbCI6InNjaGVkdWxlckBleGFtcGxlLmlhbS5nc2VydmljZWFjY291bnQuY29tIn0.forged' }]) {
     assert.equal((await fetch(`${base}/api/cron/blog-drafts`, { method: 'POST', headers })).status, 401);
   }
   assert.equal((await db.collection('blogPosts').where('source', '==', 'ai').get()).size, 0);
