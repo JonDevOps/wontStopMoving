@@ -17,6 +17,7 @@ import { ArrowLeft, MapPin, Building2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useFirestore, useUser } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
+import { OTHER_PLATFORMS, HEARD_ABOUT_US } from "@/lib/worker-profile";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
@@ -29,13 +30,10 @@ const detailsSchema = z.object({
   city: z.string().min(2, "City is required"),
   state: z.string().min(1, "State is required"),
   zipCode: z.string().min(5, "Invalid zip code"),
-  businessName: z.string().min(3, "Business name must be at least 3 characters"),
-  businessDescription: z.string().min(10, "Please provide a brief description"),
   hasDotVehicle: z.enum(["yes", "no"]),
-  affiliation: z.enum(["Independent", "U-Haul Dealer", "U-Haul Employee"]),
+  otherPlatforms: z.array(z.enum(OTHER_PLATFORMS)).max(OTHER_PLATFORMS.length),
   source: z.string().min(1, "Please select how you heard about us"),
   agreeBackground: z.boolean().refine(val => val === true, "Must agree to background check"),
-  agreeIndependent: z.boolean().refine(val => val === true, "Must acknowledge independent status"),
 });
 
 type DetailsValues = z.infer<typeof detailsSchema>;
@@ -57,11 +55,12 @@ export default function EmployeeDetailsPage() {
     resolver: zodResolver(detailsSchema),
     defaultValues: {
       hasDotVehicle: "no",
-      affiliation: "Independent",
+      otherPlatforms: [],
       agreeBackground: false,
-      agreeIndependent: false,
     }
   });
+
+  const platforms = watch("otherPlatforms") || [];
 
   const onSubmit = async (data: DetailsValues) => {
     if (!user) return;
@@ -113,7 +112,7 @@ export default function EmployeeDetailsPage() {
               <span className="bg-accent text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Phase 2</span>
               <h1 className="text-3xl sm:text-4xl font-black text-primary uppercase">Your <span className="text-accent">Details</span></h1>
             </div>
-            <p className="text-muted-foreground font-medium">Tell us more about your business and equipment.</p>
+            <p className="text-muted-foreground font-medium">Tell us where you're based and about your moving experience.</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -170,23 +169,11 @@ export default function EmployeeDetailsPage() {
                   </div>
                 </div>
 
-                {/* Business Info */}
+                {/* Experience */}
                 <div className="space-y-6">
                   <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
                     <Building2 className="h-5 w-5 text-accent" />
-                    <h3 className="font-black text-primary uppercase tracking-tight">Business Profile</h3>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Business Name</Label>
-                    <Input {...register("businessName")} placeholder="Moving Masters LLC" className="h-12 border-gray-200" />
-                    {errors.businessName && <p className="text-xs text-destructive font-bold">{errors.businessName.message}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Business Description</Label>
-                    <Textarea {...register("businessDescription")} placeholder="Briefly describe your services and experience..." className="min-h-[100px] border-gray-200" />
-                    {errors.businessDescription && <p className="text-xs text-destructive font-bold">{errors.businessDescription.message}</p>}
+                    <h3 className="font-black text-primary uppercase tracking-tight">Experience</h3>
                   </div>
 
                   <div className="space-y-4">
@@ -207,19 +194,17 @@ export default function EmployeeDetailsPage() {
                     </RadioGroup>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Professional Affiliation</Label>
-                    <Select onValueChange={(val) => setValue("affiliation", val as any)} defaultValue="Independent">
-                      <SelectTrigger className="h-12 border-gray-200">
-                        <SelectValue placeholder="Select Affiliation" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Independent">Independent Provider</SelectItem>
-                        <SelectItem value="U-Haul Dealer">U-Haul Dealer</SelectItem>
-                        <SelectItem value="U-Haul Employee">U-Haul Employee</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <fieldset className="space-y-3">
+                    <legend className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Professional affiliation: other platforms you work with (optional)</legend>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {OTHER_PLATFORMS.map(platform => (
+                        <div key={platform} className="flex items-center space-x-2">
+                          <Checkbox id={`platform-${platform}`} checked={platforms.includes(platform)} onCheckedChange={(val) => setValue("otherPlatforms", val === true ? [...platforms, platform] : platforms.filter(p => p !== platform))} />
+                          <Label htmlFor={`platform-${platform}`} className="font-medium">{platform}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </fieldset>
 
                   <div className="space-y-2">
                     <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground">How did you hear about us?</Label>
@@ -228,22 +213,7 @@ export default function EmployeeDetailsPage() {
                         <SelectValue placeholder="Select Source" />
                       </SelectTrigger>
                       <SelectContent>
-                        {[
-                          "U-Haul employee, Center, or Dealer",
-                          "MovingHelp.com Customer",
-                          "Existing Moving Helper",
-                          "Web Search (Google, Bing, Yahoo, etc)",
-                          "Craigslist",
-                          "Social Media",
-                          "Social media/Facebook",
-                          "Indeed",
-                          "Email",
-                          "Billboard Ad",
-                          "Google Search Ad",
-                          "Gig Nation",
-                          "YouTube ad",
-                          "Other"
-                        ].map(s => (
+                        {HEARD_ABOUT_US.map(s => (
                           <SelectItem key={s} value={s}>{s}</SelectItem>
                         ))}
                       </SelectContent>
@@ -268,13 +238,6 @@ export default function EmployeeDetailsPage() {
                     </div>
                     {errors.agreeBackground && <p className="text-xs text-destructive font-bold ml-8">{errors.agreeBackground.message}</p>}
 
-                    <div className="flex items-start space-x-3">
-                      <Checkbox id="agreeIndependent" onCheckedChange={(val) => setValue("agreeIndependent", val === true)} />
-                      <Label htmlFor="agreeIndependent" className="text-sm font-medium leading-relaxed">
-                        I understand that I am an independent provider or moving labor service and I am not an employee/representative of Wont Stop Moving® or its affiliates.
-                      </Label>
-                    </div>
-                    {errors.agreeIndependent && <p className="text-xs text-destructive font-bold ml-8">{errors.agreeIndependent.message}</p>}
                   </div>
                 </div>
 
