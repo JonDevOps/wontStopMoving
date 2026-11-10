@@ -16,7 +16,7 @@ export default function NewCustomQuotePage() {
   const [type, setType] = useState<'fixed' | 'hourly'>('fixed');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [saved, setSaved] = useState<{ id: string; url: string; email: string; body: string } | null>(null);
+  const [saved, setSaved] = useState<{ id: string; url: string; email: string; body: string; emailStatus?: string } | null>(null);
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError('');
     const form = new FormData(event.currentTarget);
@@ -24,7 +24,7 @@ export default function NewCustomQuotePage() {
     const pricing: CustomPricing = type === 'fixed' ? { type, total: Number(value('total')) } : { type, hourlyRate: Number(value('hourlyRate')), minimumHours: Number(value('minimumHours')), estimatedHours: Number(value('estimatedHours')) };
     const data = { name: value('name'), email: value('email'), description: value('description'), pickupAddress: value('pickupAddress'), dropoffAddress: value('dropoffAddress'), moveDate: value('moveDate'), expiresAt: new Date(value('expiry') + 'T23:59:59').toISOString(), pricing };
     try {
-      const result = await apiFetch<{ id: string; url: string }>(auth, '/api/admin/quotes', data);
+      const result = await apiFetch<{ id: string; url: string; emailStatus?: string }>(auth, '/api/admin/quotes', data);
       setSaved({ ...result, email: data.email, body: `Hi ${data.name},\n\n${data.description}\n\n${customQuotePricingText(pricing)}\nRoute: ${data.pickupAddress} → ${data.dropoffAddress}\nMove date: ${data.moveDate}\nValid through: ${value('expiry')}\n\nReview your quote: ${result.url}\nSign in or create a customer account using ${data.email}, then verify that email and open this link.\n\nWont Stop Moving` });
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not save quote.'); }
     finally { setBusy(false); }
@@ -33,8 +33,8 @@ export default function NewCustomQuotePage() {
     <Link href="/dashboard/admin/quotes">← Back to quotes</Link>
     <h1 className="text-3xl font-bold">Create custom quote</h1>
     {saved ? <div className="bg-white rounded-xl p-6 space-y-4">
-      <h2 className="text-xl font-bold">Quote saved — ready to share</h2>
-      <p>Email hasn’t been sent. Open the prepared email below and send it from your email app, or copy the review link.</p>
+      <h2 className="text-xl font-bold">{saved.emailStatus === 'sent' ? 'Quote saved and emailed' : 'Quote saved — ready to share'}</h2>
+      <p>{saved.emailStatus === 'sent' ? `The quote link was emailed to ${saved.email} from noreply@wontstopmoving.com. You can also copy the link or send your own email below.` : 'The automatic email wasn’t sent. Open the prepared email below and send it from your email app, or copy the review link.'}</p>
       <Input aria-label="Customer review link" readOnly value={saved.url}/>
       <div className="flex flex-wrap gap-3">
         <Button onClick={async () => { try { await navigator.clipboard.writeText(saved.url); setError('Link copied.'); } catch { setError('Select and copy the link above.'); } }}>Copy link</Button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
-import { idTokenOf } from "@/lib/api-client";
+import { idTokenOf, sendApprovalEmail } from "@/lib/api-client";
 import { doc, updateDoc } from "firebase/firestore";
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Button } from "@/components/ui/button";
@@ -48,10 +48,11 @@ function ApplicationReviewContent({ id }: { id: string }) {
       await updateDoc(doc(firestore, "employees", application.userId), {
         status: newStatus
       });
+      const emailed = newStatus === 'active' ? await sendApprovalEmail(auth, 'employee', application.userId) : null;
 
       toast({
         title: "Status Updated",
-        description: `Candidate status has been set to ${newStatus}. Their dashboard has been updated.`,
+        description: `Candidate status has been set to ${newStatus}. Their dashboard has been updated.${emailed === true ? ' Approval email sent.' : emailed === false ? " The approval email couldn't be sent." : ''}`,
       });
     } catch (error: any) {
       console.error("Status Update Error:", error);

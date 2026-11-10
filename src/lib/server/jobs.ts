@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import { HttpError, isId } from "./auth";
+import { notifyPaidJob } from "./notifications";
 import { stripe } from "@/lib/stripe";
 
 /**
@@ -58,6 +59,7 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
       tx.update(jobRef, payment);
       if (!secret.exists) tx.set(secretRef, { customerId, releaseCode: newReleaseCode(), failedAttempts: 0 });
     });
+    await notifyPaidJob(md.jobId);
     return { jobId: md.jobId };
   }
 
@@ -110,6 +112,7 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
       tx.update(quoteRef, { status: "processed", paymentStatus: "paid", checkoutSessionId: session.id, paymentFailedAt: FieldValue.delete() });
       if (!secret.exists) tx.set(secretRef, { customerId, releaseCode: newReleaseCode(), failedAttempts: 0 });
     });
+    await notifyPaidJob(jobId);
     return { jobId };
   }
 

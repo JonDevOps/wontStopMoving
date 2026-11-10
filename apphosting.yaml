@@ -57,3 +57,8 @@ env:
     value: support@wontstopmoving.com
     availability:
       - RUNTIME
+  # Where "new paid booking" alerts go.
+  - variable: ADMIN_NOTIFICATION_EMAIL
+    value: jonathan@w3develops.org
+    availability:
+      - RUNTIME

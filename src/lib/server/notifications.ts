@@ -68,4 +68,15 @@ export async function queueJobEmails(jobId: string) {
     if (!account.email) continue;
     await enqueueEmail(`job:${jobId}:${uid}`, { category: 'job', referenceId: jobId, to: account.email, subject: role === 'customer' ? 'Your moving booking is confirmed' : 'A moving job has been assigned to you', text: `View your ${role === 'customer' ? 'confirmed move' : 'assigned job'} in your secure dashboard:\n${ORIGIN}/dashboard/${role}/${role === 'customer' ? 'moves' : 'jobs'}/${jobId}\n\nSign in to view job details. Keep your payment release code private.\n\nWont Stop Moving` });
   }
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'jonathan@w3develops.org';
+  await enqueueEmail(`job:${jobId}:admin`, { category: 'job', referenceId: jobId, to: adminEmail, subject: `New paid booking: ${job.moveDate || 'date pending'}`, text: `A booking was just paid.\n\nMove date: ${job.moveDate || 'Not set'}\nPickup: ${job.pickupAddress || 'Not set'}\nDrop-off: ${job.dropoffAddress || 'Not set'}\nAmount paid: $${Number(job.amountPaid || job.price || 0).toFixed(2)}\nAssigned providers: ${(job.providerIds || []).length}\n\nOpen the job:\n${ORIGIN}/dashboard/admin/jobs/${jobId}\n\nWont Stop Moving` });
+}
+
+/**
+ * Sends the emails for a newly paid booking. Never throws: a mail problem must
+ * not fail the payment confirmation that triggered it. Safe to call repeatedly;
+ * each message is keyed, so it is created and sent at most once.
+ */
+export async function notifyPaidJob(jobId: string) {
+  try { await queueJobEmails(jobId); } catch (error) { console.error('Paid booking emails failed', jobId, error); }
 }
