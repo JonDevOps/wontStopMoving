@@ -175,7 +175,7 @@ service cloud.firestore {
         !request.resource.data.keys().hasAny(quotePaymentFields())));
       // Customers may edit their quote's details, but not reassign it or change its status.
       allow update: if (!resource.data.get('isCustomQuote', false) || (isAdmin() && changedOnly(['status']))) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isCustomQuote', 'pricing', 'expiresAt', 'createdBy', 'openedAt', 'termsAcceptance', 'bookingTermsAcceptance']) && (isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['customerId', 'status', 'checkoutSessionId', 'paymentStatus', 'paymentFailedAt'])));
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['customerId', 'status', 'checkoutSessionId', 'paymentStatus', 'paymentFailedAt', 'leadStatus', 'assignedTo', 'assignedAt', 'firstContactAt', 'lastContactAt', 'lostReason', 'lostBy', 'lostAt', 'leadNotifiedAt'])));
       allow delete: if isAdmin();
     }
 

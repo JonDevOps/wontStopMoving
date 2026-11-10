@@ -365,6 +365,43 @@ test('sales call log: staff only, server-priced, follow-ups queue and close', as
   assert.equal((await calls(adminToken, { ...call, callType: 'cold-call-anyone' })).status, 400);
 });
 
+test('new quotes alert the team once; the lead inbox tracks contact, loss and reopening', async () => {
+  const uid = auth.currentUser.uid;
+  const lead = db.doc('quotes/test-lead-1');
+  await lead.set({ customerId: uid, status: 'new', name: 'Lee Lead', email: 'test-customer@example.com', phone: '555-0101', moveSize: '2br', pickupZip: '75201', dropoffZip: '10001', moveDate: '2026-12-20', estimatedTotal: 1500, createdAt: Timestamp.now() });
+  const notify = token => fetch(`${base}/api/leads/new`, authorized(token, { quoteId: 'test-lead-1' }));
+  assert.equal((await notify(adminToken)).status, 403); // Not the admin's quote.
+  assert.equal((await (await notify(customerToken)).json()).notified, true);
+  await notify(customerToken); // A repeat never sends twice.
+  const outbox = (await db.collection('emailOutbox').where('referenceId', '==', 'test-lead-1').get()).docs.map(d => d.data());
+  assert.equal(outbox.length, 2);
+  assert.ok(outbox.some(m => m.to === 'test-customer@example.com' && m.subject.includes('estimate')));
+  assert.ok(outbox.some(m => m.to === 'admin-alerts@example.com' && m.subject.startsWith('New lead')));
+
+  const inbox = async () => (await (await fetch(`${base}/api/admin/leads`, { headers: { Authorization: `Bearer ${adminToken}` } })).json());
+  assert.equal((await fetch(`${base}/api/admin/leads`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 403);
+  let found = (await inbox()).leads.find(l => l.id === 'test-lead-1');
+  assert.equal(found.status, 'new');
+  const leadAction = body => fetch(`${base}/api/admin/leads`, authorized(adminToken, body));
+  assert.equal((await leadAction({ action: 'lost', id: 'test-lead-1', reason: 'Made up' })).status, 400);
+  assert.equal((await leadAction({ action: 'contacted', id: 'test-lead-1' })).status, 200);
+  found = (await inbox()).leads.find(l => l.id === 'test-lead-1');
+  assert.equal(found.status, 'contacted');
+  assert.equal(typeof found.responseMinutes, 'number');
+  assert.ok(found.assignedTo);
+  await leadAction({ action: 'lost', id: 'test-lead-1', reason: 'Price' });
+  found = (await inbox()).leads.find(l => l.id === 'test-lead-1');
+  assert.equal(found.status, 'lost');
+  assert.equal(found.lostReason, 'Price');
+  await leadAction({ action: 'reopen', id: 'test-lead-1' });
+  assert.equal((await inbox()).leads.find(l => l.id === 'test-lead-1').status, 'contacted');
+
+  // Logging a playbook call about a lead marks it contacted.
+  await db.doc('quotes/test-lead-2').set({ customerId: uid, status: 'new', name: 'Second Lead', phone: '555-0102', moveSize: 'studio', estimatedTotal: 825, createdAt: Timestamp.now() });
+  await fetch(`${base}/api/sales/calls`, authorized(adminToken, { action: 'log', callType: 'web-lead', service: 'residential', disposition: 'booked', customerName: 'Second Lead', customerPhone: '555-0102', leadId: 'test-lead-2' }));
+  assert.equal((await inbox()).leads.find(l => l.id === 'test-lead-2').status, 'contacted');
+});
+
 test('creating a custom quote queues one email to the customer with the private link', async () => {
   const created = await fetch(`${base}/api/admin/quotes`, authorized(adminToken, customDraft()));
   assert.equal(created.status, 201);

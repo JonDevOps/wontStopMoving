@@ -53,6 +53,18 @@ export function SalesScriptTool() {
   const [disposition, setDisposition] = useState<Disposition | "">("");
   const [followUpAt, setFollowUpAt] = useState("");
   const [saving, setSaving] = useState(false);
+  const [leadId, setLeadId] = useState<string | null>(null);
+
+  // Opened from the lead inbox: prefill the lead's details.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const lead = p.get("lead");
+    if (!lead || !/^[A-Za-z0-9_-]{1,128}$/.test(lead)) return;
+    setLeadId(lead);
+    const type = p.get("callType");
+    if (type && CALL_TYPES.some(t => t.id === type)) setCallType(type as CallTypeId);
+    setCustomerName(p.get("name") || ""); setCustomerPhone(p.get("phone") || ""); setCustomerEmail(p.get("email") || ""); setMoveDate(p.get("date") || "");
+  }, []);
 
   const [followUps, setFollowUps] = useState<FollowUp[] | null>(null);
   const [followUpError, setFollowUpError] = useState("");
@@ -92,7 +104,8 @@ export function SalesScriptTool() {
   const reset = () => {
     setChecked({}); setCustomerName(""); setCustomerEmail(""); setCustomerPhone(""); setPickup(""); setDropoff("");
     setMoveDate(""); setMoveSize("2br"); setAddOns([]); setIsStudent(false); setIsMilitary(false); setIsExpress(false);
-    setNotes(""); setDisposition(""); setFollowUpAt("");
+    setNotes(""); setDisposition(""); setFollowUpAt(""); setLeadId(null);
+    if (window.location.search) window.history.replaceState(null, "", window.location.pathname);
   };
 
   const copySummary = async () => {
@@ -117,7 +130,7 @@ Your mover is paid only after you confirm the job is done.`;
       await apiFetch(auth, "/api/sales/calls", {
         action: "log", callType, service, disposition, customerName, customerPhone, customerEmail, pickup, dropoff, moveDate,
         moveSize: showsQuote ? moveSize : undefined, addOns: showsQuote ? addOns : [], isStudent, isMilitary, isExpress,
-        notes, checklistProgress: `${doneCount}/${totalItems}`, followUpAt: followUpAt ? new Date(followUpAt).toISOString() : undefined,
+        notes, checklistProgress: `${doneCount}/${totalItems}`, leadId: leadId || undefined, followUpAt: followUpAt ? new Date(followUpAt).toISOString() : undefined,
       });
       toast({ title: "Call logged", description: followUpAt && dispositionInfo?.needsFollowUp ? `Follow-up set for ${new Date(followUpAt).toLocaleString()}.` : "Saved to the call log." });
       reset();
@@ -156,6 +169,7 @@ Your mover is paid only after you confirm the job is done.`;
               <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-tighter flex items-center gap-3">
                 <PhoneCall className="h-7 w-7 text-accent" /> Call <span className="text-accent">Playbook</span>
               </h1>
+              {leadId && <p className="text-xs font-bold text-accent">Calling a lead from the inbox. Logging this call marks it contacted.</p>}
               <p className="text-sm text-white/70 max-w-2xl">Pick the call type and service. The script, questions and close adapt to the call. Check off each step, log the outcome, and set a follow-up.</p>
             </div>
             <div className="min-w-[240px] space-y-3">
