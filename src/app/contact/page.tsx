@@ -147,7 +147,7 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">Call Us</p>
-                        <p className="text-xl font-bold text-primary">(650) 569-0584</p>
+                        <p className="text-xl font-bold text-primary">(415) 214-5474</p>
                       </div>
                     </div>
                     

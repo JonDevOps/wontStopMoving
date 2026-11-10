@@ -341,6 +341,30 @@ test('ZIP lookup returns the city, state and service-area page, and rejects unkn
   for (const zip of ['00000', 'abcde', '1234']) assert.equal((await fetch(`${base}/api/zip/${zip}`)).status, 404);
 });
 
+test('sales call log: staff only, server-priced, follow-ups queue and close', async () => {
+  const calls = (token, body) => fetch(`${base}/api/sales/calls`, authorized(token, body));
+  const call = { action: 'log', callType: 'quote-followup', service: 'residential', disposition: 'quote-sent', customerName: 'Pat Lead', customerPhone: '555-0100', moveSize: '2br', addOns: ['packing', 'not-a-real-addon'], estimatedTotal: 1 };
+  assert.equal((await fetch(`${base}/api/sales/calls`, json(call))).status, 401);
+  assert.equal((await calls(customerToken, call)).status, 403);
+  assert.equal((await calls(adminToken, call)).status, 400); // This outcome needs a follow-up date.
+  const followUpAt = new Date(Date.now() - 60000).toISOString();
+  const created = await calls(adminToken, { ...call, followUpAt });
+  assert.equal(created.status, 201);
+  const { id, estimatedTotal } = await created.json();
+  assert.equal(estimatedTotal, 1850); // 2-bedroom base 1500 + packing 350, never the browser's number.
+  const saved = (await db.doc(`salesCalls/${id}`).get()).data();
+  assert.deepEqual(saved.addOns, ['packing']);
+  assert.equal(saved.followUpOpen, true);
+  const queue = await (await fetch(`${base}/api/sales/calls`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.ok(queue.followUps.some(f => f.id === id && f.customerName === 'Pat Lead'));
+  assert.equal((await (await calls(adminToken, { action: 'done', id })).json()).done, true);
+  const after = await (await fetch(`${base}/api/sales/calls`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.ok(!after.followUps.some(f => f.id === id));
+  const dnc = await (await calls(adminToken, { ...call, disposition: 'do-not-call', followUpAt })).json();
+  assert.equal((await db.doc(`salesCalls/${dnc.id}`).get()).data().followUpOpen, false);
+  assert.equal((await calls(adminToken, { ...call, callType: 'cold-call-anyone' })).status, 400);
+});
+
 test('creating a custom quote queues one email to the customer with the private link', async () => {
   const created = await fetch(`${base}/api/admin/quotes`, authorized(adminToken, customDraft()));
   assert.equal(created.status, 201);

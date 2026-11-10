@@ -55,6 +55,38 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "salesCalls",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "followUpOpen",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "followUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "salesCalls",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "followUpOpen",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "repId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "followUpAt",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
