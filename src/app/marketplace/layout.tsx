@@ -2,7 +2,7 @@ import { pageMetadata } from '@/lib/seo';
 
 export const metadata = pageMetadata({
   title: "Find Independent Movers",
-  description: "Browse vetted, independent moving professionals and book directly with escrow-protected payment.",
+  description: "Browse vetted, independent moving professionals and book directly. Your mover is paid only after the job is done.",
   path: "/marketplace",
 });
 

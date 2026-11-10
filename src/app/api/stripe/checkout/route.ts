@@ -68,7 +68,7 @@ export async function POST(req: Request) {
             currency: "usd",
             product_data: {
               name: `Moving Service with ${String(p.businessName || "your provider").slice(0, 80)}`,
-              description: `${hours} hours, held in escrow until the job is done.`,
+              description: `${hours} hours. Released to your mover after the job is done.`,
             },
             unit_amount: Math.round(price * 100),
           },

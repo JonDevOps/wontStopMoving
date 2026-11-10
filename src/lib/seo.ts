@@ -7,7 +7,7 @@ export const SOCIAL_IMAGE = { url: '/opengraph-image', width: 1200, height: 630,
 export const SITE_PHONE = '+1-650-569-0584';
 export const SITE_EMAIL = 'support@wontstopmoving.com';
 export const DEFAULT_DESCRIPTION =
-  'Wont Stop Moving connects you with vetted, independent movers across the U.S., Puerto Rico and Canada. Get an instant quote, book online with upfront pricing, and keep your payment in escrow until the job is done.';
+  'Wont Stop Moving connects you with vetted, independent movers across the U.S., Puerto Rico and Canada. Get an instant quote, book online with upfront pricing, and your mover is paid only after the job is done.';
 
 /** Title, description, canonical URL and social previews for one page. */
 export function pageMetadata({
@@ -37,8 +37,8 @@ export type ServiceInfo = { name: string; description: string };
 
 /** One entry per /services/<slug> page. */
 export const SERVICES: Record<string, ServiceInfo> = {
-  'local-moving': { name: 'Local Moving', description: 'Stress-free moves within your city or state with vetted local movers, upfront pricing and payment held in escrow until the job is done.' },
-  'long-distance': { name: 'Long-Distance Moving', description: 'State-to-state and cross-country moves planned end to end, with upfront pricing and payment held in escrow until delivery.' },
+  'local-moving': { name: 'Local Moving', description: 'Stress-free moves within your city or state with vetted local movers, upfront pricing, and movers paid only after the job is done.' },
+  'long-distance': { name: 'Long-Distance Moving', description: 'State-to-state and cross-country moves planned end to end, with upfront pricing, and movers paid only after delivery.' },
   'express-moving': { name: 'Express Moving', description: 'Priority scheduling and dedicated transport for urgent, short-notice moves.' },
   'commercial': { name: 'Commercial Moving', description: 'Office and business relocations planned to minimize downtime, from startups to large offices.' },
   'workplace-solutions': { name: 'Workplace Solutions', description: 'Office moves, furniture reconfiguration and decommissioning, managed from planning to setup.' },

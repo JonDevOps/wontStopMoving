@@ -34,7 +34,7 @@ export function Notifications() {
   }, [storageKey]);
   const base = role === 'admin' ? '/dashboard/admin' : `/dashboard/${role}`;
   const items = (jobs || []).filter(job => job.paymentStatus === 'paid').sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)).slice(0, 20).map(job => ({ id: `job:${job.id}`, title: role === 'customer' ? 'Your move is confirmed' : role === 'admin' ? 'Paid booking received' : 'Job assigned to you', detail: `${job.moveDate || 'Date pending'} · ${job.pickupAddress || 'View job details'}`, href: `${base}/${role === 'customer' ? 'moves' : 'jobs'}/${job.id}` }));
-  if (provider?.status === 'approved' || employee?.status === 'approved' || employee?.status === 'active') items.unshift({ id: 'account-approved', title: 'Your account is approved', detail: 'Review your dashboard for your next steps.', href: base });
+  if (provider?.status === 'approved' || employee?.status === 'active') items.unshift({ id: 'account-approved', title: 'Your account is approved', detail: 'Review your dashboard for your next steps.', href: base });
   const unread = storageReady ? items.filter(item => !seen.includes(item.id)).length : 0;
   function markRead() { const next = [...new Set([...seen, ...items.map(item => item.id)])].slice(-1000); setSeen(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {} }
   return <Dialog><DialogTrigger asChild><Button variant="ghost" size="icon" className="relative text-primary" aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}><Bell className="h-5 w-5"/>{unread > 0 && <span className="absolute -top-1 -right-1 rounded-full bg-accent text-white text-xs px-1">{unread}</span>}</Button></DialogTrigger>

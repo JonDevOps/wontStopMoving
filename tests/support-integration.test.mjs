@@ -252,6 +252,28 @@ test('a paid booking queues one admin alert, skips missing accounts, and retries
   assert.equal(messages[0].status, 'pending'); // Mail is not configured in tests, so nothing is sent.
 });
 
+test('admins can review failed emails: retry or dismiss unsent ones, never resend sent ones', async () => {
+  const send = (token, body) => fetch(`${base}/api/admin/notifications`, authorized(token, body));
+  const failed = db.doc('emailOutbox/test-failed-email');
+  await failed.set({ to: 'someone@example.com', subject: 'Test', text: 'Test', category: 'job', referenceId: 'x', status: 'needs_review', failureCode: 'SMTP_DELIVERY_FAILED', createdAt: Timestamp.now() });
+  assert.equal((await send(customerToken, { kind: 'retry', id: 'test-failed-email' })).status, 403);
+  const list = await fetch(`${base}/api/admin/notifications`, { headers: { Authorization: `Bearer ${adminToken}` } });
+  assert.equal(list.status, 200);
+  assert.ok((await list.json()).messages.some(m => m.id === 'test-failed-email' && m.status === 'needs_review' && m.failureCode === 'SMTP_DELIVERY_FAILED'));
+  const dismissed = await send(adminToken, { kind: 'dismiss', id: 'test-failed-email' });
+  assert.equal((await dismissed.json()).status, 'dismissed');
+  assert.equal((await failed.get()).data().status, 'dismissed');
+  const retried = await send(adminToken, { kind: 'retry', id: 'test-failed-email' });
+  assert.equal((await retried.json()).status, 'pending_configuration'); // Back in the queue; mail is off in tests.
+  const after = (await failed.get()).data();
+  assert.equal(after.status, 'pending');
+  assert.equal(after.failureCode, undefined);
+  const sent = db.doc('emailOutbox/test-sent-email');
+  await sent.set({ to: 'someone@example.com', subject: 'Test', text: 'Test', status: 'sent', createdAt: Timestamp.now() });
+  assert.equal((await send(adminToken, { kind: 'retry', id: 'test-sent-email' })).status, 409);
+  assert.equal((await sent.get()).data().status, 'sent');
+});
+
 test('creating a custom quote queues one email to the customer with the private link', async () => {
   const created = await fetch(`${base}/api/admin/quotes`, authorized(adminToken, customDraft()));
   assert.equal(created.status, 201);

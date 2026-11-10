@@ -177,9 +177,9 @@ const CALL_PHASES: ScriptPhase[] = [
       },
       {
         id: "qt_2",
-        label: "Explain the Wont Stop Moving Escrow Guarantee",
+        label: "Explain the Wont Stop Moving Pay-After-Completion Promise",
         script:
-          '"Unlike brokers who surprise you with hidden stair or fuel fees on move day, your payment is held safely in escrow until your move is completed to your satisfaction."',
+          '"Unlike brokers who surprise you with hidden stair or fuel fees on move day, your mover is not paid until your move is completed to your satisfaction."',
       },
       {
         id: "qt_3",
@@ -215,7 +215,7 @@ const OBJECTION_HANDLERS = [
     id: "obj_price",
     objection: '"Another moving company gave me a cheaper quote."',
     response:
-      '"I completely understand wanting the best value! Keep in mind that many lowball quotes are non-binding hourly estimates that add truck, fuel, stair, and shrink-wrap fees on move day. Our price is transparent, our crews are ID-verified and insured, and your payment is protected in escrow until the job is done. If we lock in your date today, I can also check if you qualify for our 5% promotional discount."',
+      '"I completely understand wanting the best value! Keep in mind that many lowball quotes are non-binding hourly estimates that add truck, fuel, stair, and shrink-wrap fees on move day. Our price is transparent, our crews are ID-verified and insured, and your mover is not paid until the job is done. If we lock in your date today, I can also check if you qualify for our 5% promotional discount."',
   },
   {
     id: "obj_think",

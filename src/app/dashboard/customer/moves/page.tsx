@@ -44,7 +44,7 @@ function MovesContent() {
         if (data.paymentStatus === "paid") {
           toast({
             title: "Payment Successful! 🎉",
-            description: "Your move is confirmed and held in escrow. Open it to see your 6-digit release code.",
+            description: "Your move is confirmed and paid. Open it to see your 6-digit release code.",
           });
         }
         router.replace("/dashboard/customer/moves", { scroll: false });

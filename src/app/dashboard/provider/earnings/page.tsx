@@ -72,7 +72,7 @@ export default function ProviderEarningsPage() {
   const uncompletedJobs = jobs.filter(j => j.status !== "completed" && j.status !== "cancelled");
 
   const totalEarned = completedJobs.reduce((acc, job) => acc + (job.price || 0), 0);
-  const pendingEscrow = uncompletedJobs.reduce((acc, job) => acc + (job.price || 0), 0);
+  const pendingPayout = uncompletedJobs.reduce((acc, job) => acc + (job.price || 0), 0);
   const totalJobsDone = completedJobs.length;
 
   return (
@@ -98,15 +98,15 @@ export default function ProviderEarningsPage() {
 
           <Card className="border-blue-100 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending in Escrow</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Payout</CardTitle>
               <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
                 <Clock className="h-4 w-4 text-blue-600" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">${pendingEscrow.toFixed(2)}</div>
+              <div className="text-3xl font-bold">${pendingPayout.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground mt-1 text-blue-600/80">
-                Secured by Wont Stop Moving Escrow
+                Paid out after the customer confirms with their release code
               </p>
             </CardContent>
           </Card>
@@ -171,7 +171,7 @@ export default function ProviderEarningsPage() {
                       {job.status === 'completed' ? (
                         <Badge variant="outline" className="border-green-200 text-green-700 bg-green-50 mt-1">Available</Badge>
                       ) : (
-                        <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 mt-1">In Escrow</Badge>
+                        <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 mt-1">Pending Payout</Badge>
                       )}
                     </div>
                   </div>

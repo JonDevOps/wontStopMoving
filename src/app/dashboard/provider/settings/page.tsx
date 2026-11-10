@@ -163,9 +163,9 @@ export default function ProviderSettingsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-red-600/80 mb-4 font-medium">
-                Permanently delete your provider account and remove access to the platform. This action restricts access to your escrow payouts and cannot be undone.
+                Permanently delete your provider account and remove access to the platform. This action stops any pending payouts and cannot be undone.
               </p>
-              <Button variant="destructive" className="bg-red-500 hover:bg-red-600 shadow-sm" onClick={() => toast({ variant: "destructive", title: "Action Disabled", description: "Please contact an Administrator to permanently delete an escrow-enabled account."})}>
+              <Button variant="destructive" className="bg-red-500 hover:bg-red-600 shadow-sm" onClick={() => toast({ variant: "destructive", title: "Action Disabled", description: "Please contact an Administrator to permanently delete an account that receives payouts."})}>
                 Delete Account
               </Button>
             </CardContent>

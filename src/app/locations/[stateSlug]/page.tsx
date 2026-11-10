@@ -159,7 +159,7 @@ export default function StatePage({ params }: { params: Promise<{ stateSlug: str
             <div className="p-8 bg-primary text-white rounded-3xl shadow-xl">
               <h3 className="text-lg font-bold mb-2 uppercase tracking-wide">Why {stateName}?</h3>
               <p className="opacity-80 text-sm leading-relaxed">
-                Our local crews in {stateName} are trained to handle everything from high-rise apartment moves to complex commercial relocations. With online booking, upfront pricing and payment held in escrow until the job is done, your {stateName} move is in good hands.
+                Our local crews in {stateName} are trained to handle everything from high-rise apartment moves to complex commercial relocations. With online booking, upfront pricing, and movers paid only after the job is done, your {stateName} move is in good hands.
               </p>
             </div>
           </div>

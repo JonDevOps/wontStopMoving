@@ -20,7 +20,7 @@ export const metadata = {
   ...pageMetadata({
     title: 'Movers Across the U.S., Puerto Rico & Canada',
     description:
-      'Get an instant moving quote and book vetted, independent movers online. Upfront pricing, and your payment stays in escrow until the job is done.',
+      'Get an instant moving quote and book vetted, independent movers online. Upfront pricing, and your mover is paid only after the job is done.',
     path: '/',
   }),
   title: { absolute: 'Wont Stop Moving | Movers Across the U.S., Puerto Rico & Canada' },
@@ -54,7 +54,7 @@ export default function Home() {
                 MOVING MADE <span className="text-accent inline-block animate-float">SIMPLE</span>
               </h1>
               <p className="text-xl text-white/80 mb-10 max-w-xl leading-relaxed">
-                Moving made simple across the US, Puerto Rico and Canada. Vetted professionals, upfront pricing and payment held in escrow until the job is done.
+                Moving made simple across the US, Puerto Rico and Canada. Vetted professionals, upfront pricing, and movers paid only after the job is done.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-8 h-16 text-lg font-bold shadow-xl shadow-accent/20">
@@ -81,8 +81,8 @@ export default function Home() {
                 <div className="text-sm uppercase tracking-widest opacity-80">Service Area</div>
               </div>
               <div>
-                <div className="text-4xl font-black font-headline">Escrow</div>
-                <div className="text-sm uppercase tracking-widest opacity-80">Protected Payments</div>
+                <div className="text-4xl font-black font-headline">Pay After</div>
+                <div className="text-sm uppercase tracking-widest opacity-80">Movers Paid When You Confirm</div>
               </div>
               <div>
                 <div className="text-4xl font-black font-headline">24/7</div>
