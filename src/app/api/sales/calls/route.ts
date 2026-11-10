@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/server/firebase-admin';
 import { errorResponse, HttpError, isId, readJson, requireRole } from '@/lib/server/auth';
 import { CALL_TYPES, DISPOSITIONS, SERVICES } from '@/lib/sales-playbook';
 import { MOVE_PRICING, ADDON_PRICING, calculateMoveTotal } from '@/lib/pricing';
+import { markLeadContacted } from '@/lib/server/leads';
 
 /**
  * Sales and service call log (`salesCalls`, server-only). Reps (employees)
@@ -79,8 +80,13 @@ export async function POST(req: Request) {
       notes: str(body.notes, 4000), checklistProgress: str(body.checklistProgress, 20),
       followUpAt, followUpOpen: !!followUpAt && disposition.id !== 'do-not-call',
       doNotCall: disposition.id === 'do-not-call',
+      leadId: isId(body.leadId) ? body.leadId : null,
       createdAt: FieldValue.serverTimestamp(),
     });
+    // A call about a lead counts as contacting it (and starts its response time).
+    if (isId(body.leadId)) {
+      try { await markLeadContacted(db, body.leadId, user.uid); } catch (error) { console.error('Could not mark lead contacted', body.leadId, error); }
+    }
     return NextResponse.json({ id: ref.id, estimatedTotal }, { status: 201 });
   } catch (error) { return errorResponse(error); }
 }

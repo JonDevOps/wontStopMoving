@@ -225,6 +225,8 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
       });
 
       setSavedQuoteId(savedQuote.id);
+      // Instant estimate email to the customer and a lead alert to the team.
+      void apiFetch(auth, "/api/leads/new", { quoteId: savedQuote.id }).catch(() => {});
       setStep(6); // Success step
     } catch (error: any) {
       console.error("Quote submission failed:", error?.code || 'unknown');

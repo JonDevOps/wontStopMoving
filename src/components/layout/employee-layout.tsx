@@ -21,7 +21,8 @@ import {
   Landmark,
   MessageSquare,
   Mail,
-  Newspaper
+  Newspaper,
+  Inbox
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -91,12 +92,14 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Dashboard", href: "/dashboard/employee", icon: LayoutDashboard },
     { label: "My Jobs", href: "/dashboard/employee/jobs", icon: Truck },
     { label: "Calendar", href: "/dashboard/employee/calendar", icon: Calendar },
+    { label: "Lead Inbox", href: "/dashboard/employee/leads", icon: Inbox },
     { label: "Sales Call Script", href: "/dashboard/employee/sales-script", icon: PhoneCall },
     { label: "Profile", href: "/dashboard/employee/profile", icon: User },
   ];
 
   const adminNav: NavItem[] = [
     { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Lead Inbox", href: "/dashboard/admin/leads", icon: Inbox },
     { label: "Sales Call Script", href: "/dashboard/admin/sales-script", icon: PhoneCall },
     { label: "Stripe & Banking", href: "/dashboard/admin/banking", icon: Landmark },
     { label: "Customers", href: "/dashboard/admin/customers", icon: User },
