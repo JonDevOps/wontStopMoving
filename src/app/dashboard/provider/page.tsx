@@ -27,6 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { providerApplicationIncomplete } from "@/lib/provider-application";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertCircle,
@@ -68,6 +70,13 @@ function ProviderDashboardContent() {
 
   const { data: userProfile } = useDoc(userProfileRef);
   const { data: providerInfo, isLoading } = useDoc(providerRef);
+  const router = useRouter();
+
+  // Accounts made by the old Google shortcut skipped the application:
+  // send them back to finish it before using the dashboard.
+  useEffect(() => {
+    if (!isLoading && providerInfo && providerApplicationIncomplete(providerInfo as Record<string, unknown>)) router.replace("/provider-signup");
+  }, [isLoading, providerInfo, router]);
 
   const [businessName, setBusinessName] = useState("");
   const [bio, setBio] = useState("");

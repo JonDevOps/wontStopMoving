@@ -23,6 +23,7 @@ import { signInWithEmailAndPassword, type User as FirebaseUser } from "firebase/
 import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleButton } from "@/components/auth/google-button";
+import { PROVIDER_GOOGLE_APPLY_PATH } from "@/lib/provider-application";
 import { TermsConfirmation } from '@/components/legal/terms-confirmation';
 import {
   signInWithGooglePopup,
@@ -172,19 +173,15 @@ function LoginContent() {
           });
           return;
         }
-        role = selectedRole === "provider" ? "provider" : "customer";
-        if (role === 'customer') {
-          setPendingGoogleSignup(user);
+        if (selectedRole === "provider") {
+          // New providers must fill in the application before they get a
+          // dashboard; stay signed in so the form can use this Google account.
+          toast({ title: "Finish your application", description: "Fill in your business details to apply as a provider." });
+          router.push(PROVIDER_GOOGLE_APPLY_PATH);
           return;
         }
-        await createSelfServiceProfile(firestore, user, { role: role as "customer" | "provider" });
-        toast({
-          title: "Account created",
-          description:
-            role === "provider"
-              ? "Your provider account is pending admin approval."
-              : "Welcome to Wont Stop Moving!",
-        });
+        setPendingGoogleSignup(user);
+        return;
       }
 
       router.push(redirectParam || dashboardForRole(role));
