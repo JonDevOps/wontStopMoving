@@ -916,3 +916,27 @@ test('agent network: apply, vet, approve, and accept a handoff; customer details
   assert.deepEqual((await jobRef.get()).data().agentIds, []);
   await deleteApp(agent.app);
 });
+
+test('custom quotes sent to a verified email join that customer’s account automatically; others are untouched', async () => {
+  const email = 'test-customer@example.com';
+  const base_ = { isCustomQuote: true, email, name: 'Custom Customer', status: 'new', createdAt: Timestamp.now(), expiresAt: Timestamp.fromMillis(Date.now() + 86400000), pricing: { type: 'fixed', total: 10 } };
+  await db.doc('quotes/auto-claim-mine').set({ ...base_, customerId: '' });
+  await db.doc('quotes/auto-claim-taken').set({ ...base_, customerId: 'someone-else' });
+  await db.doc('quotes/auto-claim-other-email').set({ ...base_, email: 'other@example.com', customerId: '' });
+  const claim = async () => (await fetch(`${base}/api/custom-quotes/claim`, authorized(customerToken, {}))).json();
+  await getAdminAuth(adminApp).updateUser(auth.currentUser.uid, { emailVerified: false });
+  await reload(auth.currentUser); customerToken = await auth.currentUser.getIdToken(true);
+  assert.deepEqual(await claim(), { claimed: 0, verified: false });
+  assert.equal((await db.doc('quotes/auto-claim-mine').get()).data().customerId, '');
+  await getAdminAuth(adminApp).updateUser(auth.currentUser.uid, { emailVerified: true });
+  await reload(auth.currentUser); customerToken = await auth.currentUser.getIdToken(true);
+  const result = await claim();
+  assert.equal(result.verified, true);
+  assert.ok(result.claimed >= 1);
+  assert.equal((await db.doc('quotes/auto-claim-mine').get()).data().customerId, auth.currentUser.uid);
+  assert.equal((await db.doc('quotes/auto-claim-taken').get()).data().customerId, 'someone-else');
+  assert.equal((await db.doc('quotes/auto-claim-other-email').get()).data().customerId, '');
+  assert.equal((await fetch(`${base}/api/custom-quotes/claim`, authorized(adminToken, {}))).status, 403);
+  await getAdminAuth(adminApp).updateUser(auth.currentUser.uid, { emailVerified: false });
+  await reload(auth.currentUser); customerToken = await auth.currentUser.getIdToken(true);
+});
