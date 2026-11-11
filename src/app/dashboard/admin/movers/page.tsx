@@ -22,7 +22,7 @@ type Row = {
   kind: string | null; sosActive: boolean | null; competitorId: string | null;
 };
 type Rank = { rank: number; of: number; nextUp: { dot: string; name: string; city: string; state: string; units: number; drivers: number; years: number; gap: { units: number; drivers: number; years: number } }[] };
-type Result = { mode: 'national' | 'detailed'; total: number; rows: Row[]; rank: Rank | null; points?: MapPoint[]; totals: { units: number; drivers: number }; updatedAt: string | null; synced: number; jev: boolean; stateStats?: (StateStat & { count: number; updatedAt: string | null })[] };
+type Result = { mode: 'national' | 'detailed'; nationalComplete?: boolean | null; total: number; rows: Row[]; rank: Rank | null; points?: MapPoint[]; totals: { units: number; drivers: number }; updatedAt: string | null; synced: number; jev: boolean; stateStats?: (StateStat & { count: number; updatedAt: string | null })[] };
 
 const KIND_LABEL: Record<string, string> = { local_mover: 'Local mover', van_line: 'Van line', broker: 'Broker', freight: 'Freight', other: 'Not a mover' };
 const KIND_STYLE: Record<string, string> = { local_mover: 'bg-green-100 text-green-800', van_line: 'bg-blue-100 text-blue-800', broker: 'bg-amber-100 text-amber-800', freight: 'bg-slate-200 text-slate-700', other: 'bg-red-100 text-red-800' };
@@ -45,6 +45,7 @@ function Registry() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<{ dot: string; state: string } | null>(null);
   const [busy, setBusy] = useState('');
+  const [stateTotals, setStateTotals] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const params = useMemo(() => {
@@ -94,7 +95,7 @@ function Registry() {
     finally { setBusy(''); }
   };
 
-  const areaLabel = REGION_PRESETS[area]?.label || (area === 'national' ? 'Nationwide' : area === 'map' ? 'Map view' : area);
+  const areaLabel = REGION_PRESETS[area]?.label || (area === 'national' ? 'Whole country' : area === 'map' ? 'Map view' : area);
   const pages = data ? Math.max(1, Math.ceil(data.total / 50)) : 1;
   const notSynced = data && data.synced === 0;
 
@@ -111,8 +112,8 @@ function Registry() {
     </CardContent></Card>}
 
     <div className="flex flex-wrap gap-2 items-center">
+      <Button size="sm" variant={area === 'national' ? 'default' : 'outline'} onClick={() => chooseArea('national')}>Whole country</Button>
       {Object.entries(REGION_PRESETS).map(([k, r]) => <Button key={k} size="sm" variant={area === k ? 'default' : 'outline'} onClick={() => chooseArea(k)}>{r.label}</Button>)}
-      <Button size="sm" variant={area === 'national' ? 'default' : 'outline'} onClick={() => chooseArea('national')}>Nationwide (legends)</Button>
       <Button size="sm" variant={area === 'map' ? 'default' : 'outline'} onClick={() => { setArea('map'); setPage(1); }}>Whatever the map shows</Button>
       <select aria-label="State" className="h-9 border rounded-md px-2 bg-white text-sm" value={US_STATES.includes(area) ? area : ''} onChange={e => e.target.value && chooseArea(e.target.value)}>
         <option value="">A state…</option>{US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -122,8 +123,8 @@ function Registry() {
     <div className="grid lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-2">
         <MoverMap points={data?.points || []} stateStats={(data?.stateStats || []) as StateStat[]} focus={focus}
-          onBounds={b => { setBounds(b); if (area === 'map') setPage(1); }} onSelect={(dot, state) => setSelected({ dot, state })} onState={s => chooseArea(s)} highlight={selected?.dot} />
-        <p className="text-xs text-muted-foreground">Red: 20+ trucks · Orange: 5–19 · Gray: under 5. Pins sit at each company’s ZIP code. Zoom out for a state-by-state view; click a state to open it. {area !== 'map' && 'Choose “Whatever the map shows” to list only what’s on screen.'}</p>
+          onBounds={b => { setBounds(b); if (area === 'map') setPage(1); }} onSelect={(dot, state) => setSelected({ dot, state })} onState={s => { setStateTotals(false); chooseArea(s); }} highlight={selected?.dot} stateTotals={stateTotals} />
+        <div className="flex flex-wrap justify-between gap-2 items-center"><p className="text-xs text-muted-foreground">Red: 20+ trucks · Orange: 5–19 · Gray: under 5. Numbers are clusters of companies: zoom in or click to split them. Pins sit at each company’s ZIP code. {area !== 'map' && 'Choose “Whatever the map shows” to list only what’s on screen.'}</p><label className="text-xs flex items-center gap-1"><input type="checkbox" checked={stateTotals} onChange={e => setStateTotals(e.target.checked)} />Show state totals instead</label></div>
       </div>
       <RankCard data={data} areaLabel={areaLabel} rankBy={f.rankBy} setRankBy={v => setF({ ...f, rankBy: v })} onOpen={(dot, state) => setSelected({ dot, state })} />
     </div>
@@ -147,7 +148,7 @@ function Registry() {
         </div>
       </div>
       <div className="flex flex-wrap gap-2 items-center justify-between">
-        <p className="text-sm text-muted-foreground">{loading ? 'Searching…' : data ? <><b className="text-primary">{data.total.toLocaleString()}</b> companies · {data.totals.units.toLocaleString()} trucks · {data.totals.drivers.toLocaleString()} drivers{data.mode === 'national' ? ' (each state’s 300 biggest)' : ''}{data.updatedAt ? ` · data from ${new Date(data.updatedAt).toLocaleDateString()}` : ''}</> : ''}</p>
+        <p className="text-sm text-muted-foreground">{loading ? 'Searching…' : data ? <><b className="text-primary">{data.total.toLocaleString()}</b> companies · {data.totals.units.toLocaleString()} trucks · {data.totals.drivers.toLocaleString()} drivers{data.mode === 'national' ? (data.nationalComplete ? ' nationwide' : ' nationwide (some states still loading: their 300 biggest shown)') : ''}{data.updatedAt ? ` · data from ${new Date(data.updatedAt).toLocaleDateString()}` : ''}</> : ''}</p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" disabled={!!busy || !data?.total} onClick={async () => { if (!confirm(`Add the top ${Math.min(300, data?.total || 0)} of this list to your main competitor list?`)) return; const r = await post({ action: 'track', query: queryObject(), limit: 300, tier: 'challenger' }, 'track'); if (r) { toast({ title: `Added ${r.added} to your main list`, description: r.skipped ? `${r.skipped} were already tracked.` : undefined }); void load(); } }}>{busy === 'track' ? 'Adding…' : 'Track top 300 as main list'}</Button>
           <Button size="sm" variant="outline" disabled={!!busy} onClick={async () => { if (!confirm('Add the 100 biggest movers in the country to your legends list? Brokers and non-movers are left out once Jev has sorted them.')) return; const r = await post({ action: 'legends' }, 'legends'); if (r) toast({ title: `Added ${r.added} legends`, description: r.skipped ? `${r.skipped} were already tracked.` : undefined }); }}>{busy === 'legends' ? 'Adding…' : 'Set national top 100 as legends'}</Button>

@@ -49,3 +49,28 @@ export async function loadStates(states: string[]): Promise<Mover[]> {
   for (const s of states) out.push(...(await loadState(s)));
   return out;
 }
+
+/**
+ * Nationwide view: a light file per state with only likely movers
+ * (registry/v1/{ST}.lite.json.gz), read together and cached for 30 minutes.
+ * Lets the map and lists cover every mover in the country without loading
+ * every full state file.
+ */
+let national: { at: number; rows: Mover[]; states: string[] } | null = null;
+
+export async function saveLite(state: string, rows: Mover[]) {
+  const lite = rows.filter(m => m.likelyMover);
+  await writeFileBytes(`${state}.lite.json.gz`, gzipSync(Buffer.from(JSON.stringify(lite))), 'application/gzip');
+  national = null;
+}
+
+export async function loadNational(states: string[]): Promise<{ rows: Mover[]; states: string[] }> {
+  if (national && Date.now() - national.at < TTL) return national;
+  const parts = await Promise.all(states.map(async s => {
+    const bytes = await readFileBytes(`${s}.lite.json.gz`).catch(() => null);
+    return bytes ? { s, rows: JSON.parse(gunzipSync(bytes).toString('utf8')) as Mover[] } : null;
+  }));
+  const ok = parts.filter(Boolean) as { s: string; rows: Mover[] }[];
+  national = { at: Date.now(), rows: ok.flatMap(p => p.rows), states: ok.map(p => p.s) };
+  return national;
+}

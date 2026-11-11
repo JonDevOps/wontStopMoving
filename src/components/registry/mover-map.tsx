@@ -10,11 +10,11 @@ export type StateStat = { state: string; likely: number; units: number; center: 
 export type Bounds = { south: number; west: number; north: number; east: number; zoom: number };
 
 /**
- * Free OpenStreetMap map. Zoomed out: one bubble per state (likely movers).
- * Zoomed in: every company as a clustered dot, sized by fleet.
+ * Free OpenStreetMap map: every company as a dot sized by fleet, clustered
+ * (with counts) when zoomed out. Optional state-total bubbles instead.
  */
-export function MoverMap({ points, stateStats, focus, onBounds, onSelect, onState, highlight }: {
-  points: MapPoint[]; stateStats: StateStat[]; focus: { lat: number; lng: number; zoom: number } | null;
+export function MoverMap({ points, stateStats, focus, onBounds, onSelect, onState, highlight, stateTotals = false }: {
+  points: MapPoint[]; stateStats: StateStat[]; stateTotals?: boolean; focus: { lat: number; lng: number; zoom: number } | null;
   onBounds: (b: Bounds) => void; onSelect: (dot: string, state: string) => void; onState: (state: string) => void; highlight?: string | null;
 }) {
   const el = useRef<HTMLDivElement>(null);
@@ -48,8 +48,8 @@ export function MoverMap({ points, stateStats, focus, onBounds, onSelect, onStat
     const leaflet = L.current, m = map.current;
     if (!leaflet || !m) return;
     if (layer.current) { m.removeLayer(layer.current); layer.current = null; }
-    const zoomedOut = m.getZoom() < 6;
-    if (zoomedOut) {
+    // Companies are always shown (clustered); state bubbles only when asked for.
+    if (stateTotals) {
       const group = leaflet.layerGroup();
       const max = Math.max(1, ...stateStats.map(s => s.likely));
       for (const s of stateStats) {
@@ -74,7 +74,7 @@ export function MoverMap({ points, stateStats, focus, onBounds, onSelect, onStat
       cluster.addLayer(mk);
     }
     layer.current = cluster.addTo(m);
-  }, [points, stateStats, highlight]);
+  }, [points, stateStats, highlight, stateTotals]);
 
   return <div ref={el} className="h-[420px] md:h-[520px] w-full rounded-2xl overflow-hidden border bg-slate-100 z-0" role="region" aria-label="Map of moving companies" />;
 }
