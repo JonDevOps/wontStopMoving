@@ -63,6 +63,8 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
     if (!isProfileLoading && profile) {
       if (profile.role === 'employee') {
         router.replace("/dashboard/employee");
+      } else if (profile.role === 'agent') {
+        router.replace("/dashboard/agent");
       } else if (profile.role === 'provider') {
         router.replace("/dashboard/provider");
       }

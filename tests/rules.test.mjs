@@ -241,3 +241,18 @@ test('job chat: participants post only as themselves', async () => {
   await assertFails(addDoc(collection(as('prov'), 'jobs/j1/messages'), { senderId: 'cust', text: 'Fake' }));
   await assertFails(addDoc(collection(as('other'), 'jobs/j1/messages'), { senderId: 'other', text: 'Not on this job' }));
 });
+
+test('agent, competitor and admin-invite records are server-only, and nobody can sign themselves up as an agent', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'agents/ag1'), { status: 'pending', companyName: 'X' });
+    await setDoc(doc(ctx.firestore(), 'competitors/c1'), { name: 'Rival' });
+    await setDoc(doc(ctx.firestore(), 'adminInvites/x@example.com'), { status: 'pending' });
+  });
+  for (const path of ['agents/ag1', 'competitors/c1', 'adminInvites/x@example.com', 'agentProspects/p1', 'competitorSettings/us']) {
+    await assertFails(getDoc(doc(as('ag1'), path)));
+    await assertFails(setDoc(doc(as('ag1'), path), { status: 'approved' }));
+  }
+  await assertFails(getDoc(doc(as('boss'), 'agents/ag1'))); // Even admins go through the server API.
+  await assertFails(setDoc(doc(as('self-agent'), 'users/self-agent'), { role: 'agent' }));
+  await assertFails(setDoc(doc(as('x-user'), 'adminInvites/x-user@example.com'), { status: 'pending' }));
+});

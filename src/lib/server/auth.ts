@@ -8,7 +8,7 @@ import { adminAuth, adminDb } from "./firebase-admin";
  * the role always comes from Firestore, never from the request body.
  */
 
-export type Role = "customer" | "provider" | "employee" | "admin";
+export type Role = "customer" | "provider" | "employee" | "admin" | "agent";
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) {

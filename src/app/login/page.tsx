@@ -9,6 +9,7 @@ import {
   User,
   HardHat,
   Building2,
+  Globe2,
   ShieldCheck,
   ArrowRight,
   ArrowLeft,
@@ -24,6 +25,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleButton } from "@/components/auth/google-button";
 import { PROVIDER_GOOGLE_APPLY_PATH } from "@/lib/provider-application";
+import { apiFetch } from "@/lib/api-client";
 import { TermsConfirmation } from '@/components/legal/terms-confirmation';
 import {
   signInWithGooglePopup,
@@ -34,7 +36,7 @@ import {
   signOutQuietly,
 } from "@/lib/google-sign-in";
 
-type PortalRole = "customer" | "provider" | "employee" | "admin";
+type PortalRole = "customer" | "provider" | "agent" | "employee" | "admin";
 
 const PORTAL_CONFIG: Record<
   PortalRole,
@@ -79,6 +81,19 @@ const PORTAL_CONFIG: Record<
     signupLabel: "Sign Up as a Service Provider",
     signupPrompt: "Want to list your moving business on our marketplace?",
     emailPlaceholder: "provider@wontstopmoving.com",
+  },
+  agent: {
+    label: "Agent Network",
+    shortLabel: "Agent",
+    titlePrefix: "Agent",
+    titleAccent: "Network",
+    subtitle: "For vetted moving companies in our North American network",
+    description: "Partner portal for established moving companies working as origin, destination and hauling agents.",
+    icon: Globe2,
+    signupHref: "/agents",
+    signupLabel: "Apply to Join the Agent Network",
+    signupPrompt: "Own an established moving company?",
+    emailPlaceholder: "dispatch@yourcompany.com",
   },
   employee: {
     label: "Employee",
@@ -151,11 +166,23 @@ function LoginContent() {
     router.replace(query ? `/login?${query}` : "/login", { scroll: false });
   };
 
+  /** Grants admin if an admin invited this (verified) email. Never blocks sign-in. */
+  const claimAdminInvite = async (): Promise<boolean> => {
+    try {
+      const { admin } = await apiFetch<{ admin: boolean }>(auth, "/api/auth/claim-admin", {});
+      if (admin) toast({ title: "Admin access granted", description: "Welcome to the Wont Stop Moving team." });
+      return admin;
+    } catch {
+      return false;
+    }
+  };
+
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
       const user = await signInWithGooglePopup(auth);
       let role = await getProfileRole(firestore, user.uid);
+      if (role !== "admin" && (selectedRole === "admin" || !role) && (await claimAdminInvite())) role = "admin";
 
       if (!role) {
         // First Google sign-in: customers and providers can create their own
@@ -171,6 +198,11 @@ function LoginContent() {
                 ? "Admin accounts are added by an existing admin."
                 : "Apply on the Careers page to create an employee account.",
           });
+          return;
+        }
+        if (selectedRole === "agent") {
+          toast({ title: "Finish your application", description: "Tell us about your company to apply to the agent network." });
+          router.push("/agents/apply");
           return;
         }
         if (selectedRole === "provider") {
@@ -208,6 +240,7 @@ function LoginContent() {
       const user = userCredential.user;
 
       // Role Resolver Logic
+      if (selectedRole === "admin") await claimAdminInvite();
       const userDoc = await getDoc(doc(firestore, "users", user.uid));
 
       if (!userDoc.exists()) {
@@ -230,6 +263,7 @@ function LoginContent() {
       if (role === "admin") router.push("/dashboard/admin");
       else if (role === "employee") router.push("/dashboard/employee");
       else if (role === "provider") router.push("/dashboard/provider");
+      else if (role === "agent") router.push("/dashboard/agent");
       else router.push("/dashboard/customer");
     } catch (error: any) {
       toast({

@@ -26,7 +26,10 @@ import {
   Gift,
   BarChart3,
   Award,
-  LifeBuoy
+  LifeBuoy,
+  Target,
+  Globe2,
+  Users
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -104,6 +107,8 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
   const adminNav: NavItem[] = [
     { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Insights", href: "/dashboard/admin/insights", icon: BarChart3 },
+    { label: "Competitors", href: "/dashboard/admin/competitors", icon: Target },
+    { label: "Agent Network", href: "/dashboard/admin/agents", icon: Globe2 },
     { label: "Lead Inbox", href: "/dashboard/admin/leads", icon: Inbox },
     { label: "Sales Call Script", href: "/dashboard/admin/sales-script", icon: PhoneCall },
     { label: "Stripe & Banking", href: "/dashboard/admin/banking", icon: Landmark },
@@ -120,6 +125,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Providers", href: "/dashboard/admin/providers", icon: UserCheck },
     { label: "Employees", href: "/dashboard/admin/employees", icon: ShieldCheck },
     { label: "Applications", href: "/dashboard/admin/careers", icon: FileText },
+    { label: "Team & Admins", href: "/dashboard/admin/team", icon: Users },
     { label: "Profile", href: "/dashboard/admin/profile", icon: User },
   ];
 

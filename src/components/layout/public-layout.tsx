@@ -89,6 +89,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       links: [
         { label: "Careers", href: "/careers" },
         { label: "Become a Provider", href: "/provider-signup" },
+        { label: "Agent Network", href: "/agents" },
         { label: "Refer a Friend", href: "mailto:?subject=Moving%20soon%3F&body=Get%20a%20moving%20quote%20from%20Wont%20Stop%20Moving%3A%20https%3A%2F%2Fwontstopmoving.com%2Fquote" },
       ]
     },

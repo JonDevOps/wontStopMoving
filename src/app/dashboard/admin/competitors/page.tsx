@@ -1,0 +1,288 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { EmployeeLayout } from '@/components/layout/employee-layout';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/firebase';
+import { apiFetch } from '@/lib/api-client';
+import { compareToUs, METRICS, sortActions, type ActionItem, type Metrics, type Scoreboard, type Tier } from '@/lib/competitors';
+
+type Competitor = {
+  id: string; name: string; website: string; location: string; tier: Tier; status: 'tracking' | 'passed';
+  metrics: Metrics; notes: Record<string, string>; actions: ActionItem[]; score: Scoreboard;
+  intel: { summary: string; services: string[]; pricing: string; promotions: string; sellingPoints: string[]; sourceUrl: string | null; websiteError: string | null } | null;
+  analysis: { strengths: string[]; weaknesses: string[]; threat: 'high' | 'medium' | 'low' } | null;
+  passedAt: string | null; passedHow: string | null; analyzedAt: string | null;
+};
+type Data = { us: { metrics: Metrics; auto: Metrics; manual: Metrics }; competitors: Competitor[] };
+type View = 'challenger' | 'legend' | 'actions' | 'us';
+
+const fmt = (key: keyof Metrics, v: number | undefined) => {
+  if (typeof v !== 'number') return '—';
+  const f = METRICS.find(m => m.key === key)?.format;
+  return f === 'money' ? `$${Math.round(v).toLocaleString()}` : f === 'rating' ? `${v.toFixed(1)}★` : f === 'percent' ? `${v}%` : v.toLocaleString();
+};
+const THREAT: Record<string, string> = { high: 'bg-red-100 text-red-800', medium: 'bg-amber-100 text-amber-800', low: 'bg-green-100 text-green-800' };
+const NOTES: { key: string; label: string; placeholder: string }[] = [
+  { key: 'pricing', label: 'Prices', placeholder: 'Hourly rates, minimums, flat prices, fees…' },
+  { key: 'promotions', label: 'Promotions', placeholder: 'Discounts, offers, guarantees…' },
+  { key: 'ads', label: 'Ads', placeholder: 'Where they advertise, what the ads say (Google, Facebook, Yelp, Thumbtack…)' },
+  { key: 'social', label: 'Social media', placeholder: 'Platforms, what they post, how often, what gets likes…' },
+  { key: 'other', label: 'Anything else', placeholder: 'Reviews themes, service area, fleet, hiring, partnerships…' },
+];
+
+function Competitors() {
+  const auth = useAuth();
+  const [data, setData] = useState<Data | null>(null);
+  const [view, setView] = useState<View>('challenger');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState('');
+  const [showPassed, setShowPassed] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const load = useCallback(() => apiFetch<Data>(auth, '/api/admin/competitors').then(setData).catch(e => setNotice(e instanceof Error ? e.message : 'Could not load competitors.')), [auth]);
+  useEffect(() => { void load(); }, [load]);
+
+  const post = useCallback(async (body: Record<string, unknown>, label = 'save') => {
+    setBusy(label); setNotice('');
+    try { const r = await apiFetch<any>(auth, '/api/admin/competitors', body); await load(); return r; }
+    catch (e) { setNotice(e instanceof Error ? e.message : 'That didn’t work.'); return null; }
+    finally { setBusy(''); }
+  }, [auth, load]);
+
+  const all = data?.competitors || [];
+  const tierList = (t: Tier) => all.filter(c => c.tier === t);
+  const challengers = tierList('challenger'), legends = tierList('legend');
+  const phase2 = challengers.length > 0 && challengers.every(c => c.status === 'passed');
+  const nextUp = (list: Competitor[]) => list.filter(c => c.status === 'tracking').sort((a, b) => (b.score.known > 0 ? 1 : 0) - (a.score.known > 0 ? 1 : 0) || a.score.gap - b.score.gap || a.score.behind - b.score.behind)[0];
+  const target = nextUp(phase2 ? legends : challengers);
+  const openActions = useMemo(() => sortActions(all.filter(c => c.status === 'tracking').flatMap(c => c.actions.filter(a => !a.done).map(a => ({ ...a, competitor: c })))), [all]);
+
+  return <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-2">
+      <h1 className="text-3xl font-bold">Competitor tracker</h1>
+      <p className="text-muted-foreground">Study each competitor, copy what works, then pass them on the numbers. Pass your main list first, then take on the legends.</p>
+    </div>
+
+    <div className="grid md:grid-cols-3 gap-4">
+      <Card className={`bg-white ${!phase2 ? 'ring-2 ring-accent' : ''}`}><CardContent className="p-5">
+        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Phase 1 · Main list</p>
+        <p className="text-3xl font-black mt-1">{challengers.filter(c => c.status === 'passed').length}<span className="text-lg text-muted-foreground"> / {challengers.length} passed</span></p>
+        <Progress value={challengers.length ? (challengers.filter(c => c.status === 'passed').length / challengers.length) * 100 : 0} />
+      </CardContent></Card>
+      <Card className={`bg-white ${phase2 ? 'ring-2 ring-accent' : ''}`}><CardContent className="p-5">
+        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Phase 2 · Legends {phase2 ? '' : '(after the main list)'}</p>
+        <p className="text-3xl font-black mt-1">{legends.filter(c => c.status === 'passed').length}<span className="text-lg text-muted-foreground"> / {legends.length} passed</span></p>
+        <Progress value={legends.length ? (legends.filter(c => c.status === 'passed').length / legends.length) * 100 : 0} />
+      </CardContent></Card>
+      <Card className="bg-slate-900 text-white"><CardContent className="p-5">
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Next up</p>
+        {target ? <>
+          <p className="text-2xl font-black mt-1">{target.name}</p>
+          <p className="text-sm text-slate-300">{target.score.known ? `Behind on ${target.score.behind} of ${target.score.known} known numbers` : 'Add their numbers to measure the gap'}</p>
+          <Button size="sm" className="mt-3" onClick={() => { setView(target.tier); setOpenId(target.id); }}>Open</Button>
+        </> : <p className="text-sm text-slate-300 mt-2">{all.length ? 'Everyone on this list is passed. Add the next list.' : 'Add competitors to start.'}</p>}
+      </CardContent></Card>
+    </div>
+
+    <div className="flex flex-wrap gap-2">
+      {([['challenger', `Main list (${challengers.length})`], ['legend', `Legends (${legends.length})`], ['actions', `Action board (${openActions.length})`], ['us', 'Our numbers']] as [View, string][]).map(([v, label]) =>
+        <Button key={v} variant={view === v ? 'default' : 'outline'} onClick={() => setView(v)}>{label}</Button>)}
+      <Button variant="ghost" disabled={!!busy} onClick={async () => { const r = await post({ action: 'refresh-standings' }, 'refresh'); if (r) setNotice(r.newlyPassed.length ? `Passed: ${r.newlyPassed.join(', ')}` : 'No new passes yet. Keep going.'); }}>Check for passes</Button>
+    </div>
+    {notice && <p role="status" className="text-sm font-medium bg-white border rounded-lg p-3">{notice}</p>}
+
+    {!data ? <p>Loading…</p> : view === 'us' ? <OurNumbers us={data.us} busy={!!busy} onSave={m => post({ action: 'us', metrics: m }).then(r => r && setNotice('Our numbers saved.'))} />
+      : view === 'actions' ? <ActionBoard items={openActions} onToggle={(cid, aid) => post({ action: 'toggle-action', id: cid, actionId: aid, done: true })} onOpen={c => { setView(c.tier); setOpenId(c.id); }} />
+      : <>
+        <AddCompetitors tier={view} busy={!!busy} post={post} setNotice={setNotice} />
+        <div className="flex flex-wrap items-center gap-3">
+          <Input className="max-w-xs bg-white" placeholder="Search" value={search} onChange={e => setSearch(e.target.value)} />
+          <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={showPassed} onChange={e => setShowPassed(e.target.checked)} /> Show passed</label>
+        </div>
+        <div className="space-y-3">
+          {tierList(view).filter(c => (showPassed || c.status === 'tracking') && c.name.toLowerCase().includes(search.toLowerCase()))
+            .sort((a, b) => Number(a.status === 'passed') - Number(b.status === 'passed') || a.score.gap - b.score.gap)
+            .map(c => <CompetitorRow key={c.id} c={c} us={data.us.metrics} open={openId === c.id} onToggle={() => setOpenId(openId === c.id ? null : c.id)} post={post} busy={busy} setBusy={setBusy} setNotice={setNotice} reload={load} />)}
+          {tierList(view).length === 0 && <p className="text-muted-foreground">No companies on this list yet. Add them above, or paste your whole list.</p>}
+        </div>
+      </>}
+  </div>;
+}
+
+function Progress({ value }: { value: number }) {
+  return <div className="h-2 bg-gray-100 rounded-full mt-3 overflow-hidden"><div className="h-full bg-accent" style={{ width: `${Math.min(100, value)}%` }} /></div>;
+}
+
+function AddCompetitors({ tier, busy, post, setNotice }: { tier: Tier; busy: boolean; post: (b: Record<string, unknown>, l?: string) => Promise<any>; setNotice: (s: string) => void }) {
+  const [mode, setMode] = useState<'one' | 'many' | null>(null);
+  const [form, setForm] = useState({ name: '', website: '', location: '' });
+  const [text, setText] = useState('');
+  return <Card className="bg-white"><CardContent className="p-4 space-y-3">
+    <div className="flex flex-wrap gap-2">
+      <Button size="sm" variant={mode === 'one' ? 'default' : 'outline'} onClick={() => setMode(mode === 'one' ? null : 'one')}>Add a company</Button>
+      <Button size="sm" variant={mode === 'many' ? 'default' : 'outline'} onClick={() => setMode(mode === 'many' ? null : 'many')}>Paste a list</Button>
+    </div>
+    {mode === 'one' && <form className="grid sm:grid-cols-4 gap-2" onSubmit={async e => { e.preventDefault(); if (await post({ action: 'add', tier, ...form })) { setForm({ name: '', website: '', location: '' }); setNotice(`${form.name} added.`); } }}>
+      <Input required placeholder="Company name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+      <Input placeholder="Website" value={form.website} onChange={e => setForm({ ...form, website: e.target.value })} />
+      <Input placeholder="City, state" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
+      <Button type="submit" disabled={busy}>Add</Button>
+    </form>}
+    {mode === 'many' && <form className="space-y-2" onSubmit={async e => { e.preventDefault(); const r = await post({ action: 'import', tier, text }, 'import'); if (r) { setText(''); setNotice(`Added ${r.added}${r.skipped ? `, skipped ${r.skipped} already on the list` : ''}.`); } }}>
+      <Textarea rows={6} placeholder={'One company per line: name, website, city\nBay Area Movers, bayareamovers.com, San Jose CA\nAcme Moving, acmemoving.com, Oakland CA'} value={text} onChange={e => setText(e.target.value)} />
+      <p className="text-xs text-muted-foreground">Up to 500 at a time. Copying columns from a spreadsheet works too.</p>
+      <Button type="submit" disabled={busy || !text.trim()}>Add to {tier === 'legend' ? 'legends' : 'main list'}</Button>
+    </form>}
+  </CardContent></Card>;
+}
+
+function CompetitorRow({ c, us, open, onToggle, post, busy, setBusy, setNotice, reload }: {
+  c: Competitor; us: Metrics; open: boolean; onToggle: () => void; post: (b: Record<string, unknown>, l?: string) => Promise<any>;
+  busy: string; setBusy: (s: string) => void; setNotice: (s: string) => void; reload: () => Promise<unknown>;
+}) {
+  const auth = useAuth();
+  const [metrics, setMetrics] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [details, setDetails] = useState({ name: c.name, website: c.website, location: c.location });
+  const [newAction, setNewAction] = useState('');
+  useEffect(() => {
+    if (!open) return;
+    setMetrics(Object.fromEntries(METRICS.map(m => [m.key, c.metrics[m.key]?.toString() ?? ''])));
+    setNotes(Object.fromEntries(NOTES.map(n => [n.key, c.notes?.[n.key] || ''])));
+    setDetails({ name: c.name, website: c.website, location: c.location });
+  }, [open, c]);
+  const cmp = compareToUs(us, c.metrics);
+  const openCount = c.actions.filter(a => !a.done).length;
+
+  const analyze = async () => {
+    setBusy(`analyze:${c.id}`); setNotice('');
+    try {
+      const r = await apiFetch<{ websiteRead: boolean; websiteError?: string }>(auth, `/api/admin/competitors/${c.id}/analyze`, {});
+      setNotice(r.websiteRead ? `${c.name} analyzed from their website.` : `${c.name} analyzed from your notes only${r.websiteError ? ` (website: ${r.websiteError})` : ''}.`);
+      await reload();
+    } catch (e) { setNotice(e instanceof Error ? e.message : 'Analysis failed.'); }
+    finally { setBusy(''); }
+  };
+
+  return <Card className={`bg-white ${c.status === 'passed' ? 'opacity-70' : ''}`}><CardContent className="p-0">
+    <button className="w-full text-left p-4 flex flex-wrap items-center gap-3 justify-between" onClick={onToggle} aria-expanded={open}>
+      <div>
+        <p className="font-bold">{c.name} {c.status === 'passed' && <Badge className="ml-1 bg-green-600">Passed</Badge>}</p>
+        <p className="text-xs text-muted-foreground">{[c.location, c.website.replace(/^https?:\/\//, '')].filter(Boolean).join(' · ') || 'No details yet'}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {c.score.known ? <span className="font-medium">Ahead {c.score.ahead} · Behind {c.score.behind}</span> : <span className="text-muted-foreground">No numbers yet</span>}
+        {c.analysis && <span className={`px-2 py-0.5 rounded-full font-bold ${THREAT[c.analysis.threat]}`}>{c.analysis.threat} threat</span>}
+        {openCount > 0 && <span className="px-2 py-0.5 rounded-full bg-slate-100 font-bold">{openCount} actions</span>}
+      </div>
+    </button>
+    {open && <div className="border-t p-4 space-y-6">
+      <section className="space-y-2">
+        <h3 className="font-bold">Numbers: us vs them</h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {METRICS.map(m => <label key={m.key} className="text-sm space-y-1">
+            <span className="font-medium">{m.label}</span>
+            <Input inputMode="decimal" placeholder={m.hint} value={metrics[m.key] ?? ''} onChange={e => setMetrics({ ...metrics, [m.key]: e.target.value })} />
+            <span className={`text-xs block ${cmp[m.key] === 'ahead' ? 'text-green-700' : cmp[m.key] === 'behind' ? 'text-red-700' : 'text-muted-foreground'}`}>
+              Us: {fmt(m.key, us[m.key])} {cmp[m.key] === 'ahead' ? '· we lead' : cmp[m.key] === 'behind' ? '· they lead' : cmp[m.key] === 'tied' ? '· tied' : ''}
+            </span>
+          </label>)}
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="font-bold">What we know</h3>
+        <div className="grid sm:grid-cols-3 gap-2">
+          <Input value={details.name} onChange={e => setDetails({ ...details, name: e.target.value })} aria-label="Company name" />
+          <Input value={details.website} placeholder="Website" onChange={e => setDetails({ ...details, website: e.target.value })} aria-label="Website" />
+          <Input value={details.location} placeholder="City, state" onChange={e => setDetails({ ...details, location: e.target.value })} aria-label="Location" />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {NOTES.map(n => <label key={n.key} className="text-sm space-y-1"><span className="font-medium">{n.label}</span>
+            <Textarea rows={2} placeholder={n.placeholder} value={notes[n.key] ?? ''} onChange={e => setNotes({ ...notes, [n.key]: e.target.value })} /></label>)}
+        </div>
+        <Button disabled={!!busy} onClick={async () => { if (await post({ action: 'update', id: c.id, ...details, metrics, notes })) setNotice(`${c.name} saved.`); }}>Save</Button>
+      </section>
+
+      <section className="space-y-3 bg-slate-50 rounded-xl p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-bold">AI analysis</h3>
+          <Button variant="outline" disabled={!!busy} onClick={analyze}>{busy === `analyze:${c.id}` ? 'Analyzing…' : c.analyzedAt ? 'Re-analyze' : 'Analyze with AI'}</Button>
+        </div>
+        <p className="text-xs text-muted-foreground">Reads their website and your notes and numbers (save first), then writes a 30-day plan to beat them. {c.analyzedAt ? `Last run ${new Date(c.analyzedAt).toLocaleString()}.` : ''}</p>
+        {c.intel && <div className="space-y-3 text-sm">
+          <p>{c.intel.summary}</p>
+          {c.intel.websiteError && <p className="text-xs text-amber-700">Website not read: {c.intel.websiteError}</p>}
+          <div className="grid md:grid-cols-2 gap-4">
+            <Info title="Their prices" text={c.intel.pricing} />
+            <Info title="Their promotions" text={c.intel.promotions} />
+            <Info title="Services" list={c.intel.services} />
+            <Info title="How they sell" list={c.intel.sellingPoints} />
+            {c.analysis && <><Info title="What they do better" list={c.analysis.strengths} /><Info title="Where we can beat them" list={c.analysis.weaknesses} /></>}
+          </div>
+        </div>}
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="font-bold">Actions to pass them</h3>
+        {sortActions(c.actions).map(a => <div key={a.id} className="flex items-start gap-3 text-sm">
+          <input type="checkbox" className="mt-1" checked={a.done} aria-label={a.text} onChange={e => void post({ action: 'toggle-action', id: c.id, actionId: a.id, done: e.target.checked })} />
+          <div className="flex-1"><p className={a.done ? 'line-through text-muted-foreground' : ''}>{a.text}</p><p className="text-xs text-muted-foreground">{a.area} · {a.impact} impact</p></div>
+          <button className="text-xs text-muted-foreground hover:text-destructive" onClick={() => void post({ action: 'remove-action', id: c.id, actionId: a.id })}>Remove</button>
+        </div>)}
+        {c.actions.length === 0 && <p className="text-sm text-muted-foreground">Run the AI analysis for a plan, or add your own.</p>}
+        <form className="flex gap-2" onSubmit={async e => { e.preventDefault(); if (await post({ action: 'add-action', id: c.id, text: newAction })) setNewAction(''); }}>
+          <Input placeholder="Add an action" value={newAction} onChange={e => setNewAction(e.target.value)} />
+          <Button type="submit" variant="outline" disabled={!!busy || !newAction.trim()}>Add</Button>
+        </form>
+      </section>
+
+      <div className="flex flex-wrap gap-2 border-t pt-4">
+        {c.status === 'passed'
+          ? <Button variant="outline" disabled={!!busy} onClick={() => void post({ action: 'pass', id: c.id, passed: false })}>Move back to tracking</Button>
+          : <Button disabled={!!busy} onClick={async () => { if (await post({ action: 'pass', id: c.id })) setNotice(`${c.name} passed. On to the next one.`); }}>Mark as passed</Button>}
+        <Button variant="outline" disabled={!!busy} onClick={() => void post({ action: 'update', id: c.id, tier: c.tier === 'legend' ? 'challenger' : 'legend' })}>Move to {c.tier === 'legend' ? 'main list' : 'legends'}</Button>
+        <Button variant="ghost" className="text-destructive" disabled={!!busy} onClick={() => { if (confirm(`Delete ${c.name} and its notes?`)) void post({ action: 'delete', id: c.id }); }}>Delete</Button>
+        {c.passedAt && <p className="text-xs text-muted-foreground self-center">Passed {new Date(c.passedAt).toLocaleDateString()} {c.passedHow === 'numbers' ? '(on the numbers)' : '(marked by hand)'}</p>}
+      </div>
+    </div>}
+  </CardContent></Card>;
+}
+
+function Info({ title, text, list }: { title: string; text?: string; list?: string[] }) {
+  return <div><p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">{title}</p>
+    {list ? (list.length ? <ul className="list-disc pl-5 space-y-1">{list.map((x, i) => <li key={i}>{x}</li>)}</ul> : <p className="text-muted-foreground">Nothing found.</p>) : <p className="whitespace-pre-line">{text || '—'}</p>}
+  </div>;
+}
+
+function ActionBoard({ items, onToggle, onOpen }: { items: (ActionItem & { competitor: Competitor })[]; onToggle: (cid: string, aid: string) => void; onOpen: (c: Competitor) => void }) {
+  if (!items.length) return <p className="text-muted-foreground">No open actions. Analyze a competitor to get a plan.</p>;
+  return <Card className="bg-white"><CardContent className="p-4 space-y-3">
+    <p className="text-sm text-muted-foreground">Every open action across competitors you haven’t passed, highest impact first. Tick one off when it’s done.</p>
+    {items.map(a => <div key={`${a.competitor.id}:${a.id}`} className="flex items-start gap-3 text-sm border-b last:border-0 pb-2">
+      <input type="checkbox" className="mt-1" aria-label={a.text} onChange={() => onToggle(a.competitor.id, a.id)} />
+      <div className="flex-1"><p>{a.text}</p><p className="text-xs text-muted-foreground">{a.impact} impact · {a.area} · <button className="underline" onClick={() => onOpen(a.competitor)}>{a.competitor.name}</button></p></div>
+    </div>)}
+  </CardContent></Card>;
+}
+
+function OurNumbers({ us, busy, onSave }: { us: Data['us']; busy: boolean; onSave: (m: Record<string, string>) => void }) {
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(METRICS.map(m => [m.key, us.manual[m.key]?.toString() ?? ''])));
+  return <Card className="bg-white"><CardContent className="p-6 space-y-4">
+    <p className="text-sm text-muted-foreground">Revenue, customers and repeat rate fill in automatically from the last 12 months of paid bookings. Enter the rest (Google reviews, social followers). A number you enter replaces the automatic one.</p>
+    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {METRICS.map(m => <label key={m.key} className="text-sm space-y-1"><span className="font-medium">{m.label}</span>
+        <Input inputMode="decimal" placeholder={typeof us.auto[m.key] === 'number' ? `Auto: ${fmt(m.key, us.auto[m.key])}` : m.hint} value={values[m.key] ?? ''} onChange={e => setValues({ ...values, [m.key]: e.target.value })} />
+        <span className="text-xs text-muted-foreground block">Using: {fmt(m.key, us.metrics[m.key])}</span></label>)}
+    </div>
+    <Button disabled={busy} onClick={() => onSave(values)}>Save our numbers</Button>
+  </CardContent></Card>;
+}
+
+export default function AdminCompetitorsPage() { return <EmployeeLayout isAdmin><Competitors /></EmployeeLayout>; }
