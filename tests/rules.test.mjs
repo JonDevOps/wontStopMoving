@@ -244,7 +244,7 @@ test('job chat: participants post only as themselves', async () => {
 
 test('agent, competitor and admin-invite records are server-only, and nobody can sign themselves up as an agent', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
-    await setDoc(doc(ctx.firestore(), 'agents/ag1'), { status: 'approved', companyName: 'X' });
+    await setDoc(doc(ctx.firestore(), 'agents/ag1'), { status: 'pending', companyName: 'X' });
     await setDoc(doc(ctx.firestore(), 'competitors/c1'), { name: 'Rival' });
     await setDoc(doc(ctx.firestore(), 'adminInvites/x@example.com'), { status: 'pending' });
   });

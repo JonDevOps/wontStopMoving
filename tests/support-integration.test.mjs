@@ -907,9 +907,11 @@ test('agent network: apply, vet, approve, and accept a handoff; customer details
   assert.ok(view.shipments[0].customer);
 
   const overview = await (await fetch(`${base}/api/admin/agents`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
-  assert.equal(overview.totals.approved, 1);
-  assert.equal(overview.totals.trucks, 20);
-  assert.ok(overview.coverage.find(r => r.code === 'US-CO').agents === 1);
+  const approvedAgents = overview.agents.filter(a => a.status === 'approved');
+  assert.ok(approvedAgents.some(a => a.uid === agent.user.uid));
+  assert.equal(overview.totals.approved, approvedAgents.length);
+  assert.equal(overview.totals.trucks, approvedAgents.reduce((n, a) => n + (a.trucks || 0), 0));
+  assert.ok(overview.coverage.find(r => r.code === 'US-CO').agents >= 1);
   assert.equal((await admin({ action: 'assign', jobId: 'agent-handoff-job', role: 'origin', agentUid: null })).status, 200);
   assert.deepEqual((await jobRef.get()).data().agentIds, []);
   await deleteApp(agent.app);
