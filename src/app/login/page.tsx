@@ -131,7 +131,9 @@ function LoginContent() {
   const firestore = useFirestore();
 
   const roleParam = searchParams.get("role") as PortalRole | null;
-  const redirectParam = searchParams.get("redirect");
+  // Only same-site paths: never send someone to another site after sign-in.
+  const rawRedirect = searchParams.get("redirect");
+  const redirectParam = rawRedirect && /^\/(?![\/\\])/.test(rawRedirect) ? rawRedirect : null;
 
   const [selectedRole, setSelectedRole] = useState<PortalRole | null>(
     roleParam && roleParam in PORTAL_CONFIG ? roleParam : null

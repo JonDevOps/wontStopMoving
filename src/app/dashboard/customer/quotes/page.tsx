@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { calculateMoveTotal } from "@/lib/pricing";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,15 @@ export default function MyQuotesPage() {
     }
   };
   const firestore = useFirestore();
+  // Custom quotes we emailed this customer join their account automatically
+  // once their email is verified.
+  const [needsVerification, setNeedsVerification] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    apiFetch<{ claimed: number; verified: boolean }>(auth, "/api/custom-quotes/claim", {})
+      .then(r => setNeedsVerification(!r.verified))
+      .catch(() => {});
+  }, [user, auth]);
   const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
 
   // Query for all quotes requested by the current user
@@ -71,6 +80,12 @@ export default function MyQuotesPage() {
             </Button>
           </div>
         </header>
+
+        {needsVerification && (
+          <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Verify your email address to see quotes our team has sent you. Use the link in your verification email, then reload this page.
+          </div>
+        )}
 
         <div className="grid gap-6">
           {isLoading ? (
