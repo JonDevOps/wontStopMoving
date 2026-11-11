@@ -4,12 +4,13 @@ import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useDoc, useMemoFirebase, useFirestore, useCollection } from "@/firebase";
-import { doc, updateDoc, collection, query, where } from "firebase/firestore";
+import { useDoc, useMemoFirebase, useFirestore } from "@/firebase";
+import { doc, updateDoc } from "firebase/firestore";
 import { DispatchSuggestions } from "@/components/admin/dispatch-suggestions";
 import { MoveDetailsEditor } from "@/components/jobs/move-details-editor";
+import { JobTeamPanel } from "@/components/jobs/job-team-panel";
 import { formatMoveDate } from "@/lib/move-details";
-import { ArrowLeft, User, Truck, MapPin, Calendar, Check, DollarSign, Key, ShieldAlert } from "lucide-react";
+import { ArrowLeft, MapPin, DollarSign, Key, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -34,57 +35,6 @@ export default function AdminJobDetailsPage() {
     return doc(firestore, "jobSecrets", id);
   }, [firestore, id]);
   const { data: jobSecret } = useDoc(secretRef);
-
-  const providersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "providers"));
-  }, [firestore]);
-
-  const employeesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "users"), where("role", "==", "employee"));
-  }, [firestore]);
-
-  const { data: providers, isLoading: providersLoading } = useCollection(providersQuery);
-  const { data: employees, isLoading: employeesLoading } = useCollection(employeesQuery);
-
-  const handleAssignProvider = async (providerId: string) => {
-    if (!jobRef || !job) return;
-    setUpdating(true);
-    try {
-      const currentProviders = job.providerIds || [];
-      const newProviders = currentProviders.includes(providerId)
-        ? currentProviders.filter((id: string) => id !== providerId)
-        : [...currentProviders, providerId];
-
-      await updateDoc(jobRef, { providerIds: newProviders });
-      toast({ title: "Provider Updated", description: "Provider assignment updated for this job." });
-    } catch (error) {
-      console.error("Error assigning provider:", error);
-      toast({ variant: "destructive", title: "Assignment Failed", description: "Failed to assign provider. Check permissions." });
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const handleAssignEmployee = async (employeeId: string) => {
-    if (!jobRef || !job) return;
-    setUpdating(true);
-    try {
-      const currentEmployees = job.employeeIds || [];
-      const newEmployees = currentEmployees.includes(employeeId)
-        ? currentEmployees.filter((id: string) => id !== employeeId)
-        : [...currentEmployees, employeeId];
-
-      await updateDoc(jobRef, { employeeIds: newEmployees });
-      toast({ title: "Crew Member Updated", description: "Employee crew assignment updated for this job." });
-    } catch (error) {
-      console.error("Error assigning employee:", error);
-      toast({ variant: "destructive", title: "Assignment Failed", description: "Failed to assign employee." });
-    } finally {
-      setUpdating(false);
-    }
-  };
 
   const forceCompleteJob = async () => {
     if (!jobRef || !job) return;
@@ -112,7 +62,7 @@ export default function AdminJobDetailsPage() {
     }
   };
 
-  if (jobLoading || providersLoading || employeesLoading) {
+  if (jobLoading) {
     return (
       <EmployeeLayout isAdmin>
         <div className="p-20 text-center animate-pulse font-black text-muted-foreground uppercase tracking-widest text-xs">
@@ -235,100 +185,7 @@ export default function AdminJobDetailsPage() {
 
         <DispatchSuggestions jobId={id} />
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Truck className="h-5 w-5 text-accent" /> Marketplace Providers</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                {job.preferredProviderId 
-                  ? `Customer requested provider ID: ${job.preferredProviderId}` 
-                  : "Assign an independent service provider to fulfill this move."}
-              </p>
-              <div className="space-y-3">
-                {providers && providers.length > 0 ? (
-                  providers.map((p) => {
-                    const isAssigned = job.providerIds?.includes(p.id);
-                    const isPreferred = job.preferredProviderId === p.id;
-                    const displayName = p.businessName || p.name || "Provider";
-                    return (
-                      <div key={p.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${isAssigned ? 'bg-green-500' : 'bg-slate-800'}`}>
-                            {displayName[0]?.toUpperCase() || 'P'}
-                          </div>
-                          <div>
-                            <p className="font-bold text-sm text-primary flex items-center gap-2">
-                              {displayName}
-                              {isPreferred && <Badge variant="outline" className="text-[10px] bg-yellow-50 text-yellow-700 border-yellow-200">Preferred</Badge>}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              ${p.hourlyRate || 50}/hr • {p.status || "pending"}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant={isAssigned ? "outline" : "default"}
-                          size="sm"
-                          disabled={updating}
-                          onClick={() => handleAssignProvider(p.id)}
-                          className={isAssigned ? "border-green-500 text-green-600 hover:bg-green-50" : ""}
-                        >
-                          {isAssigned ? <><Check className="w-4 h-4 mr-1" /> Assigned</> : "Assign"}
-                        </Button>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">No providers available.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><User className="h-5 w-5 text-accent" /> Internal W-2 Crew</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Assign internal Wont Stop Moving employees to this job dispatch.
-              </p>
-              <div className="space-y-3">
-                {employees && employees.length > 0 ? (
-                  employees.map((emp) => {
-                    const isAssigned = job.employeeIds?.includes(emp.id);
-                    return (
-                      <div key={emp.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${isAssigned ? 'bg-green-500' : 'bg-primary'}`}>
-                            {emp.name?.[0]?.toUpperCase() || 'E'}
-                          </div>
-                          <div>
-                            <p className="font-bold text-sm text-primary">{emp.name || "Employee"}</p>
-                            <p className="text-xs text-muted-foreground">{emp.email} • {emp.state || "US"}</p>
-                          </div>
-                        </div>
-                        <Button
-                          variant={isAssigned ? "outline" : "default"}
-                          size="sm"
-                          disabled={updating}
-                          onClick={() => handleAssignEmployee(emp.id)}
-                          className={isAssigned ? "border-green-500 text-green-600 hover:bg-green-50" : ""}
-                        >
-                          {isAssigned ? <><Check className="w-4 h-4 mr-1" /> Dispatched</> : "Dispatch"}
-                        </Button>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">No employees available.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <JobTeamPanel jobId={id} admin refreshKey={JSON.stringify([job.providerIds, job.employeeIds, job.agentAssignments])} />
       </div>
     </EmployeeLayout>
   );

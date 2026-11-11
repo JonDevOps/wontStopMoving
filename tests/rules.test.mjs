@@ -266,3 +266,13 @@ test('the move change log is server-only', async () => {
   await assertFails(setDoc(doc(as('crew1'), 'jobs/logjob/changes/c2'), { by: 'me' }));
   await assertFails(updateDoc(doc(as('crew1'), 'jobs/logjob'), { moveDate: '2027-01-01' })); // Edits go through the server.
 });
+
+test('the job activity log is server-only, even for the team', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'jobs/actjob'), { customerId: 'cust', providerIds: ['prov1'], status: 'confirmed' });
+    await setDoc(doc(ctx.firestore(), 'jobs/actjob/activity/a1'), { type: 'assigned' });
+  });
+  await assertFails(getDoc(doc(as('prov1'), 'jobs/actjob/activity/a1')));
+  await assertFails(setDoc(doc(as('prov1'), 'jobs/actjob/activity/a2'), { type: 'update', by: 'forged' }));
+  await assertFails(updateDoc(doc(as('prov1'), 'jobs/actjob'), { providerIds: ['prov1', 'friend'] }));
+});

@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/server/firebase-admin';
 import { errorResponse, HttpError, isId, readJson, requireRole } from '@/lib/server/auth';
 import { enqueueEmail } from '@/lib/server/notifications';
+import { actorFor, setAssignment } from '@/lib/server/assignments';
 import { AGENT_ROLES, networkCoverage, PROSPECT_STAGES, VETTING_CHECKS, type AgentRole, type VettingKey, REGION_BY_CODE } from '@/lib/agents';
 
 /** Agent network admin: vetting, coverage, recruiting pipeline and shipment handoffs. */
@@ -94,33 +95,13 @@ export async function POST(req: Request) {
         if (!isId(body.jobId)) throw new HttpError(400, 'Choose a job.');
         const role = body.role as AgentRole;
         if (!(role in AGENT_ROLES)) throw new HttpError(400, 'Choose the agent’s role.');
-        const agentUid = body.agentUid === null || body.agentUid === '' ? null : body.agentUid;
-        let agent: FirebaseFirestore.DocumentData | undefined;
-        if (agentUid !== null) {
-          if (!isId(agentUid)) throw new HttpError(400, 'Choose an agent.');
-          agent = (await db.doc(`agents/${agentUid}`).get()).data();
-          if (agent?.status !== 'approved') throw new HttpError(409, 'Only approved agents can be assigned.');
-        }
-        const jobRef = db.doc(`jobs/${body.jobId}`);
-        await db.runTransaction(async tx => {
-          const j = (await tx.get(jobRef)).data();
-          if (!j) throw new HttpError(404, 'Job not found.');
-          const assignments = { ...(j.agentAssignments || {}) } as Record<string, string>;
-          if (agentUid) assignments[role] = agentUid; else delete assignments[role];
-          const responses = { ...(j.agentResponses || {}) } as Record<string, string>;
-          const ids = [...new Set(Object.values(assignments))];
-          for (const id of Object.keys(responses)) if (!ids.includes(id)) delete responses[id];
-          if (agentUid && !responses[agentUid]) responses[agentUid] = 'pending';
-          tx.update(jobRef, { agentAssignments: assignments, agentIds: ids, agentResponses: responses });
-        });
-        if (agent?.email) {
-          try {
-            await enqueueEmail(`agent-shipment:${body.jobId}:${role}:${agentUid}`, {
-              category: 'agent', referenceId: String(body.jobId), to: agent.email,
-              subject: `New shipment for ${agent.companyName}: ${AGENT_ROLES[role]}`,
-              text: `Hi ${agent.contactName || 'there'},\n\nWont Stop Moving assigned ${agent.companyName} a shipment as the ${AGENT_ROLES[role].toLowerCase()}. Please accept or decline it in your agent dashboard:\nhttps://wontstopmoving.com/dashboard/agent\n\nWont Stop Moving`,
-            });
-          } catch (error) { console.error('Agent shipment email failed', body.jobId, error); }
+        const actor = await actorFor(user.uid, 'admin', user.email);
+        if (body.agentUid === null || body.agentUid === '') {
+          const current = (await db.doc(`jobs/${body.jobId}`).get()).data()?.agentAssignments?.[role];
+          if (current) await setAssignment({ jobId: body.jobId, kind: 'agent', assigneeId: current, agentRole: role, remove: true, actor });
+        } else {
+          if (!isId(body.agentUid)) throw new HttpError(400, 'Choose an agent.');
+          await setAssignment({ jobId: body.jobId, kind: 'agent', assigneeId: body.agentUid, agentRole: role, actor });
         }
         return NextResponse.json({ ok: true });
       }

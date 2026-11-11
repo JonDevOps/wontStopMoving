@@ -1,6 +1,7 @@
 "use client";
 
 import { ProviderLayout } from "@/components/layout/provider-layout";
+import { JobTeamPanel } from "@/components/jobs/job-team-panel";
 import { useAuth, useFirestore, useUser } from "@/firebase";
 import { apiFetch } from "@/lib/api-client";
 import { doc, getDoc } from "firebase/firestore";
@@ -202,6 +203,7 @@ export default function ProviderJobDetailsPage() {
           </div>
 
           <div className="space-y-6">
+            <JobTeamPanel jobId={job.id} />
             {/* The user.displayName will be the provider's display name or email prefix */}
             <ChatInterface 
               jobId={job.id} 

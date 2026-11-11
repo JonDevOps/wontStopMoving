@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/server/firebase-admin';
 import { errorResponse, HttpError, isId, readJson, requireRole } from '@/lib/server/auth';
-import { queueJobEmails } from '@/lib/server/notifications';
+import { actorFor, setAssignment } from '@/lib/server/assignments';
 import { rankProviders, type DispatchProvider } from '@/lib/dispatch';
 
 /** Suggested providers for a job, and assigning one (which emails them the job). */
@@ -42,18 +41,8 @@ export async function POST(req: Request) {
     const { user } = await requireRole(req, ['admin']);
     const { jobId, providerId } = await readJson(req);
     if (!isId(jobId) || !isId(providerId)) throw new HttpError(400, 'Choose a job and a provider.');
-    const db = adminDb();
-    await db.runTransaction(async tx => {
-      const jobRef = db.doc(`jobs/${jobId}`);
-      const [job, provider] = await Promise.all([tx.get(jobRef), tx.get(db.doc(`providers/${providerId}`))]);
-      if (!job.exists) throw new HttpError(404, 'Job not found.');
-      if (provider.data()?.status !== 'approved') throw new HttpError(409, 'Only approved providers can be assigned.');
-      const j = job.data()!;
-      if (j.status === 'completed' || j.status === 'cancelled') throw new HttpError(409, `This job is ${j.status}.`);
-      tx.update(jobRef, { providerIds: FieldValue.arrayUnion(providerId), dispatchedBy: user.uid, dispatchedAt: FieldValue.serverTimestamp() });
-    });
-    // Paid jobs: email the newly assigned provider (keyed, so earlier recipients aren't emailed twice).
-    try { await queueJobEmails(jobId); } catch (error) { console.error('Dispatch email failed', jobId, error); }
+    // Logged in the move's activity history; emails the provider.
+    await setAssignment({ jobId, kind: 'provider', assigneeId: providerId, actor: await actorFor(user.uid, 'admin', user.email), note: 'Suggested match' });
     return NextResponse.json({ assigned: true });
   } catch (error) { return errorResponse(error); }
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AgentLayout } from '@/components/layout/agent-layout';
+import { JobTeamPanel } from '@/components/jobs/job-team-panel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +64,7 @@ function Shipments({ shipments, approved, onRespond }: { shipments: Shipment[]; 
         {s.customer && <p className="text-sm">Customer: {s.customer.name} · <a className="underline" href={`tel:${s.customer.phone}`}>{s.customer.phone}</a> · {s.customer.email}</p>}
         {s.response === 'pending' && <div className="flex gap-2 pt-1"><Button size="sm" onClick={() => onRespond(s.jobId, 'accepted')}>Accept</Button><Button size="sm" variant="outline" onClick={() => onRespond(s.jobId, 'declined')}>Decline</Button></div>}
         {s.response === 'accepted' && !s.customer && <p className="text-xs text-muted-foreground">Customer contact details appear here for accepted shipments.</p>}
+        {s.response === 'accepted' && <details className="pt-2"><summary className="cursor-pointer text-sm font-bold text-primary">Team, updates and history</summary><div className="pt-3"><JobTeamPanel jobId={s.jobId} /></div></details>}
       </CardContent></Card>)}
   </section>;
 }
