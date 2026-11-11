@@ -61,8 +61,11 @@ export type AuthorityRow = { mc: string; hhg: boolean; active: boolean; broker: 
 
 /** One FMCSA census row (+ authority) → a registry entry. */
 export function toMover(r: CensusRow, auth: AuthorityRow | undefined, zipLatLng: (zip: string) => [number, number] | null): Mover {
-  const zip = String(r.phy_zip || '').slice(0, 5);
-  const ll = zipLatLng(zip);
+  // U.S. ZIP (first 5 digits) or Canadian postal code ("M5V 3L9", located by its first 3 characters).
+  const rawZip = String(r.phy_zip || '').trim().toUpperCase();
+  const canadian = /^[A-Z]\d[A-Z]/.test(rawZip);
+  const zip = canadian ? rawZip.replace(/\s+/g, '').replace(/^(.{3})(.+)$/, '$1 $2') : rawZip.slice(0, 5);
+  const ll = zipLatLng(canadian ? rawZip.slice(0, 3) : zip);
   const cargoTypes = Object.keys(r).filter(k => k.startsWith('crgo_') && k !== 'crgo_cargoothr_desc' && r[k] === 'X').length;
   const classdef = String(r.classdef || '').toUpperCase();
   const email = String(r.email_address || '').trim().toLowerCase();
@@ -181,4 +184,11 @@ export function moversCsv(rows: Mover[], now = Date.now()): string {
   return [cols.map(c => esc(c[0])).join(','), ...rows.map(m => cols.map(c => esc(c[1](m))).join(','))].join('\n');
 }
 
+/** Canadian provinces and territories (cross-border movers registered with FMCSA). */
+export const CA_PROVINCES = ['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'];
+export const isProvince = (code: string) => CA_PROVINCES.includes(code);
+
 export const US_STATES = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'PR', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'];
+
+/** Every area the registry covers: U.S. states, DC, Puerto Rico and Canadian provinces. */
+export const REGISTRY_AREAS = [...US_STATES, ...CA_PROVINCES];

@@ -4,7 +4,7 @@ import { COUNTY_POP, ZIPS, ZIP_COUNTY } from './geo';
 import { loadState } from './registry-store';
 import { stateSummaries } from './registry-query';
 import { acquisitionScore, countyKey, expansionScore, isRecruitCandidate, milesBetween, moversPer10k, STATE_FIPS, zipOf, type CountyRow } from '@/lib/market';
-import { REGION_PRESETS, sortMovers, US_STATES, yearsInBusiness, type Mover } from '@/lib/registry';
+import { REGION_PRESETS, sortMovers, REGISTRY_AREAS, US_STATES, yearsInBusiness, type Mover } from '@/lib/registry';
 
 /** Areas the radar watches and where alerts go (marketSettings/radar). */
 export type RadarSettings = { regions: string[]; states: string[]; email: string };
@@ -12,7 +12,7 @@ export async function radarSettings(): Promise<RadarSettings> {
   const s = (await adminDb().doc('marketSettings/radar').get()).data() || {};
   return {
     regions: Array.isArray(s.regions) ? s.regions.filter((r: string) => REGION_PRESETS[r]) : ['bay-area', 'puget-sound'],
-    states: Array.isArray(s.states) ? s.states.filter((x: string) => US_STATES.includes(x)) : [],
+    states: Array.isArray(s.states) ? s.states.filter((x: string) => REGISTRY_AREAS.includes(x)) : [],
     email: typeof s.email === 'string' && s.email ? s.email : process.env.ADMIN_NOTIFICATION_EMAIL || 'jonathan@w3develops.org',
   };
 }

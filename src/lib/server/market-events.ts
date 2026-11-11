@@ -4,7 +4,7 @@ import { adminDb } from './firebase-admin';
 import { censusByDots, insuranceCancellationsFor, revocationsFor } from './fmcsa';
 import { zipLookup } from './geo';
 import { closureReason, diffMovers, type ChangeType } from '@/lib/market';
-import { toMover, yearsInBusiness, type CensusRow, type Mover } from '@/lib/registry';
+import { isProvince, toMover, yearsInBusiness, type CensusRow, type Mover } from '@/lib/registry';
 
 /**
  * Market events in registryEvents/{id}: a moving company appeared, closed,
@@ -70,7 +70,7 @@ export async function recordChanges(state: string, prev: Mover[], next: Mover[])
  */
 export async function backfillClosures(state: string) {
   const since = new Date(Date.now() - 540 * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
-  const qs = new URLSearchParams({ $where: `phy_state='${state}' AND crgo_household='X' AND status_code!='A' AND mcs150_date>='${since}'`, $limit: '3000' });
+  const qs = new URLSearchParams({ $where: `phy_state='${state}'${isProvince(state) ? " AND phy_country='CA'" : ''} AND crgo_household='X' AND status_code!='A' AND mcs150_date>='${since}'`, $limit: '3000' });
   const res = await politeFetch(`https://data.transportation.gov/resource/az4n-8mr2.json?${qs}`, 30_000);
   if (!res.ok) throw new Error(`DOT open data answered ${res.status}`);
   const movers = ((await res.json()) as CensusRow[]).map(r => toMover(r, undefined, zipLookup)).filter(m => m.moverScore >= 40); // For-hire and mostly household goods (no authority data once closed).

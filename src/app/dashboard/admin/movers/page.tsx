@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { apiFetch } from '@/lib/api-client';
-import { REGION_PRESETS, US_STATES } from '@/lib/registry';
+import { REGION_PRESETS, REGISTRY_AREAS } from '@/lib/registry';
 import type { Bounds, MapPoint, StateStat } from '@/components/registry/mover-map';
 
 const MoverMap = dynamic(() => import('@/components/registry/mover-map').then(m => m.MoverMap), { ssr: false, loading: () => <div className="h-[420px] md:h-[520px] rounded-2xl bg-slate-100 animate-pulse" /> });
@@ -54,7 +54,7 @@ function Registry() {
     // Map pins always cover the visible map, whatever area the list uses.
     if (bounds) { p.set('vbSouth', bounds.south.toFixed(3)); p.set('vbWest', bounds.west.toFixed(3)); p.set('vbNorth', bounds.north.toFixed(3)); p.set('vbEast', bounds.east.toFixed(3)); }
     else if (REGION_PRESETS[area]) p.set('region', area);
-    else if (US_STATES.includes(area)) p.set('states', area);
+    else if (REGISTRY_AREAS.includes(area)) p.set('states', area);
     for (const [k, v] of Object.entries({ q: f.q, city: f.city, minUnits: f.minUnits, minDrivers: f.minDrivers, minYears: f.minYears, newDays: f.newDays, interstate: f.interstate, kind: f.kind, sos: f.sos, tracked: f.tracked, site: f.site })) if (v) p.set(k, v);
     if (f.hhg) p.set('hhg', '1');
     if (!f.likely) p.set('likely', '0');
@@ -116,8 +116,8 @@ function Registry() {
       <Button size="sm" variant={area === 'national' ? 'default' : 'outline'} onClick={() => chooseArea('national')}>Whole country</Button>
       {Object.entries(REGION_PRESETS).map(([k, r]) => <Button key={k} size="sm" variant={area === k ? 'default' : 'outline'} onClick={() => chooseArea(k)}>{r.label}</Button>)}
       <Button size="sm" variant={area === 'map' ? 'default' : 'outline'} onClick={() => { setArea('map'); setPage(1); }}>Whatever the map shows</Button>
-      <select aria-label="State" className="h-9 border rounded-md px-2 bg-white text-sm" value={US_STATES.includes(area) ? area : ''} onChange={e => e.target.value && chooseArea(e.target.value)}>
-        <option value="">A state…</option>{US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+      <select aria-label="State" className="h-9 border rounded-md px-2 bg-white text-sm" value={REGISTRY_AREAS.includes(area) ? area : ''} onChange={e => e.target.value && chooseArea(e.target.value)}>
+        <option value="">A state…</option>{REGISTRY_AREAS.map(s => <option key={s} value={s}>{s}</option>)}
       </select>
     </div>
 

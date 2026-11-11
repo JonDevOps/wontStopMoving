@@ -7,7 +7,7 @@ import { zipLookup } from './geo';
 import { backfillClosures, recordChanges } from './market-events';
 import { monitorNetwork } from './network-monitor';
 import { sendDailyRadar } from './radar';
-import { sizeScore, sortMovers, toMover, US_STATES, type AuthorityRow, type CensusRow, type Mover } from '@/lib/registry';
+import { isProvince, REGISTRY_AREAS, sizeScore, sortMovers, toMover, type AuthorityRow, type CensusRow, type Mover } from '@/lib/registry';
 
 /**
  * Pulls the free FMCSA data (U.S. DOT open data, updated daily) into the
@@ -35,7 +35,7 @@ async function socrata<T>(url: string, params: Record<string, string>): Promise<
 
 export async function syncState(state: string): Promise<{ state: string; count: number; likely: number; changes: number }> {
   const [census, authority] = await Promise.all([
-    socrata<CensusRow>(CENSUS, { $where: `phy_state='${state}' AND crgo_household='X' AND status_code='A'`, $order: 'dot_number' }),
+    socrata<CensusRow>(CENSUS, { $where: `phy_state='${state}'${isProvince(state) ? " AND phy_country='CA'" : ''} AND crgo_household='X' AND status_code='A'`, $order: 'dot_number' }),
     socrata<Record<string, string>>(AUTHORITY, { $select: 'dot_number,docket_number,hhg_chk,common_stat,broker_stat', $where: `bus_state_code='${state}' AND (hhg_chk='Y' OR common_stat='A' OR broker_stat='A')`, $order: 'dot_number' }),
   ]);
   const auth = new Map<string, AuthorityRow>();
@@ -126,7 +126,7 @@ export async function runRegistrySync(budgetMs = 240_000, maxStates = 1) {
   const db = adminDb();
   const snap = await db.collection('registryStates').select('updatedAt').get();
   const age = new Map(snap.docs.map(d => [d.id, (d.data().updatedAt as Timestamp | undefined)?.toMillis() || 0]));
-  const due = US_STATES.filter(s => Date.now() - (age.get(s) || 0) > STALE_MS)
+  const due = REGISTRY_AREAS.filter(s => Date.now() - (age.get(s) || 0) > STALE_MS)
     .sort((a, b) => (PRIORITY.includes(b) ? 1 : 0) - (PRIORITY.includes(a) ? 1 : 0) || (age.get(a) || 0) - (age.get(b) || 0));
   const done: { state: string; count: number; likely: number; changes: number }[] = [], failed: { state: string; error: string }[] = [];
   for (const state of due) {

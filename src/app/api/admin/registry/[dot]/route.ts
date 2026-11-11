@@ -5,7 +5,7 @@ import { classifyAndSave, enrichmentFor, sosFor } from '@/lib/server/registry-en
 import { trackedByDot, trackMovers } from '@/lib/server/registry-track';
 import { jevConfigured, KINDS } from '@/lib/server/jev';
 import { sosSearchUrl } from '@/lib/server/sos';
-import { US_STATES, yearsInBusiness } from '@/lib/registry';
+import { REGISTRY_AREAS, yearsInBusiness } from '@/lib/registry';
 
 /**
  * One registry company: everything on file, live FMCSA insurance filings,
@@ -19,7 +19,7 @@ async function target(req: Request, params: Promise<{ dot: string }>) {
   const { user } = await requireRole(req, ['admin']);
   const { dot } = await params;
   const state = (new URL(req.url).searchParams.get('state') || '').toUpperCase();
-  if (!/^\d{1,9}$/.test(dot) || !US_STATES.includes(state)) throw new HttpError(400, 'Choose a company.');
+  if (!/^\d{1,9}$/.test(dot) || !REGISTRY_AREAS.includes(state)) throw new HttpError(400, 'Choose a company.');
   const m = await findMover(dot, state);
   if (!m) throw new HttpError(404, 'Company not found in the registry.');
   return { user, m };

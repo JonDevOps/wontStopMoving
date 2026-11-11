@@ -97,7 +97,7 @@ export async function POST(req: Request) {
             if (!m || existing.has(dot)) continue;
             const years = yearsInBusiness(m);
             batch.set(db.collection('agentProspects').doc(), {
-              company: (m.dba || m.name).slice(0, 160), city: m.city, region: REGION_BY_CODE.has(`US-${state}`) ? `US-${state}` : '', contact: m.officer, phone: m.phone, email: m.email, website: m.site,
+              company: (m.dba || m.name).slice(0, 160), city: m.city, region: REGION_BY_CODE.has(`US-${state}`) ? `US-${state}` : REGION_BY_CODE.has(`CA-${state}`) ? `CA-${state}` : '', contact: m.officer, phone: m.phone, email: m.email, website: m.site,
               notes: `From the mover registry: USDOT ${m.dot}${m.mc ? `, ${m.mc}` : ''}; ${m.units} trucks, ${m.drivers} drivers, ${years} years${m.hhgAuth ? ', household-goods authority' : ''}.${typeof body.note === 'string' && body.note ? ` ${body.note.slice(0, 300)}` : ''}`,
               dot, source: typeof body.source === 'string' ? body.source.slice(0, 40) : 'registry', stage: 'prospect', nextFollowUp: '', createdBy: user.uid, createdAt: now, updatedAt: now,
             });

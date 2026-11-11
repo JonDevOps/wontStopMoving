@@ -33,7 +33,7 @@ export function MoverMap({ points, stateStats, focus, onBounds, onSelect, onStat
       if (cancelled || !el.current || map.current) return;
       L.current = leaflet;
       const m = leaflet.map(el.current, { center: [37.6, -122.1], zoom: 9, preferCanvas: true, worldCopyJump: true });
-      leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(m);
+      leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Canadian postal areas &copy; <a href="https://www.geonames.org/">GeoNames</a> (CC BY 4.0)' }).addTo(m);
       const report = () => { const b = m.getBounds(); cb.current.onBounds({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast(), zoom: m.getZoom() }); };
       m.on('moveend', report);
       map.current = m;

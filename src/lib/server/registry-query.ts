@@ -1,6 +1,6 @@
 import { adminDb } from './firebase-admin';
 import { loadNational, loadStates } from './registry-store';
-import { filterMovers, ourRank, REGION_PRESETS, sizeScore, sortMovers, US_STATES, yearsInBusiness, type Mover, type MoverFilters, type OurFleet, type SortKey } from '@/lib/registry';
+import { filterMovers, ourRank, REGION_PRESETS, sizeScore, sortMovers, REGISTRY_AREAS, yearsInBusiness, type Mover, type MoverFilters, type OurFleet, type SortKey } from '@/lib/registry';
 
 /**
  * Answers registry searches. Searches inside a region, a few states or a map
@@ -26,7 +26,7 @@ export async function searchRegistry(q: RegistryQuery, us: OurFleet | null, opts
   const summaries = await stateSummaries();
   let states: string[] = [];
   if (q.region && REGION_PRESETS[q.region]) states = [REGION_PRESETS[q.region].state];
-  else if (q.states?.length) states = q.states.filter(s => US_STATES.includes(s));
+  else if (q.states?.length) states = q.states.filter(s => REGISTRY_AREAS.includes(s));
   else if (q.bbox) states = summaries.filter(s => s.bbox && overlaps(s.bbox, q.bbox!)).map(s => s.state);
 
   const national = !states.length || states.length > 6;
@@ -35,7 +35,7 @@ export async function searchRegistry(q: RegistryQuery, us: OurFleet | null, opts
   if (national) {
     // Nationwide: each state's biggest likely movers.
     // Every likely mover in the country (light files), falling back to each state's top 300 for states not refreshed yet.
-    const nat = await loadNational(US_STATES);
+    const nat = await loadNational(REGISTRY_AREAS);
     const have = new Set(nat.states);
     const fallback = summaries.filter(s => !have.has(s.state)).flatMap(s => s.top.map(t => ({ ...t, likelyMover: true }) as Mover));
     const pool = [...nat.rows, ...fallback].filter(m => !states.length || states.includes(m.state));

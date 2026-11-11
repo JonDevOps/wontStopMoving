@@ -228,18 +228,18 @@ function RecruitFinder({ gaps, post, busy }: { gaps: string[]; post: (b: Record<
   const [err, setErr] = useState('');
   const find = useCallback(async () => {
     setErr(''); setList(null); setPicked(new Set());
-    try { setList((await apiFetch<{ candidates: Candidate[] }>(auth, `/api/admin/agents/recruits?state=${state.replace('US-', '')}`)).candidates); }
+    try { setList((await apiFetch<{ candidates: Candidate[] }>(auth, `/api/admin/agents/recruits?state=${state.replace(/^(US|CA)-/, '')}`)).candidates); }
     catch (e) { setErr(e instanceof Error ? e.message : 'Could not load candidates.'); }
   }, [auth, state]);
   const add = async (dots: string[]) => {
-    if (await post({ action: 'prospect-add-many', movers: dots.map(dot => ({ dot, state: state.replace('US-', '') })), source: 'registry-recruit' }, `Added ${dots.length} to the pipeline.`)) setList(l => (l || []).filter(c => !dots.includes(c.dot)));
+    if (await post({ action: 'prospect-add-many', movers: dots.map(dot => ({ dot, state: state.replace(/^(US|CA)-/, '') })), source: 'registry-recruit' }, `Added ${dots.length} to the pipeline.`)) setList(l => (l || []).filter(c => !dots.includes(c.dot)));
   };
   return <Card className="bg-white"><CardContent className="p-4 space-y-3">
     <p className="font-bold">Find movers to recruit</p>
     <p className="text-sm text-muted-foreground">From the federal registry: established local movers with interstate household-goods authority, 5–30 trucks and 10+ years in business, not already agents or prospects. {gaps.length ? `${gaps.length} states have no agent yet (marked ★).` : ''}</p>
     <div className="flex flex-wrap gap-2">
       <select aria-label="State" className="h-10 border rounded-md px-2 bg-white text-sm" value={state} onChange={e => setState(e.target.value)}>
-        {REGIONS.filter(r => r.country === 'US').map(r => <option key={r.code} value={r.code}>{gaps.includes(r.code) ? '★ ' : ''}{r.name}</option>)}
+        {REGIONS.filter(r => r.country === 'US' || r.country === 'CA').map(r => <option key={r.code} value={r.code}>{gaps.includes(r.code) ? '★ ' : ''}{r.name}{r.country === 'CA' ? ' (Canada)' : ''}</option>)}
       </select>
       <Button onClick={() => void find()}>Find candidates</Button>
       {list && picked.size > 0 && <Button variant="outline" disabled={busy} onClick={() => void add([...picked])}>Add {picked.size} to pipeline</Button>}
