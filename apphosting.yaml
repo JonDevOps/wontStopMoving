@@ -57,6 +57,11 @@ env:
     value: support@wontstopmoving.com
     availability:
       - RUNTIME
+  # Reward earned by a customer when someone they referred books a move.
+  - variable: REFERRAL_REWARD_USD
+    value: "25"
+    availability:
+      - RUNTIME
   # Where "new paid booking" alerts go.
   - variable: ADMIN_NOTIFICATION_EMAIL
     value: jonathan@w3develops.org

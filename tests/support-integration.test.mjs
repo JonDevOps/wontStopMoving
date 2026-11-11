@@ -15,6 +15,7 @@ import { dueFollowUpStep, followUpEmail } from '../src/lib/quote-followups.ts';
 import { classifyChannel, cleanLeadSource } from '../src/lib/attribution.ts';
 import { rankProviders } from '../src/lib/dispatch.ts';
 import { waitStatus } from '../src/lib/service-requests.ts';
+import { providerApplicationIncomplete } from '../src/lib/provider-application.ts';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -723,4 +724,15 @@ test('Connect endpoint requires its own signature, connected-account scope, and 
   assert.equal((await send({ ...event, account: undefined })).status, 400);
   assert.equal((await send(event)).status, 200);
   assert.equal((await send({ ...event, livemode: true, account: 'acct_wrong' })).status, 200);
+});
+
+test('providers who skipped the application (old Google shortcut) are sent back to finish it', () => {
+  // What the old Google sign-in saved: no phone, no onboarding step.
+  assert.equal(providerApplicationIncomplete({ status: 'pending', isEmployee: false, services: [], onboarding: {} }), true);
+  // A real application.
+  assert.equal(providerApplicationIncomplete({ status: 'pending', phone: '4155550100', onboardingStep: 2 }), false);
+  // Approved providers, employees and admin-made records are never redirected.
+  assert.equal(providerApplicationIncomplete({ status: 'approved' }), false);
+  assert.equal(providerApplicationIncomplete({ status: 'pending', isEmployee: true }), false);
+  assert.equal(providerApplicationIncomplete(null), true);
 });

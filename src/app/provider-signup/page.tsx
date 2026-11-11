@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,8 +20,9 @@ import {
 } from "@/components/ui/dialog";
 import { ArrowLeft, AlertCircle, UserPlus, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useFirestore, useAuth } from "@/firebase";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useFirestore, useAuth, useUser } from "@/firebase";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { providerApplicationIncomplete } from "@/lib/provider-application";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { sendSignupVerification } from '@/lib/email-verification';
 import { useRouter } from "next/navigation";
@@ -43,10 +44,8 @@ const signUpSchema = z.object({
   phone: z.string().min(10, "Invalid phone number"),
   businessName: z.string().trim().min(1, 'Business name is required').max(160),
   businessDescription: z.string().trim().min(1, 'Describe your services').max(3000),
-  password: z.string().regex(
-    passwordRegex,
-    "Password must be 8-30 characters, contain 1 uppercase, 1 lowercase, 1 number and 1 special character"
-  ),
+  // Checked in onSubmit: not needed when applying with a Google account.
+  password: z.string().optional(),
   address: z.string().trim().min(5, "Physical address is required").max(200)
     .refine(val => !/\bp\.?\s*o\.?\s*box\b/i.test(val), "Physical address only (no PO Boxes)"),
   aptSuite: z.string().trim().max(60).optional(),
@@ -68,13 +67,19 @@ export default function ProviderSignUpPage() {
   const { toast } = useToast();
   const auth = useAuth();
   const firestore = useFirestore();
+  const { user: signedInUser, isUserLoading } = useUser();
+  // Google mode: the visitor is already signed in (Google) with no finished
+  // application, so the form completes that account instead of making one.
+  const [googleMode, setGoogleMode] = useState(false);
+  const [hasProfile, setHasProfile] = useState(false);
+  const submittingRef = useRef(false);
   
   const [isLoading, setIsLoading] = useState(false);
   const [termsOpened, setTermsOpened] = useState(false);
   const [termsError, setTermsError] = useState<string | null>(null);
   const [existingAccountError, setExistingAccountError] = useState(false);
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<SignUpValues>({
+  const { register, handleSubmit, setValue, setError, getValues, watch, formState: { errors } } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       hasDotVehicle: "no",
@@ -86,44 +91,80 @@ export default function ProviderSignUpPage() {
   });
   const platforms = watch("otherPlatforms") || [];
 
+  useEffect(() => {
+    if (isUserLoading || !signedInUser || submittingRef.current) return;
+    let cancelled = false;
+    (async () => {
+      const [profile, provider] = await Promise.all([
+        getDoc(doc(firestore, "users", signedInUser.uid)),
+        getDoc(doc(firestore, "providers", signedInUser.uid)),
+      ]);
+      if (cancelled || submittingRef.current) return;
+      const role = profile.exists() ? profile.data().role : null;
+      if (role && role !== "provider") return; // Another account type: normal form.
+      if (provider.exists() && !providerApplicationIncomplete(provider.data())) {
+        router.replace("/dashboard/provider");
+        return;
+      }
+      setGoogleMode(true);
+      setHasProfile(profile.exists());
+      setValue("email", signedInUser.email || "");
+      const [first, ...rest] = (signedInUser.displayName || "").trim().split(/\s+/);
+      if (first && !getValues("firstName")) setValue("firstName", first);
+      if (rest.length && !getValues("lastName")) setValue("lastName", rest.join(" "));
+    })().catch(error => console.error("Provider application check failed", error));
+    return () => { cancelled = true; };
+  }, [signedInUser, isUserLoading, firestore, router, setValue, getValues]);
+
   const onSubmit = async (data: SignUpValues) => {
     if (!termsOpened) {
       setTermsError("You must review the terms and conditions prior to agreeing");
       return;
     }
+    const googleUser = googleMode ? auth.currentUser : null;
+    if (googleMode && !googleUser) {
+      toast({ variant: "destructive", title: "Signed out", description: "Sign in with Google again to finish your application." });
+      return;
+    }
+    if (!googleUser && !passwordRegex.test(data.password || "")) {
+      setError("password", { message: "Password must be 8-30 characters, contain 1 uppercase, 1 lowercase, 1 number and 1 special character" });
+      return;
+    }
     setTermsError(null);
     setExistingAccountError(false);
     setIsLoading(true);
+    submittingRef.current = true;
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      const user = userCredential.user;
+      const user = googleUser ?? (await createUserWithEmailAndPassword(auth, data.email, data.password || "")).user;
+      const email = googleUser?.email || data.email;
+      // An existing (unfinished) Google account keeps its creation date,
+      // approval status, rating, services and uploads.
+      const updating = Boolean(googleUser && hasProfile);
 
       // Create User Profile
       await setDoc(doc(firestore, "users", user.uid), {
         id: user.uid,
-        email: data.email,
+        email,
         name: `${data.firstName} ${data.lastName}`,
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
         role: 'provider',
         state: data.state,
-        createdAt: serverTimestamp(),
-      });
+        ...(updating ? {} : { createdAt: serverTimestamp() }),
+      }, { merge: true });
 
       // Create Provider Record
+      const providerSnap = googleUser ? await getDoc(doc(firestore, "providers", user.uid)) : null;
+      const providerExists = Boolean(providerSnap?.exists());
       await setDoc(doc(firestore, "providers", user.uid), {
         uid: user.uid,
         businessName: data.businessName,
         bio: data.businessDescription,
-        email: data.email,
+        email,
         phone: data.phone,
-        status: "pending",
-        isEmployee: false,
-        services: [],
-        rating: 0,
-        reviewCount: 0,
+        ...(providerExists ? {} : { status: "pending", isEmployee: false, services: [], rating: 0, reviewCount: 0 }),
         termsAccepted: true,
         agreementVersion: PROVIDER_AGREEMENT_VERSION,
         independentContractorAcknowledged: true,
@@ -137,19 +178,19 @@ export default function ProviderSignUpPage() {
         otherPlatforms: data.otherPlatforms,
         source: data.source,
         onboardingStep: 2,
-        onboarding: {
+        ...(providerExists ? {} : { onboarding: {
           signupDate: serverTimestamp(),
           insuranceUploaded: false,
           licenseVerified: false,
           selfieUploaded: false,
           idFrontUploaded: false,
           idBackUploaded: false
-        }
-      });
+        } }),
+      }, { merge: true });
 
       toast({
-        title: "Account Created",
-        description: await sendSignupVerification(user)
+        title: googleUser ? "Application Saved" : "Account Created",
+        description: googleUser ? 'Moving to Phase 2: Your Details.' : await sendSignupVerification(user)
           ? 'Check your inbox to verify your email. Moving to Phase 2: Your Details.'
           : 'Moving to Phase 2: Your Details. You can resend the verification email from your dashboard.',
       });
@@ -173,6 +214,7 @@ export default function ProviderSignUpPage() {
         });
       }
     } finally {
+      submittingRef.current = false;
       setIsLoading(false);
     }
   };
@@ -239,7 +281,7 @@ export default function ProviderSignUpPage() {
   
                   <div className="space-y-2">
                     <Label htmlFor="email" className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400">Email Address</Label>
-                    <Input id="email" type="email" {...register("email")} placeholder="jane@example.com" className="h-14 border-gray-100 bg-gray-50/50 rounded-xl focus:ring-accent focus:border-accent font-medium" />
+                    <Input id="email" type="email" readOnly={googleMode} {...register("email")} placeholder="jane@example.com" className="h-14 border-gray-100 bg-gray-50/50 rounded-xl focus:ring-accent focus:border-accent font-medium" />
                     {errors.email && <p className="text-xs text-destructive font-bold">{errors.email.message}</p>}
                   </div>
   
@@ -249,6 +291,9 @@ export default function ProviderSignUpPage() {
                     {errors.phone && <p className="text-xs text-destructive font-bold">{errors.phone.message}</p>}
                   </div>
   
+                  {googleMode ? (
+                    <p className="text-sm font-medium text-muted-foreground bg-gray-50 rounded-xl p-4">You&apos;re already signed in, so you won&apos;t need a password. Fill in the rest of the application to apply.</p>
+                  ) : (
                   <div className="space-y-2">
                     <Label htmlFor="password" className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400">Security Password</Label>
                     <Input id="password" type="password" {...register("password")} className="h-14 border-gray-100 bg-gray-50/50 rounded-xl focus:ring-accent focus:border-accent font-medium" />
@@ -258,6 +303,7 @@ export default function ProviderSignUpPage() {
                     </div>
                     {errors.password && <p className="text-xs text-destructive font-bold leading-tight mt-1">{errors.password.message}</p>}
                   </div>
+                  )}
   
                   {/* Business */}
                   <div className="space-y-6 pt-6 border-t border-gray-50">

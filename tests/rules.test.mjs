@@ -169,6 +169,18 @@ test('providers cannot change their payout account, approval or rating', async (
   await assertFails(updateDoc(doc(as('new-prov'), 'providers/new-prov'), { status: 'approved' }));
 });
 
+test('a Google provider with an unfinished application can complete it without touching approval', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'users/g-prov'), { id: 'g-prov', role: 'provider', email: 'g@example.com' });
+    await setDoc(doc(ctx.firestore(), 'providers/g-prov'), { uid: 'g-prov', status: 'pending', rating: 0, reviewCount: 0, services: ['moving'] });
+  });
+  const db = as('g-prov');
+  await assertSucceeds(setDoc(doc(db, 'users/g-prov'), { phone: '4155550100', role: 'provider', state: 'CA' }, { merge: true }));
+  await assertSucceeds(setDoc(doc(db, 'providers/g-prov'), { phone: '4155550100', businessName: 'G Movers', termsAccepted: true, onboardingStep: 2 }, { merge: true }));
+  await assertFails(setDoc(doc(db, 'providers/g-prov'), { status: 'approved', onboardingStep: 2 }, { merge: true }));
+  await assertFails(setDoc(doc(db, 'users/g-prov'), { role: 'admin' }, { merge: true }));
+});
+
 test('reviews: only the customer of a completed job, once', async () => {
   const review = { jobId: 'done', customerId: 'cust', rating: 5, comment: 'Great' };
   await assertFails(setDoc(doc(as('prov'), 'providers/prov/reviews/done'), { ...review, customerId: 'prov' }));

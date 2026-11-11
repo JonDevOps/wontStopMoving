@@ -21,6 +21,7 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
 import { GoogleButton } from "@/components/auth/google-button";
+import { PROVIDER_GOOGLE_APPLY_PATH } from "@/lib/provider-application";
 import { TermsAcceptance } from '@/components/legal/terms-acceptance';
 import { termsAcceptance } from '@/lib/terms';
 import {
@@ -71,10 +72,15 @@ export default function SignupPage() {
         return;
       }
       const role = getValues("accountType") === "provider" ? "provider" : "customer";
-      await createSelfServiceProfile(firestore, user, { role, state: getValues("state") || "", termsAccepted });
+      if (role === "provider") {
+        toast({ title: "Finish your application", description: "Fill in your business details to apply as a provider." });
+        router.push(PROVIDER_GOOGLE_APPLY_PATH);
+        return;
+      }
+      await createSelfServiceProfile(firestore, user, { role: 'customer', state: getValues("state") || "", termsAccepted });
       toast({
         title: "Account Created",
-        description: role === "provider" ? "Your provider account is pending admin approval." : "Welcome to Wont Stop Moving!",
+        description: "Welcome to Wont Stop Moving!",
       });
       router.push(dashboardForRole(role));
     } catch (error: unknown) {
@@ -89,6 +95,11 @@ export default function SignupPage() {
 
   const onSubmit = async (data: SignupValues) => {
     if (!termsAccepted) return;
+    if (data.accountType === 'provider') {
+      // Providers apply through the full application (business, address, agreement).
+      router.push('/provider-signup');
+      return;
+    }
     setIsLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
@@ -111,31 +122,7 @@ export default function SignupPage() {
         ? 'Check your inbox for a verification link. You can continue to your dashboard.'
         : 'Your account is created. You can resend the verification email from your dashboard.' });
 
-      if (data.accountType === 'provider') {
-        const providerRef = doc(firestore, "providers", user.uid);
-        await setDoc(providerRef, {
-          uid: user.uid,
-          businessName: data.name, // Can be updated later
-          email: data.email,
-          status: "pending",
-          isEmployee: false,
-          services: [],
-          rating: 0,
-          reviewCount: 0,
-          onboarding: {
-            signupDate: new Date().toISOString(),
-            insuranceUploaded: false,
-            licenseVerified: false
-          }
-        });
-        toast({
-          title: "Account Created",
-          description: "Your provider account is pending admin approval.",
-        });
-        router.push('/dashboard/provider');
-      } else {
-        router.push('/dashboard/customer');
-      }
+      router.push('/dashboard/customer');
     } catch (error: any) {
       console.error("Signup failed:", error?.code || 'unknown');
       toast({
