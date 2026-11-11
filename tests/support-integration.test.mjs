@@ -16,6 +16,9 @@ import { classifyChannel, cleanLeadSource } from '../src/lib/attribution.ts';
 import { rankProviders } from '../src/lib/dispatch.ts';
 import { waitStatus } from '../src/lib/service-requests.ts';
 import { providerApplicationIncomplete } from '../src/lib/provider-application.ts';
+import { compareToUs, scoreboard, cleanMetrics, parseCompetitorList, normalizeWebsite, sortActions } from '../src/lib/competitors.ts';
+import { checkAgentApplication, networkCoverage, REGIONS, VETTING_CHECKS } from '../src/lib/agents.ts';
+import { isPrivateAddress, htmlToText } from '../src/lib/server/safe-fetch.ts';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -735,4 +738,171 @@ test('providers who skipped the application (old Google shortcut) are sent back 
   assert.equal(providerApplicationIncomplete({ status: 'approved' }), false);
   assert.equal(providerApplicationIncomplete({ status: 'pending', isEmployee: true }), false);
   assert.equal(providerApplicationIncomplete(null), true);
+});
+
+/** A separate signed-in browser session for an extra test user. */
+async function extraUser(email, name) {
+  const extra = initializeApp({ projectId, apiKey: 'fake-api-key', authDomain: `${projectId}.firebaseapp.com` }, `extra-${name}`);
+  const extraAuth = getAuth(extra);
+  connectAuthEmulator(extraAuth, `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`, { disableWarnings: true });
+  const user = (await createUserWithEmailAndPassword(extraAuth, email, 'test-only-password')).user;
+  return { user, app: extra, token: () => user.getIdToken(true) };
+}
+
+test('competitor scoreboard: we pass a competitor only by leading on every known number', () => {
+  const us = { revenueUsd: 500000, googleReviews: 120, googleRating: 4.9 };
+  assert.deepEqual(scoreboard(us, { revenueUsd: 400000, googleReviews: 100 }).passed, true);
+  assert.equal(scoreboard(us, { revenueUsd: 400000, googleReviews: 300 }).passed, false);
+  assert.equal(scoreboard(us, { revenueUsd: 400000 }).passed, false); // One known number is not enough.
+  assert.equal(scoreboard(us, {}).known, 0);
+  assert.equal(compareToUs(us, { googleRating: 4.9 }).googleRating, 'tied');
+  assert.ok(scoreboard(us, { googleReviews: 240 }).gap > scoreboard(us, { googleReviews: 130 }).gap);
+  assert.deepEqual(cleanMetrics({ revenueUsd: '$1,200', googleRating: 9, repeatRate: '30%', followers: -5, bogus: 3 }), { revenueUsd: 1200, googleRating: 5, repeatRate: 30 });
+  const rows = parseCompetitorList('Name, Website\nBay Movers, baymovers.com, San Jose CA\nbay movers, dup.com\n\nAcme Moving\tacme.com\tOakland');
+  assert.deepEqual(rows.map(r => [r.name, r.website, r.location]), [['Bay Movers', 'https://baymovers.com', 'San Jose CA'], ['Acme Moving', 'https://acme.com', 'Oakland']]);
+  assert.equal(normalizeWebsite('javascript:alert(1)'), '');
+  assert.equal(normalizeWebsite('https://user:pw@x.com'), '');
+  assert.deepEqual(sortActions([{ impact: 'low', done: false }, { impact: 'high', done: true }, { impact: 'high', done: false }]).map(a => `${a.impact}${a.done}`), ['highfalse', 'lowfalse', 'hightrue']);
+});
+
+test('competitor website reader refuses private and metadata addresses and strips page markup', () => {
+  for (const ip of ['127.0.0.1', '10.1.2.3', '172.20.0.1', '192.168.1.1', '169.254.169.254', '100.64.0.1', '::1', 'fd00::1', '::ffff:127.0.0.1']) assert.equal(isPrivateAddress(ip), true, ip);
+  for (const ip of ['8.8.8.8', '151.101.1.1', '2606:4700::1111']) assert.equal(isPrivateAddress(ip), false, ip);
+  const page = htmlToText('<html><head><title>Acme Movers</title><meta name="description" content="Bay Area movers"><style>p{}</style></head><body><script>steal()</script><p>Two movers &amp; truck: $129/hr</p></body></html>');
+  assert.equal(page.title, 'Acme Movers');
+  assert.equal(page.description, 'Bay Area movers');
+  assert.equal(page.text, 'Two movers & truck: $129/hr');
+});
+
+const goodAgent = () => ({
+  companyName: 'Test Van Lines', contactName: 'Pat Agent', phone: '(415) 555-0100', website: 'testvanlines.com', country: 'US', address: '1 Depot Way', city: 'Denver', region: 'US-CO', postalCode: '80202',
+  usdot: '1234567', mcNumber: '765432', otherAuthority: '', yearsInBusiness: 12, trucks: 20, tractors: 4, warehouseSqft: 25000, employees: 60,
+  services: ['Local moving', 'Storage / warehouse'], roles: ['origin', 'destination'], serviceRegions: ['US-CO', 'US-WY'], insuranceCarrier: 'Test Mutual', cargoCoverageUsd: 100000, about: '', agreementAccepted: true,
+});
+
+test('agent applications need authority, a truck, a service area and the agreement; coverage counts approved agents only', () => {
+  assert.equal(REGIONS.filter(r => r.country === 'US').length, 51);
+  assert.equal(REGIONS.filter(r => r.country === 'CA').length, 13);
+  assert.equal(REGIONS.filter(r => r.country === 'MX').length, 32);
+  assert.equal(checkAgentApplication(goodAgent()).ok, true);
+  for (const [change, error] of [[{ usdot: '' }, /USDOT/], [{ trucks: 0 }, /truck/], [{ serviceRegions: ['XX-ZZ'] }, /states or provinces/], [{ agreementAccepted: 'true' }, /agreement/], [{ region: 'CA-ON' }, /state or province/], [{ roles: ['boss'] }, /how you want/]]) {
+    const r = checkAgentApplication({ ...goodAgent(), ...change });
+    assert.equal(r.ok, false); assert.match(r.error, error);
+  }
+  assert.equal(checkAgentApplication({ ...goodAgent(), country: 'CA', region: 'CA-ON', usdot: '', otherAuthority: 'NSC 123' }).ok, true);
+  const cov = networkCoverage([{ status: 'approved', serviceRegions: ['US-CO'], trucks: 5, roles: ['origin'] }, { status: 'pending', serviceRegions: ['US-WY'], trucks: 9 }]);
+  assert.equal(cov.covered, 1);
+  assert.equal(cov.regions.find(r => r.code === 'US-CO').trucks, 5);
+  assert.ok(cov.gaps.some(r => r.code === 'US-WY'));
+});
+
+test('admin invites: only admins invite; a verified sign-in with the invited email becomes admin once', async () => {
+  const team = (token, body) => fetch(`${base}/api/admin/team`, authorized(token, body));
+  assert.equal((await team(customerToken, { action: 'invite', email: 'invitee@example.com' })).status, 403);
+  assert.equal((await team(adminToken, { action: 'invite', email: 'not-an-email' })).status, 400);
+  const invited = await team(adminToken, { action: 'invite', email: 'Invitee@Example.com' });
+  assert.equal((await invited.json()).status, 'invited');
+  assert.equal((await db.doc('adminInvites/invitee@example.com').get()).data().status, 'pending');
+
+  const invitee = await extraUser('invitee@example.com', 'invitee');
+  const claim = async () => (await (await fetch(`${base}/api/auth/claim-admin`, authorized(await invitee.token(), {}))).json()).admin;
+  assert.equal(await claim(), false); // Email not verified yet.
+  assert.equal((await db.doc(`users/${invitee.user.uid}`).get()).exists, false);
+  await getAdminAuth(adminApp).updateUser(invitee.user.uid, { emailVerified: true });
+  await reload(invitee.user);
+  assert.equal(await claim(), true);
+  assert.equal((await db.doc(`users/${invitee.user.uid}`).get()).data().role, 'admin');
+  assert.equal((await db.doc('adminInvites/invitee@example.com').get()).data().status, 'claimed');
+  assert.equal(await claim(), false); // Single use.
+
+  // Someone else verified with a different email gains nothing.
+  assert.equal((await (await fetch(`${base}/api/auth/claim-admin`, authorized(customerToken, {}))).json()).admin, false);
+
+  const list = await (await fetch(`${base}/api/admin/team`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.ok(list.admins.some(a => a.uid === invitee.user.uid));
+  assert.equal((await fetch(`${base}/api/admin/team`, authorized(await invitee.token(), { action: 'remove', uid: invitee.user.uid }))).status, 400); // Not yourself.
+  assert.equal((await team(adminToken, { action: 'remove', uid: invitee.user.uid })).status, 200);
+  assert.equal((await db.doc(`users/${invitee.user.uid}`).get()).data().role, 'customer');
+  await deleteApp(invitee.app);
+});
+
+test('competitor tracker: admin-only list, import without duplicates, standings and actions', async () => {
+  const send = (token, body) => fetch(`${base}/api/admin/competitors`, authorized(token, body));
+  assert.equal((await send(customerToken, { action: 'add', name: 'Nope Movers' })).status, 403);
+  assert.equal((await fetch(`${base}/api/admin/competitors/abc/analyze`, authorized(customerToken, {}))).status, 403);
+  await send(adminToken, { action: 'us', metrics: { revenueUsd: 500000, googleReviews: 150, customersPerYear: 900, repeatRate: 20 } });
+  const added = await send(adminToken, { action: 'add', name: 'Slow Movers', website: 'slowmovers.com', metrics: { revenueUsd: 300000, googleReviews: 80 } });
+  assert.equal(added.status, 201);
+  const { id } = await added.json();
+  const imported = await (await send(adminToken, { action: 'import', text: 'Slow Movers, slow.com\nFast Movers, fastmovers.com, Austin TX\nLegend Van Lines, legend.com', tier: 'challenger' })).json();
+  assert.deepEqual(imported, { added: 2, skipped: 1 });
+  const fast = (await db.collection('competitors').where('nameLower', '==', 'fast movers').get()).docs[0];
+  await send(adminToken, { action: 'update', id: fast.id, metrics: { revenueUsd: 9000000, googleReviews: 2000 }, notes: { pricing: '$149/hr for 2 movers' } });
+  assert.equal((await db.doc(`competitors/${fast.id}`).get()).data().notes.pricing, '$149/hr for 2 movers');
+
+  const standings = await (await send(adminToken, { action: 'refresh-standings' })).json();
+  assert.deepEqual(standings.newlyPassed, ['Slow Movers']);
+  const list = await (await fetch(`${base}/api/admin/competitors`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  const byName = Object.fromEntries(list.competitors.map(c => [c.name, c]));
+  assert.equal(byName['Slow Movers'].status, 'passed');
+  assert.equal(byName['Fast Movers'].status, 'tracking');
+  assert.equal(byName['Fast Movers'].score.behind, 2);
+  assert.equal(list.us.metrics.revenueUsd, 500000); // Our entered number replaces the automatic one.
+
+  await send(adminToken, { action: 'add-action', id: fast.id, text: 'Publish a flat 2-bedroom price', impact: 'high' });
+  const actionId = (await db.doc(`competitors/${fast.id}`).get()).data().actions[0].id;
+  await send(adminToken, { action: 'toggle-action', id: fast.id, actionId, done: true });
+  assert.equal((await db.doc(`competitors/${fast.id}`).get()).data().actions[0].done, true);
+  await send(adminToken, { action: 'pass', id: id, passed: false });
+  assert.equal((await db.doc(`competitors/${id}`).get()).data().status, 'tracking');
+  assert.equal((await send(adminToken, { action: 'delete', id: 'missing-id' })).status, 404);
+});
+
+test('agent network: apply, vet, approve, and accept a handoff; customer details only after accepting', async () => {
+  const apply = (token, body) => fetch(`${base}/api/agents/apply`, authorized(token, body));
+  assert.equal((await apply(customerToken, goodAgent())).status, 409); // Already a customer account.
+  const agent = await extraUser('dispatch@testvanlines.example.com', 'agent');
+  assert.equal((await apply(await agent.token(), { ...goodAgent(), trucks: 0 })).status, 400);
+  assert.equal((await apply(await agent.token(), goodAgent())).status, 201);
+  assert.equal((await db.doc(`users/${agent.user.uid}`).get()).data().role, 'agent');
+  assert.equal((await db.doc(`agents/${agent.user.uid}`).get()).data().status, 'pending');
+
+  const me = async () => (await fetch(`${base}/api/agents/me`, { headers: { Authorization: `Bearer ${await agent.token()}` } })).json();
+  const pendingView = await me();
+  assert.equal(pendingView.agent.status, 'pending');
+  assert.equal(pendingView.agent.vetting, undefined); // Internal vetting notes stay private.
+  assert.deepEqual(pendingView.directory, []);
+  assert.equal((await fetch(`${base}/api/admin/agents`, { headers: { Authorization: `Bearer ${await agent.token()}` } })).status, 403);
+
+  const admin = body => fetch(`${base}/api/admin/agents`, authorized(adminToken, body));
+  assert.equal((await admin({ action: 'review', uid: agent.user.uid, status: 'approved' })).status, 409); // Vetting not finished.
+  const jobRef = db.collection('jobs').doc('agent-handoff-job');
+  await jobRef.set({ customerId: auth.currentUser.uid, moveDate: '2026-12-20', pickupAddress: 'Denver, CO', dropoffAddress: 'Austin, TX', status: 'confirmed', createdAt: Timestamp.now() });
+  assert.equal((await admin({ action: 'assign', jobId: 'agent-handoff-job', role: 'origin', agentUid: agent.user.uid })).status, 409); // Not approved yet.
+  for (const key of Object.keys(VETTING_CHECKS)) await admin({ action: 'vetting', uid: agent.user.uid, key, done: true });
+  assert.equal((await admin({ action: 'review', uid: agent.user.uid, status: 'approved' })).status, 200);
+  assert.equal((await admin({ action: 'assign', jobId: 'agent-handoff-job', role: 'origin', agentUid: agent.user.uid })).status, 200);
+  const job = (await jobRef.get()).data();
+  assert.deepEqual(job.agentIds, [agent.user.uid]);
+  assert.equal(job.agentResponses[agent.user.uid], 'pending');
+
+  let view = await me();
+  assert.equal(view.shipments.length, 1);
+  assert.equal(view.shipments[0].customer, null);
+  assert.deepEqual(view.shipments[0].roles, ['origin']);
+  const respond = (token, jobId) => fetch(`${base}/api/agents/me`, authorized(token, { action: 'respond', jobId, response: 'accepted' }));
+  assert.equal((await respond(await agent.token(), 'some-other-job')).status, 404);
+  assert.equal((await respond(customerToken, 'agent-handoff-job')).status, 403);
+  assert.equal((await respond(await agent.token(), 'agent-handoff-job')).status, 200);
+  view = await me();
+  assert.equal(view.shipments[0].response, 'accepted');
+  assert.ok(view.shipments[0].customer);
+
+  const overview = await (await fetch(`${base}/api/admin/agents`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.equal(overview.totals.approved, 1);
+  assert.equal(overview.totals.trucks, 20);
+  assert.ok(overview.coverage.find(r => r.code === 'US-CO').agents === 1);
+  assert.equal((await admin({ action: 'assign', jobId: 'agent-handoff-job', role: 'origin', agentUid: null })).status, 200);
+  assert.deepEqual((await jobRef.get()).data().agentIds, []);
+  await deleteApp(agent.app);
 });
