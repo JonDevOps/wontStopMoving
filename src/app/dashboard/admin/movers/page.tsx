@@ -50,11 +50,12 @@ function Registry() {
 
   const params = useMemo(() => {
     const p = new URLSearchParams({ sort: f.sort, rankBy: f.rankBy, page: String(page), pageSize: '50', map: '1', stats: '1' });
+    // The list's area: a preset region, a state/province, the map view, or (otherwise) the whole country.
     if (area === 'map' && bounds) for (const k of ['south', 'west', 'north', 'east'] as const) p.set(k, bounds[k].toFixed(4));
-    // Map pins always cover the visible map, whatever area the list uses.
-    if (bounds) { p.set('vbSouth', bounds.south.toFixed(3)); p.set('vbWest', bounds.west.toFixed(3)); p.set('vbNorth', bounds.north.toFixed(3)); p.set('vbEast', bounds.east.toFixed(3)); }
     else if (REGION_PRESETS[area]) p.set('region', area);
     else if (REGISTRY_AREAS.includes(area)) p.set('states', area);
+    // Map pins always cover the visible map, whatever area the list uses.
+    if (bounds) { p.set('vbSouth', bounds.south.toFixed(3)); p.set('vbWest', bounds.west.toFixed(3)); p.set('vbNorth', bounds.north.toFixed(3)); p.set('vbEast', bounds.east.toFixed(3)); }
     for (const [k, v] of Object.entries({ q: f.q, city: f.city, minUnits: f.minUnits, minDrivers: f.minDrivers, minYears: f.minYears, newDays: f.newDays, interstate: f.interstate, kind: f.kind, sos: f.sos, tracked: f.tracked, site: f.site })) if (v) p.set(k, v);
     if (f.hhg) p.set('hhg', '1');
     if (!f.likely) p.set('likely', '0');

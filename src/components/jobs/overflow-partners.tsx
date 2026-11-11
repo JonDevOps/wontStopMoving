@@ -20,9 +20,10 @@ export function OverflowPartners({ jobId }: { jobId: string }) {
   const [data, setData] = useState<Data | null>(null);
   const [miles, setMiles] = useState(25);
   const [busy, setBusy] = useState(false);
-  const load = async (m = miles) => {
+  const [zip, setZip] = useState('');
+  const load = async (m = miles, z = zip) => {
     setBusy(true);
-    try { setData(await apiFetch<Data>(auth, `/api/jobs/${jobId}/overflow?miles=${m}`)); }
+    try { setData(await apiFetch<Data>(auth, `/api/jobs/${jobId}/overflow?miles=${m}${/^\d{5}$/.test(z) ? `&zip=${z}` : ''}`)); }
     catch (e) { toast({ variant: 'destructive', title: 'Couldn’t load partners', description: e instanceof Error ? e.message : '' }); }
     finally { setBusy(false); }
   };
@@ -36,7 +37,7 @@ export function OverflowPartners({ jobId }: { jobId: string }) {
     </CardHeader>
     {data && <CardContent className="space-y-5 text-sm">
       {data.routing && <p className="bg-slate-50 rounded-lg p-3">Auto-routing{data.routing.autoAssigned ? ' assigned' : ' suggested'}: <b>{data.routing.primary ? `${data.routing.primary.name} (${data.routing.primary.kind}, ${data.routing.primary.miles} mi)` : 'nobody in range'}</b>{data.routing.backup ? `; backup ${data.routing.backup.name} (${data.routing.backup.miles} mi)` : ''}.</p>}
-      {!data.center ? <p className="text-muted-foreground">No pickup ZIP code on this move, so distances can’t be worked out.</p> : <>
+      {!data.center ? <form className="flex flex-wrap gap-2 items-center" onSubmit={e => { e.preventDefault(); void load(miles, zip); }}><p className="text-muted-foreground w-full">This move’s pickup address has no ZIP code. Enter it to find partners nearby (add it to the address under Move details so routing works automatically).</p><input aria-label="Pickup ZIP code" inputMode="numeric" maxLength={5} className="h-9 border rounded-md px-2 w-28" placeholder="ZIP code" value={zip} onChange={e => setZip(e.target.value.replace(/\D/g, ''))} /><Button size="sm" type="submit" disabled={busy || zip.length !== 5}>Find partners</Button></form> : <>
         <div className="space-y-2"><p className="font-bold">Our partners nearby (pickup {data.zip})</p>
           {data.network.length ? data.network.map(n => <div key={`${n.kind}:${n.id}`} className="flex justify-between gap-2 border-b last:border-0 pb-2"><span><b>{n.name}</b> <span className="text-muted-foreground">({n.kind}) · {n.miles} mi{n.free !== null ? ` · ${n.free} trucks free this week` : ''}</span></span>{n.phone && <a className="underline" href={`tel:${n.phone}`}>{n.phone}</a>}</div>)
             : <p className="text-muted-foreground">No approved partners nearby.</p>}
