@@ -20,6 +20,7 @@ import { compareToUs, scoreboard, cleanMetrics, parseCompetitorList, normalizeWe
 import { checkAgentApplication, networkCoverage, REGIONS, VETTING_CHECKS } from '../src/lib/agents.ts';
 import { isPrivateAddress, htmlToText } from '../src/lib/server/safe-fetch.ts';
 import { cleanMoveDetails, diffMoveDetails, formatMoveDate } from '../src/lib/move-details.ts';
+import { cleanLocation, teamFromJob, isOnTeam, describeActivity } from '../src/lib/job-activity.ts';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -986,4 +987,76 @@ test('staff edit move details: admins any move, crew only their own; locked once
   await jobRef.update({ status: 'completed' });
   assert.equal((await save(adminToken, { details: { moveDate: '2026-12-22' } })).status, 409);
   await deleteApp(crew.app);
+});
+
+test('job team helpers: locations are range-checked and the team comes from the job', () => {
+  assert.deepEqual(cleanLocation({ lat: 37.3861234, lng: -122.0838765, accuracy: 12.4 }), { lat: 37.38612, lng: -122.08388, accuracy: 12 });
+  assert.equal(cleanLocation({ lat: 95, lng: 0 }), null);
+  assert.equal(cleanLocation('here'), null);
+  const job = { providerIds: ['p1'], employeeIds: ['e1'], agentAssignments: { origin: 'a1', destination: 'a2', bogus: 'x' } };
+  assert.deepEqual(teamFromJob(job).map(m => `${m.kind}:${m.id}:${m.agentRole || ''}`), ['provider:p1:', 'employee:e1:', 'agent:a1:origin', 'agent:a2:destination']);
+  assert.equal(isOnTeam(job, 'a2'), true);
+  assert.equal(isOnTeam(job, 'x'), false);
+  assert.equal(describeActivity({ type: 'assigned', assigneeKind: 'agent', agentRole: 'origin', assigneeName: 'Denver Van', by: 'Jon', byUid: 'u', byRole: 'admin', at: null }), 'Jon assigned Denver Van as Origin agent');
+});
+
+test('assignment history: admins assign movers, crew and agents; every change is logged; the team posts updates with location', async () => {
+  const jobRef = db.doc('jobs/team-move');
+  await jobRef.set({ customerId: auth.currentUser.uid, status: 'confirmed', moveDate: '2026-12-21', pickupAddress: 'A', dropoffAddress: 'B', providerIds: [], employeeIds: [], createdAt: Timestamp.now() });
+  await db.doc('providers/pending-mover').set({ businessName: 'Pending Movers', status: 'pending' });
+  const mover = await extraUser('mover@example.com', 'mover');
+  await db.doc(`users/${mover.user.uid}`).set({ role: 'provider', name: 'Mo Mover' });
+  await db.doc(`providers/${mover.user.uid}`).set({ businessName: 'Mo Moving Co', status: 'approved', city: 'San Jose', state: 'CA' });
+  const crew = await extraUser('crew2@example.com', 'crew2');
+  await db.doc(`users/${crew.user.uid}`).set({ role: 'employee', name: 'Cam Crew', state: 'CA' });
+  const outsider = await extraUser('outsider-crew@example.com', 'outsider');
+  await db.doc(`users/${outsider.user.uid}`).set({ role: 'employee', name: 'Not On It' });
+  const url = `${base}/api/jobs/team-move/assignments`;
+  const call = async (token, body) => fetch(url, authorized(await token, body));
+  const get = async token => fetch(url, { headers: { Authorization: `Bearer ${await token}` } });
+
+  assert.equal((await call(customerToken, { action: 'assign', kind: 'provider', assigneeId: mover.user.uid })).status, 403);
+  assert.equal((await call(crew.token(), { action: 'assign', kind: 'provider', assigneeId: mover.user.uid })).status, 403);
+  assert.equal((await call(adminToken, { action: 'assign', kind: 'provider', assigneeId: 'pending-mover' })).status, 409);
+  assert.equal((await call(adminToken, { action: 'assign', kind: 'agent', assigneeId: mover.user.uid })).status, 400); // Agents need a role.
+  assert.equal((await (await call(adminToken, { action: 'assign', kind: 'provider', assigneeId: mover.user.uid, note: 'Arrive 7:45, park on Elm' })).json()).changed, true);
+  assert.equal((await (await call(adminToken, { action: 'assign', kind: 'provider', assigneeId: mover.user.uid })).json()).changed, false); // Already assigned: no duplicate entry.
+  assert.equal((await call(adminToken, { action: 'assign', kind: 'employee', assigneeId: crew.user.uid })).status, 200);
+  assert.deepEqual((await jobRef.get()).data().providerIds, [mover.user.uid]);
+
+  assert.equal((await get(outsider.token())).status, 403);
+  assert.equal((await call(mover.token(), { action: 'update', stage: 'note', note: '' })).status, 400);
+  assert.equal((await call(mover.token(), { action: 'update', stage: 'at-pickup', note: 'Customer has 2 extra boxes', location: { lat: 37.33, lng: -121.89, accuracy: 8 } })).status, 201);
+  assert.equal((await call(crew.token(), { action: 'update', stage: 'loaded', location: { lat: 999, lng: 0 } })).status, 201); // Bad location dropped, update kept.
+
+  const view = await (await get(crew.token())).json();
+  assert.equal(view.options, undefined); // Only admins see who else could be assigned.
+  const moverRow = view.team.find(m => m.id === mover.user.uid);
+  assert.equal(moverRow.name, 'Mo Moving Co');
+  assert.equal(moverRow.base, 'San Jose, CA');
+  assert.equal(moverRow.assignNote, 'Arrive 7:45, park on Elm');
+  assert.ok(moverRow.assignedAt);
+  assert.equal(moverRow.latest.stage, 'at-pickup');
+  assert.deepEqual(moverRow.latest.location, { lat: 37.33, lng: -121.89, accuracy: 8 });
+  const types = view.activity.map(a => `${a.type}:${a.stage || a.assigneeKind}`);
+  assert.deepEqual(types, ['update:loaded', 'update:at-pickup', 'assigned:employee', 'assigned:provider']);
+  assert.equal(view.activity[0].location, null);
+  assert.equal(view.activity[3].by, 'test-admin@example.com'); // Falls back to the admin's email when no name is set.
+
+  const adminView = await (await get(adminToken)).json();
+  assert.ok(adminView.options.provider.some(o => o.id === mover.user.uid));
+  assert.ok(!adminView.options.provider.some(o => o.id === 'pending-mover'));
+
+  assert.equal((await call(adminToken, { action: 'unassign', kind: 'employee', assigneeId: crew.user.uid })).status, 200);
+  assert.equal((await get(crew.token())).status, 403); // Off the team now.
+  const after = await (await get(adminToken)).json();
+  assert.equal(after.activity[0].type, 'unassigned');
+  assert.equal(after.activity[0].assigneeName, 'Cam Crew');
+
+  // The suggested-provider button logs history too.
+  await jobRef.update({ providerIds: [] });
+  assert.equal((await fetch(`${base}/api/admin/dispatch`, authorized(adminToken, { jobId: 'team-move', providerId: mover.user.uid }))).status, 200);
+  const logged = (await db.collection('jobs/team-move/activity').where('note', '==', 'Suggested match').get()).size;
+  assert.equal(logged, 1);
+  for (const u of [mover, crew, outsider]) await deleteApp(u.app);
 });

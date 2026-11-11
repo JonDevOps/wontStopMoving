@@ -26,6 +26,7 @@ import { idTokenOf } from "@/lib/api-client";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { MoveDetailsEditor } from "@/components/jobs/move-details-editor";
+import { JobTeamPanel } from "@/components/jobs/job-team-panel";
 import { formatMoveDate } from "@/lib/move-details";
 
 export default function JobDetailPage({ params }: { params: Promise<{ jobId: string }> }) {
@@ -217,6 +218,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </Card>
 
             {liveJob && <MoveDetailsEditor jobId={jobId} job={liveJob} onSaved={() => setReloadKey(k => k + 1)} />}
+            <JobTeamPanel jobId={jobId} />
 
             <Card className="border-none shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">
