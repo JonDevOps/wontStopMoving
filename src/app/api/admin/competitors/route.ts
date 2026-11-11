@@ -20,12 +20,21 @@ export async function GET(req: Request) {
     const competitors = snap.docs.map(d => {
       const c = d.data();
       return {
-        id: d.id, name: c.name, website: c.website || '', location: c.location || '', tier: tierOf(c.tier), status: c.status === 'passed' ? 'passed' : 'tracking',
+        id: d.id, name: c.name, website: c.website || '', location: c.location || '', dot: c.dot || null, state: c.state || null, registry: c.registry || null, phone: c.phone || '', tier: tierOf(c.tier), status: c.status === 'passed' ? 'passed' : 'tracking',
         metrics: c.metrics || {}, notes: c.notes || {}, intel: c.intel || null, analysis: c.analysis || null, actions: Array.isArray(c.actions) ? c.actions : [],
         score: scoreboard(us.metrics, c.metrics || {}), passedAt: iso(c.passedAt), passedHow: c.passedHow || null, analyzedAt: iso(c.analyzedAt), createdAt: iso(c.createdAt),
       };
     });
-    return NextResponse.json({ us, competitors }, { headers: { 'Cache-Control': 'private, no-store' } });
+    let progress;
+    if (new URL(req.url).searchParams.get('history') === '1') {
+      const hist = await db.collection('competitorSettings/us/history').orderBy('day', 'desc').limit(400).get();
+      progress = {
+        history: hist.docs.map(d => ({ day: d.data().day, metrics: d.data().metrics || {}, passed: d.data().passed || 0, actionsDone: d.data().actionsDone || 0 })).reverse(),
+        passes: competitors.filter(c => c.status === 'passed' && c.passedAt).map(c => ({ id: c.id, name: c.name, tier: c.tier, at: c.passedAt, how: c.passedHow })),
+        actions: competitors.flatMap(c => c.actions.filter((a: any) => a.done && a.doneAt).map((a: any) => ({ competitor: c.name, text: a.text, area: a.area, impact: a.impact, at: a.doneAt }))),
+      };
+    }
+    return NextResponse.json({ us, competitors, progress }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) { return errorResponse(error); }
 }
 

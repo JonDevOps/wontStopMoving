@@ -78,3 +78,5 @@ env:
     value: "855 Maude Ave, Mountain View, CA 94043"
     availability:
       - RUNTIME
+  - variable: TYPESAFE_API_KEY
+    secret: TYPESAFE_API_KEY

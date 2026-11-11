@@ -276,3 +276,14 @@ test('the job activity log is server-only, even for the team', async () => {
   await assertFails(setDoc(doc(as('prov1'), 'jobs/actjob/activity/a2'), { type: 'update', by: 'forged' }));
   await assertFails(updateDoc(doc(as('prov1'), 'jobs/actjob'), { providerIds: ['prov1', 'friend'] }));
 });
+
+test('mover registry data is server-only', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'registryStates/CA'), { count: 1 });
+    await setDoc(doc(ctx.firestore(), 'registryEnrichment/123'), { kind: 'local_mover' });
+  });
+  for (const path of ['registryStates/CA', 'registryEnrichment/123', 'competitorSettings/us/history/2026-11-11', 'competitors/c1/history/2026-11-11']) {
+    await assertFails(getDoc(doc(as('boss'), path)));
+    await assertFails(setDoc(doc(as('boss'), path), { x: 1 }));
+  }
+});

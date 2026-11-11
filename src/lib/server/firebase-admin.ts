@@ -15,3 +15,9 @@ function adminApp(): App {
 
 export const adminDb = () => getFirestore(adminApp());
 export const adminAuth = () => getAuth(adminApp());
+
+/** The Firebase Storage bucket (server-only files such as the mover registry). */
+export const adminBucket = async () => {
+  const { getStorage } = await import("firebase-admin/storage");
+  return getStorage(adminApp()).bucket(process.env.STORAGE_BUCKET || `${PROJECT_ID}.firebasestorage.app`);
+};
