@@ -1,6 +1,6 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from './firebase-admin';
-import { loadState, saveState } from './registry-store';
+import { loadState, saveLite, saveState } from './registry-store';
 import { ourMetrics } from './competitors';
 import { zipLookup } from './geo';
 import { backfillClosures, recordChanges } from './market-events';
@@ -49,6 +49,7 @@ export async function syncState(state: string): Promise<{ state: string; count: 
   // Compare with the previous snapshot before replacing it (new, closed, grew, shrank).
   const previous = await loadState(state).catch(() => [] as Mover[]);
   await saveState(state, rows);
+  await saveLite(state, rows);
   let changes = 0;
   if (previous.length) { try { changes = await recordChanges(state, previous, rows); } catch (error) { console.error('Change detection failed', state, error); } }
 

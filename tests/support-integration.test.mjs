@@ -1104,6 +1104,7 @@ test('mover registry API: admin-only search, area ranking, tracking competitors 
     toMover(census({ dot_number: '57426', legal_name: 'NBCUNIVERSAL MEDIA LLC', classdef: 'PRIVATE PROPERTY' }), undefined, ll),
   ];
   writeFileSync(join(process.env.REGISTRY_LOCAL_DIR, 'CA.json.gz'), gzipSync(Buffer.from(JSON.stringify(movers))));
+  writeFileSync(join(process.env.REGISTRY_LOCAL_DIR, 'CA.lite.json.gz'), gzipSync(Buffer.from(JSON.stringify(movers.filter(m => m.likelyMover)))));
   await db.doc('registryStates/CA').set({ state: 'CA', count: 3, likely: 2, units: 42, drivers: 54, top: movers.filter(m => m.likelyMover).map(m => ({ ...m, size: 1 })), bbox: { south: 37, west: -123, north: 38.5, east: -121 }, center: [37.7, -122], updatedAt: Timestamp.now() });
   await db.doc('competitorSettings/us').set({ metrics: { trucks: 15, drivers: 10 } }, { merge: true });
 
@@ -1120,7 +1121,10 @@ test('mover registry API: admin-only search, area ranking, tracking competitors 
   assert.equal(all.total, 3);
   const nationwide = await (await search(adminToken, 'sort=size')).json();
   assert.equal(nationwide.mode, 'national');
-  assert.ok(nationwide.total >= 2);
+  assert.equal(nationwide.total, 2); // Every likely mover in the country (only CA in this fixture), not just top lists.
+  assert.equal(nationwide.nationalComplete, true);
+  const wholeMap = await (await search(adminToken, 'map=1&south=20&west=-130&north=50&east=-65')).json();
+  assert.equal(wholeMap.points.length, 2); // Only CA exists in the fixture, so the map view loads it in detail.
 
   const csv = await search(adminToken, 'region=bay-area&format=csv');
   assert.match(csv.headers.get('content-type'), /text\/csv/);
