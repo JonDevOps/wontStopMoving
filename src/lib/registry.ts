@@ -103,8 +103,8 @@ export type MoverFilters = {
   q?: string; states?: string[]; region?: string; city?: string; zip?: string;
   near?: { lat: number; lng: number; miles: number };
   bbox?: { south: number; west: number; north: number; east: number };
-  minUnits?: number; maxUnits?: number; minDrivers?: number; minYears?: number;
-  interstate?: 'yes' | 'no'; hhgAuth?: boolean; likelyOnly?: boolean; hasEmail?: boolean; hasSite?: boolean;
+  minUnits?: number; maxUnits?: number; minDrivers?: number; minYears?: number; maxYears?: number; addedSince?: string;
+  interstate?: 'yes' | 'no'; hhgAuth?: boolean; likelyOnly?: boolean; hasEmail?: boolean; hasSite?: boolean; noSite?: boolean;
   org?: string; dots?: Set<string>; excludeDots?: Set<string>;
 };
 
@@ -126,11 +126,14 @@ export function filterMovers(rows: Mover[], f: MoverFilters, now = Date.now()): 
     if (f.maxUnits !== undefined && m.units > f.maxUnits) return false;
     if (f.minDrivers !== undefined && m.drivers < f.minDrivers) return false;
     if (f.minYears !== undefined && yearsInBusiness(m, now) < f.minYears) return false;
+    if (f.maxYears !== undefined && (!m.added || yearsInBusiness(m, now) > f.maxYears)) return false;
+    if (f.addedSince && (!m.added || m.added < f.addedSince)) return false;
     if (f.interstate === 'yes' && !m.interstate) return false;
     if (f.interstate === 'no' && m.interstate) return false;
     if (f.hhgAuth && !m.hhgAuth) return false;
     if (f.hasEmail && !m.email) return false;
     if (f.hasSite && !m.site) return false;
+    if (f.noSite && m.site) return false;
     if (f.org && !m.org.toUpperCase().includes(f.org.toUpperCase())) return false;
     if (f.dots && !f.dots.has(m.dot)) return false;
     if (f.excludeDots && f.excludeDots.has(m.dot)) return false;

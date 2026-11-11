@@ -1092,6 +1092,12 @@ test('registry: real movers are told apart from studios and freight; fleet typos
   assert.deepEqual(sortMovers(filterMovers(rows, {}), 'units').map(m => m.dot), ['33', '22', '1234567']);
   const r = ourRank(filterMovers(rows, { region: 'bay-area' }), { units: 15, drivers: 10, miles: 0, years: 2 }, 'units');
   assert.equal(r.rank, 2); assert.equal(r.of, 3); assert.equal(r.nextUp[0].dot, '22'); assert.equal(r.gapTo(sf).units, 16);
+  assert.deepEqual(filterMovers(rows, { noSite: true }).map(m => m.dot).sort(), ['22', '33'].filter(d => !rows.find(m => m.dot === d).site));
+  assert.deepEqual(filterMovers(rows, { hasSite: true }).map(m => m.dot), ['1234567', '22', '33'].filter(d => rows.find(m => m.dot === d).site && rows.find(m => m.dot === d).likelyMover));
+  const fresh = toMover(census({ dot_number: '44', legal_name: 'BRAND NEW MOVING LLC', add_date: '20261001' }), undefined, ll);
+  assert.deepEqual(filterMovers([acme, fresh], { addedSince: '2026-09-01' }).map(m => m.dot), ['44']);
+  assert.deepEqual(filterMovers([acme, fresh], { maxYears: 2 }, Date.parse('2026-11-11T00:00:00Z')).map(m => m.dot), ['44']);
+  assert.deepEqual(sortMovers([acme, fresh], 'newest').map(m => m.dot), ['44', '1234567']);
   const csv = moversCsv([acme]).split('\n');
   assert.match(csv[0], /^DOT,MC,Legal name/); assert.match(csv[1], /^1234567,MC123456,ACME MOVING & STORAGE LLC/);
 });
@@ -1125,6 +1131,12 @@ test('mover registry API: admin-only search, area ranking, tracking competitors 
   assert.equal(nationwide.nationalComplete, true);
   const wholeMap = await (await search(adminToken, 'map=1&south=20&west=-130&north=50&east=-65')).json();
   assert.equal(wholeMap.points.length, 2); // Only CA exists in the fixture, so the map view loads it in detail.
+  // Map pins follow the visible map even when the list is set to another area (here: list = Puget Sound, map over San Jose).
+  const view = await (await search(adminToken, 'region=puget-sound&map=1&vbSouth=37.2&vbWest=-122.6&vbNorth=37.9&vbEast=-121.7')).json();
+  assert.equal(view.total, 0);
+  assert.equal(view.points.length, 2);
+  const noSite = await (await search(adminToken, 'region=bay-area&site=0')).json();
+  assert.deepEqual(noSite.rows.map(r => r.dot), ['22']);
 
   const csv = await search(adminToken, 'region=bay-area&format=csv');
   assert.match(csv.headers.get('content-type'), /text\/csv/);

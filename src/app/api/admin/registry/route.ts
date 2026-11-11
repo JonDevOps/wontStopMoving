@@ -28,8 +28,9 @@ function parseQuery(p: URLSearchParams | Record<string, unknown>): RegistryQuery
     bbox: [south, west, north, east].every(v => v !== undefined) ? { south: south!, west: west!, north: north!, east: east! } : undefined,
     near: nearLat !== undefined && nearLng !== undefined ? { lat: nearLat, lng: nearLng, miles: Math.min(nearMiles || 25, 500) } : undefined,
     minUnits: n(get('minUnits')), maxUnits: n(get('maxUnits')), minDrivers: n(get('minDrivers')), minYears: n(get('minYears')),
+    addedSince: /^\d+$/.test(get('newDays') || '') ? new Date(Date.now() - Math.min(Number(get('newDays')), 3650) * 86400000).toISOString().slice(0, 10) : undefined,
     interstate: get('interstate') === 'yes' || get('interstate') === 'no' ? (get('interstate') as 'yes' | 'no') : undefined,
-    hhgAuth: get('hhg') === '1', likelyOnly: get('likely') !== '0', hasEmail: get('email') === '1', hasSite: get('site') === '1',
+    hhgAuth: get('hhg') === '1', likelyOnly: get('likely') !== '0', hasEmail: get('email') === '1', hasSite: get('site') === '1', noSite: get('site') === '0',
     org: (get('org') || '').slice(0, 30) || undefined,
     sort: SORTS.includes(get('sort') as SortKey) ? (get('sort') as SortKey) : 'size',
     page: n(get('page')), pageSize: n(get('pageSize')), rankBy: (['size', 'units', 'drivers'] as const).find(k => k === get('rankBy')),
@@ -70,7 +71,15 @@ export async function GET(req: Request) {
     const query = parseQuery(params);
     const csv = params.get('format') === 'csv';
     const needsEnrichment = ['kind', 'sos', 'tracked'].some(k => params.get(k));
-    const result = await searchRegistry(query, await ourFleet(), { points: params.get('map') === '1', all: csv || needsEnrichment });
+    const result = await searchRegistry(query, await ourFleet(), { points: params.get('map') === '1' && !params.get('vbSouth'), all: csv || needsEnrichment });
+    // The map shows every company in view (same filters), whatever area the list is set to.
+    if (params.get('map') === '1' && params.get('vbSouth')) {
+      const [south, west, north, east] = ['vbSouth', 'vbWest', 'vbNorth', 'vbEast'].map(k => Number(params.get(k)));
+      if ([south, west, north, east].every(Number.isFinite)) {
+        const view = await searchRegistry({ ...query, region: undefined, states: [], near: undefined, bbox: { south, west, north, east }, page: 1, pageSize: 1 }, null, { points: true });
+        result.points = view.points;
+      }
+    }
     let rows = result.rows, total = result.total;
     if (needsEnrichment) {
       const filtered = (await applyEnrichmentFilters(result.all || [], params)) || [];

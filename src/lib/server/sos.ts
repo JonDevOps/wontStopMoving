@@ -1,3 +1,5 @@
+import { sodaHeaders } from './soda-token';
+
 /**
  * Secretary of State (business registry) lookups. Five states publish their
  * registries as free open-data APIs, which we query by company name:
@@ -12,7 +14,7 @@ const esc = (v: string) => v.replace(/'/g, "''").toUpperCase();
 
 async function soda<T>(host: string, id: string, where: string, limit = 5): Promise<T[]> {
   const qs = new URLSearchParams({ $where: where, $limit: String(limit) });
-  const res = await fetch(`https://${host}/resource/${id}.json?${qs}`, { signal: AbortSignal.timeout(15_000) });
+  const res = await fetch(`https://${host}/resource/${id}.json?${qs}`, { signal: AbortSignal.timeout(15_000), headers: sodaHeaders() });
   if (!res.ok) throw new Error(`${host} answered ${res.status}`);
   return res.json() as Promise<T[]>;
 }
