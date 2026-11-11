@@ -15,7 +15,8 @@ type Agent = Record<string, any> & { uid: string; companyName: string; status: s
 type Region = { code: string; name: string; country: Country; agents: number; trucks: number; warehouseSqft: number; origin: number; destination: number };
 type Prospect = { id: string; company: string; city: string; region: string; contact: string; phone: string; email: string; website: string; notes: string; stage: ProspectStage; nextFollowUp: string };
 type Shipment = { id: string; moveDate: string; pickupAddress: string; dropoffAddress: string; state: string; status: string; agentAssignments: Record<string, string>; agentResponses: Record<string, string> };
-type Data = { agents: Agent[]; totals: Record<string, number>; coverage: Region[]; prospects: Prospect[]; shipments: Shipment[] };
+type Alert = { id: string; kind: string; name: string; dot: string; issues: string[]; at: string | null };
+type Data = { agents: Agent[]; totals: Record<string, number>; coverage: Region[]; prospects: Prospect[]; shipments: Shipment[]; alerts: Alert[] };
 type Tab = 'overview' | 'vetting' | 'recruit' | 'shipments';
 const regionName = (code: string) => REGION_BY_CODE.get(code)?.name || code || '—';
 const STAGE_LABEL: Record<ProspectStage, string> = { prospect: 'To contact', contacted: 'Contacted', interested: 'Interested', applied: 'Applied', joined: 'Joined', declined: 'Not interested' };
@@ -46,10 +47,18 @@ function AgentNetwork() {
         <Button key={t} variant={tab === t ? 'default' : 'outline'} onClick={() => setTab(t)}>{l}</Button>)}
     </div>
     {notice && <p role="status" className="text-sm font-medium bg-white border rounded-lg p-3">{notice}</p>}
+    {data && data.alerts.length > 0 && <Card className="bg-red-50 border-red-200"><CardContent className="p-4 space-y-2">
+      <p className="font-bold text-red-900">Compliance alerts from FMCSA ({data.alerts.length})</p>
+      {data.alerts.map(a => <div key={a.id} className="flex flex-wrap justify-between gap-2 text-sm border-b border-red-100 last:border-0 pb-2">
+        <div><p className="font-semibold">{a.name} <span className="text-xs text-muted-foreground">({a.kind}, USDOT {a.dot}) · {a.at ? new Date(a.at).toLocaleDateString() : ''}</span></p><ul className="list-disc pl-5">{a.issues.map(i => <li key={i}>{i}</li>)}</ul></div>
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => void post({ action: 'resolve-alert', id: a.id }, 'Alert marked resolved.')}>Mark resolved</Button>
+      </div>)}
+      <p className="text-xs text-red-900">Checked daily against federal records. Pause assignments until they send updated certificates.</p>
+    </CardContent></Card>}
     {!data ? <p>Loading…</p>
       : tab === 'overview' ? <Overview data={data} onRecruit={() => setTab('recruit')} />
       : tab === 'vetting' ? <Vetting agents={data.agents} busy={busy} post={post} />
-      : tab === 'recruit' ? <Recruiting prospects={data.prospects} busy={busy} post={post} />
+      : tab === 'recruit' ? <Recruiting prospects={data.prospects} busy={busy} post={post} gaps={data.coverage.filter(r => r.country === 'US' && r.agents === 0).map(r => r.code)} />
       : <Handoffs shipments={data.shipments} agents={data.agents.filter(a => a.status === 'approved')} busy={busy} post={post} />}
   </div>;
 }
@@ -114,6 +123,15 @@ function Vetting({ agents, busy, post }: { agents: Agent[]; busy: boolean; post:
             <p className="text-xs text-muted-foreground">Agreement {a.agreementVersion} accepted {a.agreementAcceptedAt ? new Date(a.agreementAcceptedAt).toLocaleString() : ''}</p>
           </div>
           <div className="space-y-3">
+            <div className="bg-slate-50 rounded-lg p-3 space-y-1">
+              <div className="flex justify-between items-center"><p className="font-bold">Federal check (FMCSA)</p>{a.usdot && <Button size="sm" variant="outline" disabled={busy} onClick={() => void post({ action: 'federal-check', uid: a.uid }, 'Federal check done. Matching boxes ticked.')}>Run now</Button>}</div>
+              {a.federal ? <>
+                <p className={a.federal.ok ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}>{a.federal.ok ? 'Authority and insurance confirmed' : 'Problems found'}</p>
+                <p className="text-xs">Authority: {a.federal.common ? 'active' : 'none'}{a.federal.hhg ? ', household goods' : ''}{a.federal.mc ? ` (${a.federal.mc})` : ''} · Liability: {a.federal.liability ? `$${a.federal.liability.toLocaleString()}` : 'none'} · Cargo: {a.federal.cargo ? `$${a.federal.cargo.toLocaleString()}` : 'none'}</p>
+                {a.federal.issues?.length > 0 && <ul className="list-disc pl-5 text-xs text-red-700">{a.federal.issues.map((i: string) => <li key={i}>{i}</li>)}</ul>}
+                <p className="text-xs text-muted-foreground">Checked {new Date(a.federal.checkedAt).toLocaleString()} · re-checked daily once approved</p>
+              </> : <p className="text-xs text-muted-foreground">{a.usdot ? 'Not checked yet.' : 'No USDOT number (non-U.S. agent): verify authority by hand.'}</p>}
+            </div>
             <p className="font-bold">Vetting checklist</p>
             {(Object.keys(VETTING_CHECKS) as VettingKey[]).map(k => <label key={k} className="flex items-start gap-2"><input type="checkbox" className="mt-1" disabled={busy} checked={!!a.vetting?.[k]} onChange={e => void post({ action: 'vetting', uid: a.uid, key: k, done: e.target.checked })} />{VETTING_CHECKS[k]}</label>)}
             <Textarea rows={2} placeholder="Note to the agent (included in the status email)" value={note} onChange={e => setNote(e.target.value)} />
@@ -131,13 +149,14 @@ function Vetting({ agents, busy, post }: { agents: Agent[]; busy: boolean; post:
   </div>;
 }
 
-function Recruiting({ prospects, busy, post }: { prospects: Prospect[]; busy: boolean; post: (b: Record<string, unknown>, ok?: string) => Promise<boolean> }) {
+function Recruiting({ prospects, busy, post, gaps }: { prospects: Prospect[]; busy: boolean; post: (b: Record<string, unknown>, ok?: string) => Promise<boolean>; gaps: string[] }) {
   const empty = { company: '', city: '', region: '', contact: '', phone: '', email: '', website: '', notes: '' };
   const [f, setF] = useState(empty);
   const today = new Date().toISOString().slice(0, 10);
   const byStage = useMemo(() => PROSPECT_STAGES.map(s => ({ stage: s, list: prospects.filter(p => p.stage === s).sort((a, b) => (a.nextFollowUp || '9').localeCompare(b.nextFollowUp || '9')) })), [prospects]);
   const due = prospects.filter(p => p.nextFollowUp && p.nextFollowUp <= today && !['joined', 'declined'].includes(p.stage));
   return <div className="space-y-6">
+    <RecruitFinder gaps={gaps} post={post} busy={busy} />
     <Card className="bg-white"><CardContent className="p-4 space-y-3">
       <p className="font-bold">Add a company to recruit</p>
       <form className="grid sm:grid-cols-4 gap-2" onSubmit={async e => { e.preventDefault(); if (await post({ action: 'prospect-add', ...f }, `${f.company} added.`)) setF(empty); }}>
@@ -196,6 +215,43 @@ function Handoffs({ shipments, agents, busy, post }: { shipments: Shipment[]; ag
       </div>
     </CardContent></Card>)}
   </div>;
+}
+
+type Candidate = { dot: string; name: string; dba: string; city: string; state: string; phone: string; email: string; site: string; officer: string; units: number; drivers: number; years: number; mc: string; kind: string | null };
+
+/** Established movers from the federal registry, state by state, starting with states that have no agent. */
+function RecruitFinder({ gaps, post, busy }: { gaps: string[]; post: (b: Record<string, unknown>, ok?: string) => Promise<boolean>; busy: boolean }) {
+  const auth = useAuth();
+  const [state, setState] = useState(gaps.includes('US-CA') ? 'US-CA' : gaps[0] || 'US-CA');
+  const [list, setList] = useState<Candidate[] | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [err, setErr] = useState('');
+  const find = useCallback(async () => {
+    setErr(''); setList(null); setPicked(new Set());
+    try { setList((await apiFetch<{ candidates: Candidate[] }>(auth, `/api/admin/agents/recruits?state=${state.replace('US-', '')}`)).candidates); }
+    catch (e) { setErr(e instanceof Error ? e.message : 'Could not load candidates.'); }
+  }, [auth, state]);
+  const add = async (dots: string[]) => {
+    if (await post({ action: 'prospect-add-many', movers: dots.map(dot => ({ dot, state: state.replace('US-', '') })), source: 'registry-recruit' }, `Added ${dots.length} to the pipeline.`)) setList(l => (l || []).filter(c => !dots.includes(c.dot)));
+  };
+  return <Card className="bg-white"><CardContent className="p-4 space-y-3">
+    <p className="font-bold">Find movers to recruit</p>
+    <p className="text-sm text-muted-foreground">From the federal registry: established local movers with interstate household-goods authority, 5–30 trucks and 10+ years in business, not already agents or prospects. {gaps.length ? `${gaps.length} states have no agent yet (marked ★).` : ''}</p>
+    <div className="flex flex-wrap gap-2">
+      <select aria-label="State" className="h-10 border rounded-md px-2 bg-white text-sm" value={state} onChange={e => setState(e.target.value)}>
+        {REGIONS.filter(r => r.country === 'US').map(r => <option key={r.code} value={r.code}>{gaps.includes(r.code) ? '★ ' : ''}{r.name}</option>)}
+      </select>
+      <Button onClick={() => void find()}>Find candidates</Button>
+      {list && picked.size > 0 && <Button variant="outline" disabled={busy} onClick={() => void add([...picked])}>Add {picked.size} to pipeline</Button>}
+      {list && list.length > 0 && <Button variant="outline" disabled={busy} onClick={() => void add(list.slice(0, 25).map(c => c.dot))}>Add top 25</Button>}
+    </div>
+    {err && <p role="alert" className="text-sm">{err}</p>}
+    {list && (list.length ? <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-muted-foreground border-b">{['', 'Company', 'Trucks', 'Years', 'Owner & contact'].map(h => <th key={h} className="p-2 font-medium">{h}</th>)}</tr></thead>
+      <tbody>{list.map(c => <tr key={c.dot} className="border-b last:border-0"><td className="p-2"><input type="checkbox" aria-label={`Select ${c.dba || c.name}`} checked={picked.has(c.dot)} onChange={e => setPicked(p => { const n = new Set(p); if (e.target.checked) n.add(c.dot); else n.delete(c.dot); return n; })} /></td>
+        <td className="p-2"><p className="font-semibold">{c.dba || c.name}</p><p className="text-xs text-muted-foreground">{c.city}, {c.state} · USDOT {c.dot}{c.mc ? ` · ${c.mc}` : ''}{c.site ? ` · ${c.site.replace(/^https?:\/\//, '')}` : ''}</p></td>
+        <td className="p-2">{c.units}</td><td className="p-2">{c.years}</td><td className="p-2 text-xs">{c.officer}{c.phone && <><br /><a className="underline" href={`tel:${c.phone}`}>{c.phone}</a></>}{c.email && <><br />{c.email}</>}</td></tr>)}</tbody></table></div>
+      : <p className="text-sm text-muted-foreground">No new candidates in this state (or its data hasn’t loaded yet).</p>)}
+  </CardContent></Card>;
 }
 
 export default function AdminAgentsPage() { return <EmployeeLayout isAdmin><AgentNetwork /></EmployeeLayout>; }

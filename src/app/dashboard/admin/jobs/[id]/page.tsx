@@ -9,6 +9,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { DispatchSuggestions } from "@/components/admin/dispatch-suggestions";
 import { MoveDetailsEditor } from "@/components/jobs/move-details-editor";
 import { JobTeamPanel } from "@/components/jobs/job-team-panel";
+import { OverflowPartners } from "@/components/jobs/overflow-partners";
 import { formatMoveDate } from "@/lib/move-details";
 import { ArrowLeft, MapPin, DollarSign, Key, ShieldAlert } from "lucide-react";
 import Link from "next/link";
@@ -184,6 +185,8 @@ export default function AdminJobDetailsPage() {
         </div>
 
         <DispatchSuggestions jobId={id} />
+
+        <OverflowPartners jobId={id} />
 
         <JobTeamPanel jobId={id} admin refreshKey={JSON.stringify([job.providerIds, job.employeeIds, job.agentAssignments])} />
       </div>

@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import { HttpError, isId } from "./auth";
 import { enqueueEmail, notifyPaidJob } from "./notifications";
+import { routeNewJob } from './routing';
 import { recordReferralForPaidQuote } from "./referrals";
 import { stripe } from "@/lib/stripe";
 
@@ -114,6 +115,7 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
       if (!secret.exists) tx.set(secretRef, { customerId, releaseCode: newReleaseCode(), failedAttempts: 0 });
     });
     await notifyPaidJob(jobId);
+    await routeNewJob(jobId); // Closest available provider/agent, with a backup (never throws).
     await recordReferralForPaidQuote(md.quoteId, jobId);
     return { jobId };
   }

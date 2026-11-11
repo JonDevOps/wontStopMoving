@@ -44,7 +44,7 @@ export function htmlToText(html: string): { title: string; description: string; 
   return { title, description, text };
 }
 
-export async function fetchPublicPageText(raw: string, maxChars = 14_000): Promise<{ url: string; title: string; description: string; text: string }> {
+export async function fetchPublicPageText(raw: string, maxChars = 14_000): Promise<{ url: string; title: string; description: string; text: string; links: string[] }> {
   let url = await assertPublicUrl(raw);
   for (let hop = 0; hop < 4; hop++) {
     const res = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(9000), headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WontStopMovingResearch/1.0)', Accept: 'text/html' } });
@@ -65,7 +65,12 @@ export async function fetchPublicPageText(raw: string, maxChars = 14_000): Promi
       if (bytes > MAX_BYTES) { await reader.cancel(); break; }
     }
     const page = htmlToText(html);
-    return { url: url.toString(), ...page, text: page.text.slice(0, maxChars) };
+    const host = url.hostname.replace(/^www\./, '');
+    const links = [...html.matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
+      .map(m => { try { return { href: new URL(m[1], url).toString(), text: m[2].replace(/<[^>]+>/g, ' ').trim() }; } catch { return null; } })
+      .filter((l): l is { href: string; text: string } => !!l && /^https?:/.test(l.href) && new URL(l.href).hostname.replace(/^www\./, '') === host)
+      .filter(l => /price|pricing|rate|cost|quote|estimate/i.test(`${l.href} ${l.text}`)).map(l => l.href);
+    return { url: url.toString(), ...page, text: page.text.slice(0, maxChars), links: [...new Set(links)].slice(0, 5) };
   }
   throw new Error('The website redirected too many times.');
 }

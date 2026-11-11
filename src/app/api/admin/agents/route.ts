@@ -4,6 +4,9 @@ import { adminDb } from '@/lib/server/firebase-admin';
 import { errorResponse, HttpError, isId, readJson, requireRole } from '@/lib/server/auth';
 import { enqueueEmail } from '@/lib/server/notifications';
 import { actorFor, setAssignment } from '@/lib/server/assignments';
+import { vetAgent } from '@/lib/server/network-monitor';
+import { loadState } from '@/lib/server/registry-store';
+import { yearsInBusiness } from '@/lib/registry';
 import { AGENT_ROLES, networkCoverage, PROSPECT_STAGES, VETTING_CHECKS, type AgentRole, type VettingKey, REGION_BY_CODE } from '@/lib/agents';
 
 /** Agent network admin: vetting, coverage, recruiting pipeline and shipment handoffs. */
@@ -15,10 +18,11 @@ export async function GET(req: Request) {
   try {
     await requireRole(req, ['admin']);
     const db = adminDb();
-    const [agents, prospects, jobs] = await Promise.all([
+    const [agents, prospects, jobs, alerts] = await Promise.all([
       db.collection('agents').limit(2000).get(),
       db.collection('agentProspects').limit(2000).get(),
       db.collection('jobs').orderBy('createdAt', 'desc').limit(150).get(),
+      db.collection('networkAlerts').where('resolved', '==', false).limit(200).get(),
     ]);
     const list = agents.docs.map(d => {
       const a = d.data();
@@ -32,6 +36,7 @@ export async function GET(req: Request) {
       .map(j => ({ id: j.id, moveDate: j.moveDate || '', pickupAddress: j.pickupAddress || '', dropoffAddress: j.dropoffAddress || '', state: j.state || '', status: j.status || 'scheduled', agentAssignments: j.agentAssignments || {}, agentResponses: j.agentResponses || {} }));
     return NextResponse.json({
       agents: list, totals: { ...totals, approved: approved.length, pending: list.filter(a => a.status === 'pending').length, covered: coverage.covered },
+      alerts: alerts.docs.map(d => ({ id: d.id, ...d.data(), at: iso(d.data().at) })),
       coverage: coverage.regions, prospects: prospects.docs.map(d => ({ id: d.id, ...d.data(), createdAt: iso(d.data().createdAt), updatedAt: iso(d.data().updatedAt) })), shipments,
     }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) { return errorResponse(error); }
@@ -66,6 +71,41 @@ export async function POST(req: Request) {
           catch (error) { console.error('Agent status email failed', body.uid, error); }
         }
         return NextResponse.json({ ok: true });
+      }
+      case 'federal-check': {
+        if (!isId(body.uid)) throw new HttpError(400, 'Choose an agent.');
+        const check = await vetAgent(body.uid);
+        if (!check) throw new HttpError(409, 'This agent has no USDOT number to check.');
+        return NextResponse.json({ check });
+      }
+      case 'resolve-alert': {
+        if (!isId(body.id)) throw new HttpError(400, 'Choose an alert.');
+        await db.doc(`networkAlerts/${body.id}`).update({ resolved: true, resolvedBy: user.uid, resolvedAt: now });
+        return NextResponse.json({ ok: true });
+      }
+      case 'prospect-add-many': {
+        const list = (Array.isArray(body.movers) ? body.movers : []).slice(0, 100) as { dot: string; state: string }[];
+        const byState = new Map<string, string[]>();
+        for (const m of list) if (typeof m?.dot === 'string' && /^\d{1,9}$/.test(m.dot) && /^[A-Z]{2}$/.test(m?.state || '')) byState.set(m.state, [...(byState.get(m.state) || []), m.dot]);
+        const existing = new Set((await db.collection('agentProspects').select('dot').get()).docs.map(d => String(d.data().dot || '')));
+        let added = 0;
+        const batch = db.batch();
+        for (const [state, dots] of byState) {
+          const rows = new Map((await loadState(state)).map(m => [m.dot, m]));
+          for (const dot of dots) {
+            const m = rows.get(dot);
+            if (!m || existing.has(dot)) continue;
+            const years = yearsInBusiness(m);
+            batch.set(db.collection('agentProspects').doc(), {
+              company: (m.dba || m.name).slice(0, 160), city: m.city, region: REGION_BY_CODE.has(`US-${state}`) ? `US-${state}` : '', contact: m.officer, phone: m.phone, email: m.email, website: m.site,
+              notes: `From the mover registry: USDOT ${m.dot}${m.mc ? `, ${m.mc}` : ''}; ${m.units} trucks, ${m.drivers} drivers, ${years} years${m.hhgAuth ? ', household-goods authority' : ''}.${typeof body.note === 'string' && body.note ? ` ${body.note.slice(0, 300)}` : ''}`,
+              dot, source: typeof body.source === 'string' ? body.source.slice(0, 40) : 'registry', stage: 'prospect', nextFollowUp: '', createdBy: user.uid, createdAt: now, updatedAt: now,
+            });
+            added++;
+          }
+        }
+        if (added) await batch.commit();
+        return NextResponse.json({ added, skipped: list.length - added });
       }
       case 'prospect-add': {
         const company = str(body.company, 160);

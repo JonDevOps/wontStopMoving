@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/server/firebase-admin';
 import { errorResponse, HttpError, readJson, requireUser } from '@/lib/server/auth';
 import { enqueueEmail } from '@/lib/server/notifications';
+import { vetAgent } from '@/lib/server/network-monitor';
 import { AGENT_AGREEMENT_VERSION, checkAgentApplication, REGION_BY_CODE } from '@/lib/agents';
 
 /**
@@ -33,6 +34,8 @@ export async function POST(req: Request) {
       }, { merge: true });
     });
 
+    // Check FMCSA right away: ticks the authority/insurance vetting boxes when confirmed.
+    if (app.usdot) { try { await vetAgent(token.uid); } catch (error) { console.error('Federal check failed', token.uid, error); } }
     const where = `${app.city}, ${REGION_BY_CODE.get(app.region)?.name || app.region}`;
     try {
       await enqueueEmail(`agent-applied:${token.uid}`, {
