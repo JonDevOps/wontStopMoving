@@ -23,7 +23,7 @@ import {
   CheckCircle2,
   Package
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 
@@ -33,6 +33,11 @@ function AdminJobsContent() {
   const firestore = useFirestore();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  // Links like /dashboard/admin/jobs?tab=active open on that filter.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab && ["all", "active", "scheduled", "current", "past"].includes(tab)) setActiveTab(tab);
+  }, []);
 
   const jobsQuery = useMemoFirebase(() => {
     return query(collection(firestore, "jobs"), orderBy("createdAt", "desc"));
@@ -78,7 +83,8 @@ function AdminJobsContent() {
         j.pickupAddress?.toLowerCase().includes(search.toLowerCase()) ||
         j.dropoffAddress?.toLowerCase().includes(search.toLowerCase());
       
-      const matchesTab = activeTab === "all" || j.category.toLowerCase() === activeTab;
+      const matchesTab = activeTab === "all"
+        || (activeTab === "active" ? ["confirmed", "in-progress"].includes(j.status?.toLowerCase()) : j.category.toLowerCase() === activeTab);
       
       return matchesSearch && matchesTab;
     });
@@ -137,9 +143,10 @@ function AdminJobsContent() {
           </div>
 
           <div className="w-full xl:w-auto overflow-x-auto pb-2 xl:pb-0 no-scrollbar">
-            <Tabs defaultValue="all" className="w-full xl:w-auto" onValueChange={setActiveTab}>
+            <Tabs value={activeTab} className="w-full xl:w-auto" onValueChange={setActiveTab}>
               <TabsList className="bg-gray-100 p-1 rounded-xl h-12 inline-flex w-fit min-w-full xl:min-w-0">
                 <TabsTrigger value="all" className="rounded-lg px-4 md:px-6 font-bold uppercase text-[10px] tracking-widest flex-1 xl:flex-none">All Jobs</TabsTrigger>
+                <TabsTrigger value="active" className="rounded-lg px-4 md:px-6 font-bold uppercase text-[10px] tracking-widest flex-1 xl:flex-none">Active</TabsTrigger>
                 <TabsTrigger value="scheduled" className="rounded-lg px-4 md:px-6 font-bold uppercase text-[10px] tracking-widest flex-1 xl:flex-none">Scheduled</TabsTrigger>
                 <TabsTrigger value="current" className="rounded-lg px-4 md:px-6 font-bold uppercase text-[10px] tracking-widest flex-1 xl:flex-none">Current</TabsTrigger>
                 <TabsTrigger value="past" className="rounded-lg px-4 md:px-6 font-bold uppercase text-[10px] tracking-widest flex-1 xl:flex-none">Past</TabsTrigger>

@@ -132,9 +132,10 @@ function AdminDashboardContent() {
 
   const kpis = [
     {
-      label: "Platform Revenue",
+      label: "Booked Revenue",
       value: `$${platformRevenue.toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
-      trend: `${paidJobs.length} paid move${paidJobs.length === 1 ? "" : "s"}`,
+      trend: `${paidJobs.length} paid move${paidJobs.length === 1 ? "" : "s"} · our 15%: $${(platformRevenue * 0.15).toLocaleString("en-US", { maximumFractionDigits: 2 })}`,
+      href: "/dashboard/admin/insights",
       icon: TrendingUp,
       color: "text-green-600",
       bg: "bg-green-500/10",
@@ -143,6 +144,7 @@ function AdminDashboardContent() {
       label: "Active Moves",
       value: String(activeJobs.length),
       trend: `${completedJobs.length} completed`,
+      href: "/dashboard/admin/jobs?tab=active",
       icon: Truck,
       color: "text-blue-600",
       bg: "bg-blue-500/10",
@@ -151,6 +153,7 @@ function AdminDashboardContent() {
       label: "Open Quote Leads",
       value: String(pendingQuotes?.length || 0),
       trend: "Ready for Sales Call",
+      href: "/dashboard/admin/leads",
       icon: Calculator,
       color: "text-accent",
       bg: "bg-accent/10",
@@ -159,6 +162,7 @@ function AdminDashboardContent() {
       label: "Pending Providers",
       value: String(pendingProviderCount?.length || 0),
       trend: "Awaiting KYC Review",
+      href: "/dashboard/admin/providers?status=pending",
       icon: UserCheck,
       color: "text-amber-600",
       bg: "bg-amber-500/10",
@@ -237,7 +241,8 @@ function AdminDashboardContent() {
       {/* Executive KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpis.map((kpi, i) => (
-          <Card key={i} className="border-none shadow-sm bg-white rounded-2xl">
+          <Link key={i} href={kpi.href} aria-label={`${kpi.label}: ${kpi.value}. Open details`} className="block rounded-2xl transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+          <Card className="border-none shadow-sm bg-white rounded-2xl h-full">
             <CardContent className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <div className={`p-3 rounded-xl ${kpi.bg} ${kpi.color}`}>
@@ -255,8 +260,10 @@ function AdminDashboardContent() {
               <p className="text-3xl font-black text-primary mt-1">
                 {kpi.value}
               </p>
+              <p className="text-xs font-bold text-accent mt-2">View details →</p>
             </CardContent>
           </Card>
+          </Link>
         ))}
       </div>
 
