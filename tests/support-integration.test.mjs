@@ -19,6 +19,7 @@ import { providerApplicationIncomplete } from '../src/lib/provider-application.t
 import { compareToUs, scoreboard, cleanMetrics, parseCompetitorList, normalizeWebsite, sortActions } from '../src/lib/competitors.ts';
 import { checkAgentApplication, networkCoverage, REGIONS, VETTING_CHECKS } from '../src/lib/agents.ts';
 import { isPrivateAddress, htmlToText } from '../src/lib/server/safe-fetch.ts';
+import { cleanMoveDetails, diffMoveDetails, formatMoveDate } from '../src/lib/move-details.ts';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -939,4 +940,50 @@ test('custom quotes sent to a verified email join that customer’s account auto
   assert.equal((await fetch(`${base}/api/custom-quotes/claim`, authorized(adminToken, {}))).status, 403);
   await getAdminAuth(adminApp).updateUser(auth.currentUser.uid, { emailVerified: false });
   await reload(auth.currentUser); customerToken = await auth.currentUser.getIdToken(true);
+});
+
+test('move details validation: dates, sizes and hours are checked; only real changes are logged', () => {
+  assert.equal(cleanMoveDetails({ moveDate: '2026-02-30x' }).ok, false);
+  assert.equal(cleanMoveDetails({ moveSize: 'mansion' }).ok, false);
+  assert.equal(cleanMoveDetails({ hoursReserved: 100 }).ok, false);
+  assert.equal(cleanMoveDetails({ pickupAddress: ' ' }).ok, false);
+  const ok = cleanMoveDetails({ moveDate: '2026-12-20', hoursReserved: '3.3', moveTime: ' 8-10 AM ' });
+  assert.deepEqual(ok, { ok: true, data: { moveDate: '2026-12-20', moveTime: '8-10 AM', hoursReserved: 3.5 } });
+  const changes = diffMoveDetails({ moveDate: '2026-12-19', moveTime: '8-10 AM', moveSize: '2br' }, { moveDate: '2026-12-20', moveTime: '8-10 AM', moveSize: '3br' });
+  assert.deepEqual(changes.map(c => [c.field, c.from, c.to]), [['moveDate', '2026-12-19', '2026-12-20'], ['moveSize', '2-bedroom', '3-bedroom']]);
+  assert.equal(formatMoveDate('2026-12-20'), 'Sunday, December 20, 2026'); // No timezone drift.
+});
+
+test('staff edit move details: admins any move, crew only their own; locked once done; changes logged and customer emailed', async () => {
+  const jobRef = db.doc('jobs/editable-move');
+  await jobRef.set({ customerId: auth.currentUser.uid, status: 'confirmed', moveDate: '2026-12-19', pickupAddress: '1 Old St', dropoffAddress: '2 New Ave', moveSize: '2br', employeeIds: [], createdAt: Timestamp.now() });
+  const crew = await extraUser('crew-member@example.com', 'crew');
+  await db.doc(`users/${crew.user.uid}`).set({ role: 'employee', name: 'Casey Crew' });
+  const save = async (token, body) => fetch(`${base}/api/jobs/editable-move/details`, authorized(await token, body));
+
+  assert.equal((await save(customerToken, { details: { moveDate: '2026-12-21' } })).status, 403);
+  assert.equal((await save(crew.token(), { details: { moveDate: '2026-12-21' } })).status, 403); // Not assigned yet.
+  assert.equal((await save(adminToken, { details: { moveSize: 'castle' } })).status, 400);
+
+  const before = (await db.collection('emailOutbox').get()).size;
+  const r = await (await save(adminToken, { details: { moveDate: '2026-12-20', moveTime: '8-10 AM', moveSize: '2br' }, reason: 'Customer called', notifyCustomer: true })).json();
+  assert.equal(r.changed, 2); // Size didn't change.
+  assert.equal(r.emailed, true);
+  const job = (await jobRef.get()).data();
+  assert.equal(job.moveDate, '2026-12-20');
+  assert.equal(job.moveTime, '8-10 AM');
+  assert.equal((await db.collection('emailOutbox').get()).size, before + 1);
+
+  await jobRef.update({ employeeIds: [crew.user.uid] });
+  const crewSave = await (await save(crew.token(), { details: { accessNotes: 'Elevator booked 8-12' } })).json();
+  assert.equal(crewSave.changed, 1);
+  assert.equal(crewSave.emailed, false); // Access notes aren't customer-facing.
+  const history = await (await fetch(`${base}/api/jobs/editable-move/details`, { headers: { Authorization: `Bearer ${await crew.token()}` } })).json();
+  assert.equal(history.changes.length, 2);
+  assert.equal(history.changes[0].by, 'Casey Crew');
+  assert.equal(history.changes[1].reason, 'Customer called');
+
+  await jobRef.update({ status: 'completed' });
+  assert.equal((await save(adminToken, { details: { moveDate: '2026-12-22' } })).status, 409);
+  await deleteApp(crew.app);
 });

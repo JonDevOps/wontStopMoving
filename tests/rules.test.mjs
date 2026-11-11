@@ -256,3 +256,13 @@ test('agent, competitor and admin-invite records are server-only, and nobody can
   await assertFails(setDoc(doc(as('self-agent'), 'users/self-agent'), { role: 'agent' }));
   await assertFails(setDoc(doc(as('x-user'), 'adminInvites/x-user@example.com'), { status: 'pending' }));
 });
+
+test('the move change log is server-only', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'jobs/logjob'), { customerId: 'cust', employeeIds: ['crew1'], status: 'confirmed' });
+    await setDoc(doc(ctx.firestore(), 'jobs/logjob/changes/c1'), { by: 'Admin' });
+  });
+  await assertFails(getDoc(doc(as('cust'), 'jobs/logjob/changes/c1')));
+  await assertFails(setDoc(doc(as('crew1'), 'jobs/logjob/changes/c2'), { by: 'me' }));
+  await assertFails(updateDoc(doc(as('crew1'), 'jobs/logjob'), { moveDate: '2027-01-01' })); // Edits go through the server.
+});

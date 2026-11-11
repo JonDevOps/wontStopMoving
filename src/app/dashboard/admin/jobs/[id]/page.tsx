@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { useDoc, useMemoFirebase, useFirestore, useCollection } from "@/firebase";
 import { doc, updateDoc, collection, query, where } from "firebase/firestore";
 import { DispatchSuggestions } from "@/components/admin/dispatch-suggestions";
+import { MoveDetailsEditor } from "@/components/jobs/move-details-editor";
+import { formatMoveDate } from "@/lib/move-details";
 import { ArrowLeft, User, Truck, MapPin, Calendar, Check, DollarSign, Key, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { format } from "date-fns";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -140,6 +141,8 @@ export default function AdminJobDetailsPage() {
           <Badge className="uppercase text-[10px] font-black">{job.status}</Badge>
         </div>
 
+        <MoveDetailsEditor jobId={id} job={job} />
+
         <div className="grid md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -157,7 +160,7 @@ export default function AdminJobDetailsPage() {
               <div>
                 <p className="text-xs font-bold text-muted-foreground uppercase">Date</p>
                 <p className="font-medium text-sm">
-                  {job.moveDate ? format(new Date(job.moveDate), "MMM d, yyyy") : "TBD"}
+                  {formatMoveDate(job.moveDate)}{job.moveTime ? ` · ${job.moveTime}` : ""}
                 </p>
               </div>
               {job.hoursReserved && (

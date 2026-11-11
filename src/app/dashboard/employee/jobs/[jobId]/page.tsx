@@ -25,6 +25,8 @@ import { useAuth, useFirestore } from "@/firebase";
 import { idTokenOf } from "@/lib/api-client";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { MoveDetailsEditor } from "@/components/jobs/move-details-editor";
+import { formatMoveDate } from "@/lib/move-details";
 
 export default function JobDetailPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = use(params);
@@ -36,6 +38,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [isGenerating, setIsGenerating] = useState(false);
   const [liveJob, setLiveJob] = useState<any>(null);
 
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     const loadJob = async () => {
       if (!firestore || !jobId) return;
@@ -52,7 +55,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       }
     };
     loadJob();
-  }, [firestore, jobId]);
+  }, [firestore, jobId, reloadKey]);
 
   const jobDetails = {
     id: liveJob?.id || jobId,
@@ -60,7 +63,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     phone: liveJob?.phone || "Not provided",
     pickup: liveJob?.pickupAddress || "Not provided",
     dropoff: liveJob?.dropoffAddress || "Not provided",
-    date: liveJob?.moveDate || "Date not set",
+    date: formatMoveDate(liveJob?.moveDate),
     time: liveJob?.moveTime || "To be confirmed",
     size: liveJob?.moveSize ? `${liveJob.moveSize.toUpperCase()} Move` : "Size not specified",
     specialItems: liveJob?.specialItems || "None listed",
@@ -212,6 +215,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div>
               </CardContent>
             </Card>
+
+            {liveJob && <MoveDetailsEditor jobId={jobId} job={liveJob} onSaved={() => setReloadKey(k => k + 1)} />}
 
             <Card className="border-none shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">

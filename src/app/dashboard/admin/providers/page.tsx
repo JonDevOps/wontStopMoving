@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserCheck, ShieldAlert, FileText, CheckCircle2, Clock, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState } from "react";
 
 function ProviderManagementContent() {
   const firestore = useFirestore();
@@ -21,7 +22,17 @@ function ProviderManagementContent() {
     return query(collection(firestore, "providers"), orderBy("createdAt", "desc"));
   }, [firestore]);
 
-  const { data: providers, isLoading } = useCollection(providersQuery);
+  const { data: allProviders, isLoading } = useCollection(providersQuery);
+  // Links like /dashboard/admin/providers?status=pending open on that filter.
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "suspended">("all");
+  useEffect(() => {
+    const s = new URLSearchParams(window.location.search).get("status");
+    if (s === "pending" || s === "approved" || s === "suspended") setStatusFilter(s);
+  }, []);
+  const isPending = (s?: string) => !s || s === "pending" || s === "pending_approval";
+  const matches = (p: { status?: string }, f: typeof statusFilter) => f === "all" || (f === "pending" ? isPending(p.status) : p.status === f);
+  const providers = (allProviders || []).filter(p => matches(p, statusFilter));
+  const count = (f: typeof statusFilter) => (allProviders || []).filter(p => matches(p, f)).length;
 
   const updateStatus = async (providerId: string, newStatus: string) => {
     if (!firestore) return;
@@ -49,6 +60,10 @@ function ProviderManagementContent() {
       <header>
         <h1 className="text-3xl font-black text-primary uppercase">Provider <span className="text-accent">Approvals</span></h1>
         <p className="text-muted-foreground">Manage independent contractor applications and statuses.</p>
+        <div className="flex flex-wrap gap-2 mt-4" role="tablist" aria-label="Provider status">
+          {([["all", "All"], ["pending", "Pending"], ["approved", "Approved"], ["suspended", "Suspended"]] as const).map(([v, label]) =>
+            <Button key={v} size="sm" role="tab" aria-selected={statusFilter === v} variant={statusFilter === v ? "default" : "outline"} onClick={() => setStatusFilter(v)}>{label} ({count(v)})</Button>)}
+        </div>
       </header>
 
       {isLoading ? (
