@@ -9,7 +9,7 @@
 
 export type MetricKey =
   | 'revenueUsd' | 'googleReviews' | 'googleRating' | 'followers' | 'postsPerMonth'
-  | 'avgPostLikes' | 'customersPerYear' | 'repeatRate';
+  | 'avgPostLikes' | 'customersPerYear' | 'repeatRate' | 'trucks' | 'drivers' | 'yearsInBusiness';
 
 export type Metrics = Partial<Record<MetricKey, number>>;
 
@@ -22,6 +22,9 @@ export const METRICS: { key: MetricKey; label: string; hint: string; format: 'mo
   { key: 'avgPostLikes', label: 'Likes per post', hint: 'Average engagement', format: 'number' },
   { key: 'customersPerYear', label: 'Customers per year', hint: 'Moves or jobs', format: 'number' },
   { key: 'repeatRate', label: 'Repeat customers', hint: 'Percent who book again', format: 'percent' },
+  { key: 'trucks', label: 'Trucks', hint: 'Power units (federal registry)', format: 'number' },
+  { key: 'drivers', label: 'Drivers', hint: 'Federal registry', format: 'number' },
+  { key: 'yearsInBusiness', label: 'Years in business', hint: 'Since DOT registration', format: 'number' },
 ];
 
 export type Tier = 'challenger' | 'legend';

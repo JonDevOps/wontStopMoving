@@ -29,7 +29,8 @@ import {
   LifeBuoy,
   Target,
   Globe2,
-  Users
+  Users,
+  Map as MapIcon
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -108,6 +109,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Insights", href: "/dashboard/admin/insights", icon: BarChart3 },
     { label: "Competitors", href: "/dashboard/admin/competitors", icon: Target },
+    { label: "Mover Registry", href: "/dashboard/admin/movers", icon: MapIcon },
     { label: "Agent Network", href: "/dashboard/admin/agents", icon: Globe2 },
     { label: "Lead Inbox", href: "/dashboard/admin/leads", icon: Inbox },
     { label: "Sales Call Script", href: "/dashboard/admin/sales-script", icon: PhoneCall },

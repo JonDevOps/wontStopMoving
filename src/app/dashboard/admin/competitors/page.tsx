@@ -18,8 +18,9 @@ type Competitor = {
   analysis: { strengths: string[]; weaknesses: string[]; threat: 'high' | 'medium' | 'low' } | null;
   passedAt: string | null; passedHow: string | null; analyzedAt: string | null;
 };
-type Data = { us: { metrics: Metrics; auto: Metrics; manual: Metrics }; competitors: Competitor[] };
-type View = 'challenger' | 'legend' | 'actions' | 'us';
+type Data = { us: { metrics: Metrics; auto: Metrics; manual: Metrics }; competitors: Competitor[]; progress?: Progress };
+type View = 'challenger' | 'legend' | 'actions' | 'us' | 'progress';
+type Progress = { history: { day: string; metrics: Metrics; passed: number; actionsDone: number }[]; passes: { id: string; name: string; tier: Tier; at: string; how: string | null }[]; actions: { competitor: string; text: string; area: string; impact: string; at: string }[] };
 
 const fmt = (key: keyof Metrics, v: number | undefined) => {
   if (typeof v !== 'number') return '—';
@@ -45,7 +46,7 @@ function Competitors() {
   const [showPassed, setShowPassed] = useState(false);
   const [search, setSearch] = useState('');
 
-  const load = useCallback(() => apiFetch<Data>(auth, '/api/admin/competitors').then(setData).catch(e => setNotice(e instanceof Error ? e.message : 'Could not load competitors.')), [auth]);
+  const load = useCallback(() => apiFetch<Data>(auth, '/api/admin/competitors?history=1').then(setData).catch(e => setNotice(e instanceof Error ? e.message : 'Could not load competitors.')), [auth]);
   useEffect(() => { void load(); }, [load]);
 
   const post = useCallback(async (body: Record<string, unknown>, label = 'save') => {
@@ -91,13 +92,15 @@ function Competitors() {
     </div>
 
     <div className="flex flex-wrap gap-2">
-      {([['challenger', `Main list (${challengers.length})`], ['legend', `Legends (${legends.length})`], ['actions', `Action board (${openActions.length})`], ['us', 'Our numbers']] as [View, string][]).map(([v, label]) =>
+      {([['challenger', `Main list (${challengers.length})`], ['legend', `Legends (${legends.length})`], ['actions', `Action board (${openActions.length})`], ['us', 'Our numbers'], ['progress', 'Progress']] as [View, string][]).map(([v, label]) =>
         <Button key={v} variant={view === v ? 'default' : 'outline'} onClick={() => setView(v)}>{label}</Button>)}
+      <Button asChild variant="ghost"><a href="/dashboard/admin/movers">Find competitors in the registry</a></Button>
       <Button variant="ghost" disabled={!!busy} onClick={async () => { const r = await post({ action: 'refresh-standings' }, 'refresh'); if (r) setNotice(r.newlyPassed.length ? `Passed: ${r.newlyPassed.join(', ')}` : 'No new passes yet. Keep going.'); }}>Check for passes</Button>
     </div>
     {notice && <p role="status" className="text-sm font-medium bg-white border rounded-lg p-3">{notice}</p>}
 
-    {!data ? <p>Loading…</p> : view === 'us' ? <OurNumbers us={data.us} busy={!!busy} onSave={m => post({ action: 'us', metrics: m }).then(r => r && setNotice('Our numbers saved.'))} />
+    {!data ? <p>Loading…</p> : view === 'progress' ? <ProgressView progress={data.progress} us={data.us.metrics} />
+      : view === 'us' ? <OurNumbers us={data.us} busy={!!busy} onSave={m => post({ action: 'us', metrics: m }).then(r => r && setNotice('Our numbers saved.'))} />
       : view === 'actions' ? <ActionBoard items={openActions} onToggle={(cid, aid) => post({ action: 'toggle-action', id: cid, actionId: aid, done: true })} onOpen={c => { setView(c.tier); setOpenId(c.id); }} />
       : <>
         <AddCompetitors tier={view} busy={!!busy} post={post} setNotice={setNotice} />
@@ -283,6 +286,52 @@ function OurNumbers({ us, busy, onSave }: { us: Data['us']; busy: boolean; onSav
     </div>
     <Button disabled={busy} onClick={() => onSave(values)}>Save our numbers</Button>
   </CardContent></Card>;
+}
+
+function Spark({ values }: { values: number[] }) {
+  if (values.length < 2) return <span className="text-xs text-muted-foreground">building…</span>;
+  const min = Math.min(...values), max = Math.max(...values), w = 120, h = 28;
+  const pts = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - (max === min ? h / 2 : ((v - min) / (max - min)) * (h - 4) + 2)}`).join(' ');
+  return <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true"><polyline points={pts} fill="none" stroke="currentColor" strokeWidth="2" className="text-accent" /></svg>;
+}
+
+/**
+ * The growth log: our numbers day by day (saved by the daily job), with
+ * every competitor passed and every action completed, so you can see what
+ * moved the needle.
+ */
+function ProgressView({ progress, us }: { progress?: Progress; us: Metrics }) {
+  if (!progress) return <p>Loading…</p>;
+  const h = progress.history;
+  const series = (fn: (x: Progress['history'][number]) => number | undefined) => h.map(fn).filter((v): v is number => typeof v === 'number');
+  const rows: { label: string; values: number[]; format: (n: number) => string }[] = [
+    ...METRICS.filter(m => h.some(x => typeof x.metrics[m.key] === 'number')).map(m => ({ label: m.label, values: series(x => x.metrics[m.key]), format: (n: number) => fmt(m.key, n) })),
+    { label: 'Competitors passed', values: series(x => x.passed), format: (n: number) => String(n) },
+    { label: 'Actions completed', values: series(x => x.actionsDone), format: (n: number) => String(n) },
+  ];
+  const events = [
+    ...progress.passes.map(p => ({ at: p.at, text: `Passed ${p.name}${p.tier === 'legend' ? ' (legend)' : ''}`, sub: p.how === 'numbers' ? 'On the numbers' : 'Marked by hand', kind: 'pass' as const })),
+    ...progress.actions.map(a => ({ at: a.at, text: a.text, sub: `${a.area} · ${a.impact} impact · to beat ${a.competitor}`, kind: 'action' as const })),
+  ].sort((a, b) => b.at.localeCompare(a.at));
+  return <div className="space-y-6">
+    <Card className="bg-white"><CardContent className="p-5 space-y-3">
+      <h3 className="font-bold">Your numbers over time</h3>
+      <p className="text-sm text-muted-foreground">Saved once a day automatically{h.length ? ` since ${h[0].day}` : ' starting tomorrow'}. Revenue, customers and repeat rate come from bookings; enter reviews and followers under Our numbers to track them too.</p>
+      {!h.length ? <p className="text-sm text-muted-foreground">No history yet. The first snapshot is taken by tonight’s registry job.</p> :
+        <table className="w-full text-sm"><thead><tr className="text-left text-muted-foreground border-b"><th className="p-2 font-medium">Metric</th><th className="p-2 font-medium">First</th><th className="p-2 font-medium">Now</th><th className="p-2 font-medium">Change</th><th className="p-2 font-medium">Trend</th></tr></thead>
+          <tbody>{rows.filter(r => r.values.length).map(r => { const first = r.values[0], last = r.values[r.values.length - 1], d = last - first; return <tr key={r.label} className="border-b last:border-0">
+            <td className="p-2 font-medium">{r.label}</td><td className="p-2">{r.format(first)}</td><td className="p-2">{r.format(last)}</td>
+            <td className={`p-2 font-semibold ${d > 0 ? 'text-green-700' : d < 0 ? 'text-red-700' : 'text-muted-foreground'}`}>{d > 0 ? '+' : ''}{Number.isInteger(d) ? d.toLocaleString() : d.toFixed(1)}</td>
+            <td className="p-2"><Spark values={r.values} /></td></tr>; })}</tbody></table>}
+    </CardContent></Card>
+    <Card className="bg-white"><CardContent className="p-5 space-y-3">
+      <h3 className="font-bold">What you did and who you passed</h3>
+      {!events.length ? <p className="text-sm text-muted-foreground">Complete actions and pass competitors; each one is logged here with its date.</p> :
+        <ul className="space-y-3">{events.slice(0, 200).map((e, i) => <li key={i} className={`border-l-2 pl-3 text-sm ${e.kind === 'pass' ? 'border-green-500' : 'border-accent/50'}`}>
+          <p className="text-xs text-muted-foreground">{new Date(e.at).toLocaleDateString()}</p><p className={e.kind === 'pass' ? 'font-bold text-green-800' : ''}>{e.text}</p><p className="text-xs text-muted-foreground">{e.sub}</p></li>)}</ul>}
+      <p className="text-xs text-muted-foreground">Current: {METRICS.filter(m => typeof us[m.key] === 'number').map(m => `${m.label} ${fmt(m.key, us[m.key])}`).join(' · ') || 'enter your numbers to compare'}.</p>
+    </CardContent></Card>
+  </div>;
 }
 
 export default function AdminCompetitorsPage() { return <EmployeeLayout isAdmin><Competitors /></EmployeeLayout>; }

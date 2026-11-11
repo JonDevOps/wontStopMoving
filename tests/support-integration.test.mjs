@@ -21,6 +21,10 @@ import { checkAgentApplication, networkCoverage, REGIONS, VETTING_CHECKS } from 
 import { isPrivateAddress, htmlToText } from '../src/lib/server/safe-fetch.ts';
 import { cleanMoveDetails, diffMoveDetails, formatMoveDate } from '../src/lib/move-details.ts';
 import { cleanLocation, teamFromJob, isOnTeam, describeActivity } from '../src/lib/job-activity.ts';
+import { toMover, siteFromEmail, saneUnits, filterMovers, sortMovers, ourRank, moversCsv, moverLikelihood } from '../src/lib/registry.ts';
+import { gzipSync } from 'node:zlib';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -1059,4 +1063,85 @@ test('assignment history: admins assign movers, crew and agents; every change is
   const logged = (await db.collection('jobs/team-move/activity').where('note', '==', 'Suggested match').get()).size;
   assert.equal(logged, 1);
   for (const u of [mover, crew, outsider]) await deleteApp(u.app);
+});
+
+const census = (over = {}) => ({ dot_number: '1234567', legal_name: 'ACME MOVING & STORAGE LLC', dba_name: '', phy_street: '1 MAIN ST', phy_city: 'SAN JOSE', phy_state: 'CA', phy_zip: '95112', phy_cnty: '085', phone: '4085550100', email_address: 'office@acmemoving.com', company_officer_1: 'ANA ACME', business_org_desc: 'LIMITED LIABILITY COMPANY', power_units: '12', truck_units: '10', total_drivers: '14', total_cdl: '3', mcs150_mileage: '250000', mcs150_mileage_year: '2025', add_date: '20100105', mcs150_date: '20260101', carrier_operation: 'A', classdef: 'AUTHORIZED FOR HIRE', crgo_household: 'X', status_code: 'A', ...over });
+
+test('registry: real movers are told apart from studios and freight; fleet typos are capped; areas, ranks and CSV work', () => {
+  const ll = zip => ({ '95112': [37.35, -121.88], '98101': [47.61, -122.33], '94103': [37.77, -122.41] })[zip] || null;
+  assert.equal(siteFromEmail('office@acmemoving.com'), 'https://acmemoving.com');
+  assert.equal(siteFromEmail('acme@gmail.com'), '');
+  assert.equal(saneUnits(50061, 3), 3);
+  assert.equal(saneUnits(900, 683), 900);
+  const acme = toMover(census(), { mc: 'MC123456', hhg: true, active: true, broker: false }, ll);
+  assert.equal(acme.dot, '1234567'); assert.equal(acme.site, 'https://acmemoving.com'); assert.equal(acme.added, '2010-01-05');
+  assert.equal(acme.likelyMover, true); assert.deepEqual([acme.lat, acme.lng], [37.35, -121.88]);
+  const studio = toMover(census({ dot_number: '57426', legal_name: 'NBCUNIVERSAL MEDIA LLC', classdef: 'PRIVATE PROPERTY', crgo_genfreight: 'X', crgo_motoveh: 'X', crgo_bldgmat: 'X', crgo_machlrg: 'X', crgo_passengers: 'X', crgo_construct: 'X' }), undefined, ll);
+  assert.equal(studio.likelyMover, false);
+  const freight = toMover(census({ dot_number: '7', legal_name: 'METROSTAR EXPRESS LLC' }), undefined, ll);
+  assert.equal(freight.likelyMover, false); // For-hire alone isn't enough without moving authority or a mover name.
+  assert.ok(moverLikelihood({ name: 'BAY VAN LINES', dba: '', forHire: true, hhgAuth: false, cargoTypes: 1, broker: false }) >= 50);
+  const sf = toMover(census({ dot_number: '22', legal_name: 'SF RELOCATION INC', phy_city: 'SAN FRANCISCO', phy_zip: '94103', phy_cnty: '075', power_units: '30', total_drivers: '40' }), { mc: '', hhg: true, active: true, broker: false }, ll);
+  const sea = toMover(census({ dot_number: '33', legal_name: 'SEATTLE MOVERS', phy_city: 'SEATTLE', phy_state: 'WA', phy_zip: '98101', phy_cnty: '033', power_units: '50' }), undefined, ll);
+  const rows = [acme, studio, freight, sf, sea];
+  assert.deepEqual(filterMovers(rows, { region: 'bay-area' }).map(m => m.dot).sort(), ['1234567', '22']);
+  assert.deepEqual(filterMovers(rows, { region: 'puget-sound' }).map(m => m.dot), ['33']);
+  assert.deepEqual(filterMovers(rows, { near: { lat: 37.77, lng: -122.41, miles: 10 } }).map(m => m.dot), ['22']);
+  assert.deepEqual(filterMovers(rows, { bbox: { south: 37, west: -123, north: 38, east: -121 }, likelyOnly: false }).map(m => m.dot).sort(), ['1234567', '22', '57426', '7']);
+  assert.deepEqual(sortMovers(filterMovers(rows, {}), 'units').map(m => m.dot), ['33', '22', '1234567']);
+  const r = ourRank(filterMovers(rows, { region: 'bay-area' }), { units: 15, drivers: 10, miles: 0, years: 2 }, 'units');
+  assert.equal(r.rank, 2); assert.equal(r.of, 3); assert.equal(r.nextUp[0].dot, '22'); assert.equal(r.gapTo(sf).units, 16);
+  const csv = moversCsv([acme]).split('\n');
+  assert.match(csv[0], /^DOT,MC,Legal name/); assert.match(csv[1], /^1234567,MC123456,ACME MOVING & STORAGE LLC/);
+});
+
+test('mover registry API: admin-only search, area ranking, tracking competitors by DOT; jobs need the scheduler', async () => {
+  const ll = zip => ({ '95112': [37.35, -121.88], '94103': [37.77, -122.41] })[zip] || null;
+  const movers = [
+    toMover(census(), { mc: '', hhg: true, active: true, broker: false }, ll),
+    toMover(census({ dot_number: '22', legal_name: 'SF RELOCATION INC', phy_city: 'SAN FRANCISCO', phy_zip: '94103', phy_cnty: '075', power_units: '30', total_drivers: '40', email_address: '' }), { mc: '', hhg: true, active: true, broker: false }, ll),
+    toMover(census({ dot_number: '57426', legal_name: 'NBCUNIVERSAL MEDIA LLC', classdef: 'PRIVATE PROPERTY' }), undefined, ll),
+  ];
+  writeFileSync(join(process.env.REGISTRY_LOCAL_DIR, 'CA.json.gz'), gzipSync(Buffer.from(JSON.stringify(movers))));
+  await db.doc('registryStates/CA').set({ state: 'CA', count: 3, likely: 2, units: 42, drivers: 54, top: movers.filter(m => m.likelyMover).map(m => ({ ...m, size: 1 })), bbox: { south: 37, west: -123, north: 38.5, east: -121 }, center: [37.7, -122], updatedAt: Timestamp.now() });
+  await db.doc('competitorSettings/us').set({ metrics: { trucks: 15, drivers: 10 } }, { merge: true });
+
+  const search = async (token, qs) => fetch(`${base}/api/admin/registry?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal((await search(customerToken, 'region=bay-area')).status, 403);
+  const res = await (await search(adminToken, 'region=bay-area&sort=units&rankBy=units&map=1&stats=1')).json();
+  assert.equal(res.mode, 'detailed');
+  assert.equal(res.total, 2); // The studio is filtered out as not a mover.
+  assert.deepEqual(res.rows.map(r => r.dot), ['22', '1234567']);
+  assert.equal(res.rank.rank, 2); // 15 trucks: behind SF Relocation (30), ahead of Acme (12).
+  assert.equal(res.points.length, 2);
+  assert.equal(res.jev, false);
+  const all = await (await search(adminToken, 'region=bay-area&likely=0')).json();
+  assert.equal(all.total, 3);
+  const nationwide = await (await search(adminToken, 'sort=size')).json();
+  assert.equal(nationwide.mode, 'national');
+  assert.ok(nationwide.total >= 2);
+
+  const csv = await search(adminToken, 'region=bay-area&format=csv');
+  assert.match(csv.headers.get('content-type'), /text\/csv/);
+  assert.equal((await csv.text()).trim().split('\n').length, 3);
+
+  const track = await (await fetch(`${base}/api/admin/registry`, authorized(adminToken, { action: 'track', query: { region: 'bay-area' }, limit: 5, tier: 'challenger' }))).json();
+  assert.equal(track.added, 2);
+  const again = await (await fetch(`${base}/api/admin/registry`, authorized(adminToken, { action: 'track', query: { region: 'bay-area' }, limit: 5 }))).json();
+  assert.equal(again.added, 0); assert.equal(again.skipped, 2);
+  const tracked = (await db.collection('competitors').where('dot', '==', '22').get()).docs[0].data();
+  assert.equal(tracked.metrics.trucks, 30); assert.equal(tracked.location, 'San Francisco, CA'); assert.equal(tracked.tier, 'challenger');
+  const trackedOnly = await (await search(adminToken, 'region=bay-area&tracked=1')).json();
+  assert.equal(trackedOnly.total, 2); assert.ok(trackedOnly.rows.every(r => r.competitorId));
+
+  const detail = await (await fetch(`${base}/api/admin/registry/1234567?state=CA`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.equal(detail.mover.site, 'https://acmemoving.com');
+  assert.match(detail.links.safer, /query_string=1234567/);
+  assert.match(detail.sosSearchUrl, /bizfileonline\.sos\.ca\.gov/);
+  assert.equal((await fetch(`${base}/api/admin/registry/1234567?state=CA`, authorized(adminToken, { action: 'classify' }))).status, 503); // Jev off in tests.
+  const sos = await (await fetch(`${base}/api/admin/registry/1234567?state=CA`, authorized(adminToken, { action: 'sos' }))).json();
+  assert.equal(sos.free, false); // California has no free registry data: link out instead.
+  assert.equal((await fetch(`${base}/api/admin/registry/999?state=CA`, { headers: { Authorization: `Bearer ${adminToken}` } })).status, 404);
+
+  for (const path of ['/api/cron/registry-sync', '/api/cron/registry-enrich']) assert.equal((await fetch(`${base}${path}`, { method: 'POST' })).status, 401);
 });
