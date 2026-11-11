@@ -20,7 +20,8 @@ export async function GET(req: Request) {
       const data = doc.data();
       return { id: doc.id, name: data.name, email: data.email, phone: data.phone,
         subject: data.subject, message: data.message, status: data.status,
-        createdAt: data.createdAt?.toDate().toISOString() ?? null };
+        createdAt: data.createdAt?.toDate().toISOString() ?? null,
+        firstResponseAt: data.firstResponseAt?.toDate?.().toISOString() ?? null, satisfaction: Number.isInteger(data.satisfaction) ? data.satisfaction : null };
     });
     return NextResponse.json({ tickets, nextCursor: snapshot.size > 50 ? page.at(-1)!.id : null },
       { headers: { 'Cache-Control': 'private, no-store' } });
