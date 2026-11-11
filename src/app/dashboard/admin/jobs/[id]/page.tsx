@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useDoc, useMemoFirebase, useFirestore, useCollection } from "@/firebase";
 import { doc, updateDoc, collection, query, where } from "firebase/firestore";
+import { DispatchSuggestions } from "@/components/admin/dispatch-suggestions";
 import { ArrowLeft, User, Truck, MapPin, Calendar, Check, DollarSign, Key, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -228,6 +229,8 @@ export default function AdminJobDetailsPage() {
             </CardContent>
           </Card>
         </div>
+
+        <DispatchSuggestions jobId={id} />
 
         <div className="grid md:grid-cols-2 gap-6">
           <Card>

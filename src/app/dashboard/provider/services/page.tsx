@@ -15,6 +15,7 @@ import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AVAILABLE_SERVICES } from "@/lib/services";
+import { ProviderAvailability } from "@/components/dashboard/provider-availability";
 
 const pricingSchema = z.object({
   hourlyRate: z.coerce.number().min(15, "Minimum rate is $15/hr"),
@@ -201,6 +202,7 @@ export default function ProviderServicesPage() {
             </div>
           </form>
         </Form>
+        <ProviderAvailability />
       </div>
     </ProviderLayout>
   );
