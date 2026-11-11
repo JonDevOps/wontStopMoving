@@ -13,6 +13,7 @@ import { customQuoteSchema, customQuoteTotal } from '../src/lib/custom-quotes.ts
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { dueFollowUpStep, followUpEmail } from '../src/lib/quote-followups.ts';
 import { classifyChannel, cleanLeadSource } from '../src/lib/attribution.ts';
+import { rankProviders } from '../src/lib/dispatch.ts';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -511,6 +512,57 @@ test('referral links: each customer gets a code, and a paid referred quote earns
   assert.equal((await fetch(`${base}/api/admin/referrals`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 403);
   await fetch(`${base}/api/admin/referrals`, authorized(adminToken, { id: 'job_quote_referred-quote' }));
   assert.equal((await db.doc('referrals/job_quote_referred-quote').get()).data().status, 'paid');
+});
+
+test('dispatch ranks approved, nearby, available providers first', () => {
+  const job = { state: 'Texas', zip: '75201', moveDate: '2027-02-03' }; // A Wednesday.
+  const ranked = rankProviders(job, [
+    { id: 'far', name: 'Far Movers', status: 'approved', payoutsReady: true, state: 'Ohio', zipCode: '43004' },
+    { id: 'near', name: 'Near Movers', status: 'approved', payoutsReady: true, state: 'Texas', zipCode: '75204', rating: 4.8, reviewCount: 10, completedJobs: 12 },
+    { id: 'busy', name: 'Busy Movers', status: 'approved', payoutsReady: true, state: 'Texas', zipCode: '75201' },
+    { id: 'off', name: 'Off Movers', status: 'approved', payoutsReady: true, state: 'Texas', zipCode: '75201', unavailableDates: ['2027-02-03'] },
+    { id: 'pending', name: 'Pending Movers', status: 'pending', state: 'Texas', zipCode: '75201' },
+  ], new Set(['busy']));
+  assert.equal(ranked[0].id, 'near');
+  assert.equal(ranked.at(-1).id, 'pending');
+  assert.equal(ranked.find(c => c.id === 'pending').eligible, false);
+  assert.ok(ranked.find(c => c.id === 'off').warnings.includes('Marked unavailable that day'));
+  assert.ok(ranked.findIndex(c => c.id === 'busy') > ranked.findIndex(c => c.id === 'near'));
+  assert.ok(ranked.find(c => c.id === 'near').reasons.includes('Nearby'));
+});
+
+test('dispatch, scorecards and insights: admin-only, assignment rules, and the numbers add up', async () => {
+  const get = (path, token = adminToken) => fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  await db.doc('providers/ops-approved').set({ uid: 'ops-approved', status: 'approved', businessName: 'Ops Movers', state: 'Texas', zipCode: '75201', stripeOnboardingComplete: true, rating: 5, reviewCount: 2 });
+  await db.doc('providers/ops-pending').set({ uid: 'ops-pending', status: 'pending', businessName: 'Pending Co', state: 'Texas', zipCode: '75201' });
+  await db.doc('jobs/ops-job').set({ customerId: 'ops-customer', status: 'confirmed', paymentStatus: 'paid', amountPaid: 1000, moveDate: '2027-02-03', state: 'Texas', pickupAddress: '75201', providerIds: [], paidAt: Timestamp.now() });
+  await db.doc('jobs/ops-done').set({ customerId: 'ops-customer', status: 'completed', paymentStatus: 'paid', amountPaid: 2000, payoutStatus: 'paid', moveDate: '2026-10-01', providerIds: ['ops-approved'], paidAt: Timestamp.now(), completedAt: Timestamp.now() });
+
+  assert.equal((await get('/api/admin/dispatch?jobId=ops-job', customerToken)).status, 403);
+  const suggestions = await (await get('/api/admin/dispatch?jobId=ops-job')).json();
+  assert.equal(suggestions.candidates[0].id, 'ops-approved');
+  const assign = providerId => fetch(`${base}/api/admin/dispatch`, authorized(adminToken, { jobId: 'ops-job', providerId }));
+  assert.equal((await assign('ops-pending')).status, 409);
+  assert.equal((await assign('ops-approved')).status, 200);
+  assert.deepEqual((await db.doc('jobs/ops-job').get()).data().providerIds, ['ops-approved']);
+
+  const cards = await (await get('/api/admin/scorecards')).json();
+  const card = cards.scorecards.find(c => c.id === 'ops-approved');
+  assert.equal(card.completed, 1);
+  assert.equal(card.paidOut, 1700);
+  assert.equal(card.assigned, 2);
+
+  const month = new Date().toISOString().slice(0, 7);
+  assert.equal((await fetch(`${base}/api/admin/insights`, authorized(adminToken, { month: '2026-13', channels: {} }))).status, 400);
+  assert.equal((await fetch(`${base}/api/admin/insights`, authorized(adminToken, { month, channels: { 'Paid search': -5 } }))).status, 400);
+  assert.equal((await fetch(`${base}/api/admin/insights`, authorized(adminToken, { month, channels: { 'Paid search': 300, 'Made up': 99 } }))).status, 200);
+  assert.deepEqual((await db.doc(`marketingSpend/${month}`).get()).data().channels, { 'Paid search': 300 });
+  assert.equal((await get('/api/admin/insights?days=30', customerToken)).status, 403);
+  const insights = await (await get('/api/admin/insights?days=30')).json();
+  assert.ok(insights.totals.gmv >= 3000);
+  assert.equal(insights.totals.platformRevenue, Math.round(insights.totals.gmv * 0.15 * 100) / 100);
+  assert.ok(insights.totals.marketingSpend >= 300);
+  assert.ok(insights.channels.some(c => c.name === 'Paid search' && c.spend >= 300));
 });
 
 test('creating a custom quote queues one email to the customer with the private link', async () => {
