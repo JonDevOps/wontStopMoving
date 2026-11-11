@@ -20,4 +20,6 @@ export type SupportTicket = {
   message: string;
   status: SupportStatus;
   createdAt: string | null;
+  firstResponseAt?: string | null;
+  satisfaction?: number | null;
 };
