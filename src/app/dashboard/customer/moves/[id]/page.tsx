@@ -11,6 +11,7 @@ import { MapPin, Calendar, Clock, DollarSign, User, Key } from "lucide-react";
 import { format } from "date-fns";
 import { ChatInterface } from "@/components/chat/chat-interface";
 import { ReviewForm } from "@/components/forms/review-form";
+import { MoveHelp } from "@/components/dashboard/move-help";
 
 interface JobDetails {
   id: string;
@@ -171,6 +172,8 @@ export default function CustomerJobDetailsPage() {
                 </CardContent>
               </Card>
             )}
+
+            <MoveHelp jobId={job.id} jobStatus={job.status} />
 
             {job.status === 'completed' && !job.reviewed && job.providerIds?.[0] && (
               <ReviewForm 
