@@ -29,7 +29,7 @@ const KIND_STYLE: Record<string, string> = { local_mover: 'bg-green-100 text-gre
 const FOCUS: Record<string, { lat: number; lng: number; zoom: number }> = {
   'bay-area': { lat: 37.65, lng: -122.1, zoom: 9 }, 'puget-sound': { lat: 47.5, lng: -122.3, zoom: 9 }, socal: { lat: 34.0, lng: -118.1, zoom: 9 }, national: { lat: 39.5, lng: -98.5, zoom: 4 },
 };
-const SORTS = { size: 'Biggest overall', units: 'Most trucks', drivers: 'Most drivers', miles: 'Most miles', years: 'Longest in business', newest: 'Newest', name: 'Name A–Z' } as const;
+const SORTS = { size: 'Biggest overall', units: 'Most trucks', drivers: 'Most drivers', miles: 'Most miles', years: 'Longest in business', newest: 'Newest registered first', name: 'Name A–Z' } as const;
 const phone = (p: string) => (p.length === 10 ? `(${p.slice(0, 3)}) ${p.slice(3, 6)}-${p.slice(6)}` : p);
 const nice = (s: string) => s.toLowerCase().replace(/\b([a-z])/g, c => c.toUpperCase()).replace(/\b(Llc|Inc)\b/g, w => w.toUpperCase());
 
@@ -37,7 +37,7 @@ function Registry() {
   const auth = useAuth();
   const { toast } = useToast();
   const [area, setArea] = useState<string>('bay-area'); // region preset, a state code, 'national' or 'map'
-  const [f, setF] = useState({ q: '', city: '', minUnits: '', minDrivers: '', minYears: '', interstate: '', hhg: false, likely: true, site: false, kind: '', sos: '', tracked: '', sort: 'size', rankBy: 'size' });
+  const [f, setF] = useState({ q: '', city: '', minUnits: '', minDrivers: '', minYears: '', newDays: '', interstate: '', hhg: false, likely: true, site: '', kind: '', sos: '', tracked: '', sort: 'size', rankBy: 'size' });
   const [bounds, setBounds] = useState<Bounds | null>(null);
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom: number } | null>(FOCUS['bay-area']);
   const [page, setPage] = useState(1);
@@ -51,12 +51,13 @@ function Registry() {
   const params = useMemo(() => {
     const p = new URLSearchParams({ sort: f.sort, rankBy: f.rankBy, page: String(page), pageSize: '50', map: '1', stats: '1' });
     if (area === 'map' && bounds) for (const k of ['south', 'west', 'north', 'east'] as const) p.set(k, bounds[k].toFixed(4));
+    // Map pins always cover the visible map, whatever area the list uses.
+    if (bounds) { p.set('vbSouth', bounds.south.toFixed(3)); p.set('vbWest', bounds.west.toFixed(3)); p.set('vbNorth', bounds.north.toFixed(3)); p.set('vbEast', bounds.east.toFixed(3)); }
     else if (REGION_PRESETS[area]) p.set('region', area);
     else if (US_STATES.includes(area)) p.set('states', area);
-    for (const [k, v] of Object.entries({ q: f.q, city: f.city, minUnits: f.minUnits, minDrivers: f.minDrivers, minYears: f.minYears, interstate: f.interstate, kind: f.kind, sos: f.sos, tracked: f.tracked })) if (v) p.set(k, v);
+    for (const [k, v] of Object.entries({ q: f.q, city: f.city, minUnits: f.minUnits, minDrivers: f.minDrivers, minYears: f.minYears, newDays: f.newDays, interstate: f.interstate, kind: f.kind, sos: f.sos, tracked: f.tracked, site: f.site })) if (v) p.set(k, v);
     if (f.hhg) p.set('hhg', '1');
     if (!f.likely) p.set('likely', '0');
-    if (f.site) p.set('site', '1');
     return p;
   }, [area, bounds, f, page]);
 
@@ -124,7 +125,7 @@ function Registry() {
       <div className="lg:col-span-2 space-y-2">
         <MoverMap points={data?.points || []} stateStats={(data?.stateStats || []) as StateStat[]} focus={focus}
           onBounds={b => { setBounds(b); if (area === 'map') setPage(1); }} onSelect={(dot, state) => setSelected({ dot, state })} onState={s => { setStateTotals(false); chooseArea(s); }} highlight={selected?.dot} stateTotals={stateTotals} />
-        <div className="flex flex-wrap justify-between gap-2 items-center"><p className="text-xs text-muted-foreground">Red: 20+ trucks · Orange: 5–19 · Gray: under 5. Numbers are clusters of companies: zoom in or click to split them. Pins sit at each company’s ZIP code. {area !== 'map' && 'Choose “Whatever the map shows” to list only what’s on screen.'}</p><label className="text-xs flex items-center gap-1"><input type="checkbox" checked={stateTotals} onChange={e => setStateTotals(e.target.checked)} />Show state totals instead</label></div>
+        <div className="flex flex-wrap justify-between gap-2 items-center"><p className="text-xs text-muted-foreground">Red: 20+ trucks · Orange: 5–19 · Gray: under 5. The map shows every company in view, anywhere you pan (with your filters); numbers are clusters, zoom in to split them. Pins sit at each company’s ZIP code. {area !== 'map' && `The list below is ${areaLabel}; choose “Whatever the map shows” to list what’s on screen.`}</p><label className="text-xs flex items-center gap-1"><input type="checkbox" checked={stateTotals} onChange={e => setStateTotals(e.target.checked)} />Show state totals instead</label></div>
       </div>
       <RankCard data={data} areaLabel={areaLabel} rankBy={f.rankBy} setRankBy={v => setF({ ...f, rankBy: v })} onOpen={(dot, state) => setSelected({ dot, state })} />
     </div>
@@ -140,10 +141,11 @@ function Registry() {
         <select aria-label="Interstate" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.interstate} onChange={set('interstate')}><option value="">Local & interstate</option><option value="yes">Interstate only</option><option value="no">In-state only</option></select>
         <select aria-label="Company type" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.kind} onChange={set('kind')}><option value="">Any type (Jev)</option><option value="local_mover">Local movers</option><option value="van_line">Van lines</option><option value="local_mover,van_line">Local movers + van lines</option><option value="broker">Brokers</option></select>
         <select aria-label="Business registry" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.sos} onChange={set('sos')}><option value="">Any registry status</option><option value="active">Active with the state</option><option value="inactive">Not active with the state</option></select>
+        <select aria-label="Website" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.site} onChange={set('site')}><option value="">With or without website</option><option value="1">Has a website</option><option value="0">No website</option></select>
+        <select aria-label="New companies" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.newDays} onChange={set('newDays')}><option value="">Any registration date</option><option value="30">Registered in the last 30 days</option><option value="90">Last 90 days</option><option value="180">Last 6 months</option><option value="365">Last year</option><option value="730">Last 2 years</option></select>
         <select aria-label="Tracked" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.tracked} onChange={set('tracked')}><option value="">Tracked or not</option><option value="1">Tracked competitors</option><option value="0">Not tracked yet</option></select>
         <div className="flex flex-wrap gap-3 items-center text-sm lg:col-span-2">
           <label className="flex items-center gap-1"><input type="checkbox" checked={f.hhg} onChange={set('hhg')} />Federal moving authority</label>
-          <label className="flex items-center gap-1"><input type="checkbox" checked={f.site} onChange={set('site')} />Has website</label>
           <label className="flex items-center gap-1"><input type="checkbox" checked={f.likely} onChange={set('likely')} />Movers only</label>
         </div>
       </div>

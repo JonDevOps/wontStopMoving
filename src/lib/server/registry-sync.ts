@@ -1,4 +1,5 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { sodaHeaders } from './soda-token';
 import { adminDb } from './firebase-admin';
 import { loadState, saveLite, saveState } from './registry-store';
 import { ourMetrics } from './competitors';
@@ -24,7 +25,7 @@ async function socrata<T>(url: string, params: Record<string, string>): Promise<
   const out: T[] = [];
   for (let offset = 0; ; offset += PAGE) {
     const qs = new URLSearchParams({ ...params, $limit: String(PAGE), $offset: String(offset) });
-    const res = await fetch(`${url}?${qs}`, { signal: AbortSignal.timeout(45_000), headers: { Accept: 'application/json' } });
+    const res = await fetch(`${url}?${qs}`, { signal: AbortSignal.timeout(45_000), headers: { Accept: 'application/json', ...sodaHeaders() } });
     if (!res.ok) throw new Error(`DOT open data answered ${res.status}`);
     const page = (await res.json()) as T[];
     out.push(...page);
