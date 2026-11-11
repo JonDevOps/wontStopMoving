@@ -6,7 +6,7 @@ import { syncState } from '@/lib/server/registry-sync';
 import { trackedByDot, trackMovers } from '@/lib/server/registry-track';
 import { loadState } from '@/lib/server/registry-store';
 import { jevConfigured } from '@/lib/server/jev';
-import { moversCsv, REGION_PRESETS, US_STATES, yearsInBusiness, type Mover, type SortKey } from '@/lib/registry';
+import { moversCsv, REGION_PRESETS, REGISTRY_AREAS, yearsInBusiness, type Mover, type SortKey } from '@/lib/registry';
 
 /**
  * The national mover registry (free FMCSA data): search, map points, our
@@ -18,7 +18,7 @@ const n = (v: string | null) => (v === null || v === '' ? undefined : Number.isF
 
 function parseQuery(p: URLSearchParams | Record<string, unknown>): RegistryQuery {
   const get = (k: string) => (p instanceof URLSearchParams ? p.get(k) : p[k] === undefined || p[k] === null ? null : String(p[k]));
-  const states = (get('states') || '').toUpperCase().split(',').map(s => s.trim()).filter(s => US_STATES.includes(s));
+  const states = (get('states') || '').toUpperCase().split(',').map(s => s.trim()).filter(s => REGISTRY_AREAS.includes(s));
   const [south, west, north, east] = ['south', 'west', 'north', 'east'].map(k => n(get(k)));
   const [nearLat, nearLng, nearMiles] = ['nearLat', 'nearLng', 'nearMiles'].map(k => n(get(k)));
   const region = get('region') || undefined;
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
       if (!jevConfigured()) throw new HttpError(503, 'Jev isn’t configured yet (TYPESAFE_API_KEY).');
       const list = (Array.isArray(body.dots) ? body.dots : []).slice(0, 40) as { dot: string; state: string }[];
       const byState = new Map<string, string[]>();
-      for (const d of list) if (typeof d?.dot === 'string' && US_STATES.includes(d?.state)) byState.set(d.state, [...(byState.get(d.state) || []), d.dot]);
+      for (const d of list) if (typeof d?.dot === 'string' && REGISTRY_AREAS.includes(d?.state)) byState.set(d.state, [...(byState.get(d.state) || []), d.dot]);
       let classified = 0; const failed: string[] = [];
       for (const [state, dots] of byState) {
         const rows = new Map((await loadState(state)).map(m => [m.dot, m]));
@@ -154,7 +154,7 @@ export async function POST(req: Request) {
 
     if (body.action === 'sync') {
       const state = String(body.state || '').toUpperCase();
-      if (!US_STATES.includes(state)) throw new HttpError(400, 'Choose a state.');
+      if (!REGISTRY_AREAS.includes(state)) throw new HttpError(400, 'Choose a state.');
       const r = await syncState(state);
       await stateSummaries(true);
       return NextResponse.json(r);

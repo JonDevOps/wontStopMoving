@@ -10,7 +10,7 @@ import { routingSettings } from '@/lib/server/routing';
 import { sendDailyRadar } from '@/lib/server/radar';
 import { trackMovers } from '@/lib/server/registry-track';
 import { findMover } from '@/lib/server/registry-query';
-import { REGION_PRESETS, US_STATES } from '@/lib/registry';
+import { REGION_PRESETS, REGISTRY_AREAS } from '@/lib/registry';
 
 /**
  * Market Radar: closures (with the takeover playbook), new/grew/shrank,
@@ -26,8 +26,8 @@ export async function GET(req: Request) {
     const view = p.get('view') || 'closures';
     const settings = await radarSettings();
     const scope = p.get('scope') || 'watched'; // 'watched' areas, or a state code
-    const states = US_STATES.includes(scope) ? [scope] : watchedStates(settings);
-    const keep = (e: { state: string; county: string }) => (US_STATES.includes(scope) ? e.state === scope : inWatch(settings, e));
+    const states = REGISTRY_AREAS.includes(scope) ? [scope] : watchedStates(settings);
+    const keep = (e: { state: string; county: string }) => (REGISTRY_AREAS.includes(scope) ? e.state === scope : inWatch(settings, e));
     const days = Math.min(Math.max(Number(p.get('days')) || 365, 1), 730);
     const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
     const routing = await routingSettings();
@@ -68,13 +68,13 @@ export async function GET(req: Request) {
     }
 
     if (view === 'expansion') {
-      const rows = await expansion(p.get('scope') === 'national' ? undefined : US_STATES.includes(scope) ? [scope] : undefined);
+      const rows = await expansion(p.get('scope') === 'national' ? undefined : REGISTRY_AREAS.includes(scope) ? [scope] : undefined);
       return NextResponse.json({ counties: rows.slice(0, 300) }, { headers: { 'Cache-Control': 'private, no-store' } });
     }
 
     if (view === 'acquisitions') {
       const rows = await acquisitionTargets(states);
-      return NextResponse.json({ targets: rows.filter(r => US_STATES.includes(scope) || inWatch(settings, r) || settings.states.includes(r.state)).slice(0, 150) }, { headers: { 'Cache-Control': 'private, no-store' } });
+      return NextResponse.json({ targets: rows.filter(r => REGISTRY_AREAS.includes(scope) || inWatch(settings, r) || settings.states.includes(r.state)).slice(0, 150) }, { headers: { 'Cache-Control': 'private, no-store' } });
     }
 
     if (view === 'prices') return NextResponse.json(await priceSummary(states), { headers: { 'Cache-Control': 'private, no-store' } });
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
 
     if (body.action === 'settings') {
       const regions = Array.isArray(body.regions) ? body.regions.filter((r: unknown) => typeof r === 'string' && REGION_PRESETS[r]) : undefined;
-      const states = Array.isArray(body.states) ? body.states.filter((s: unknown) => typeof s === 'string' && US_STATES.includes(s)) : undefined;
+      const states = Array.isArray(body.states) ? body.states.filter((s: unknown) => typeof s === 'string' && REGISTRY_AREAS.includes(s)) : undefined;
       const email = typeof body.email === 'string' && /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(body.email.trim()) ? body.email.trim() : undefined;
       if (regions || states || email) await db.doc('marketSettings/radar').set({ ...(regions ? { regions } : {}), ...(states ? { states } : {}), ...(email ? { email } : {}), updatedBy: user.uid, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
       if (typeof body.autoAssign === 'boolean' || typeof body.maxMiles === 'number') {

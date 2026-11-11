@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { apiFetch } from '@/lib/api-client';
-import { US_STATES } from '@/lib/registry';
+import { REGISTRY_AREAS } from '@/lib/registry';
 
 type Tab = 'closures' | 'changes' | 'expansion' | 'buy' | 'prices' | 'settings';
 type Ev = { id: string; type: string; dot: string; state: string; county: string; zip: string; name: string; dba: string; city: string; phone: string; email: string; site: string; officer: string; mc: string; units: number; drivers: number; years: number; hhgAuth: boolean; from?: number; to?: number; reason?: string; effectiveDate?: string; confidence?: string; day: string; stage?: string };
@@ -30,7 +30,7 @@ function Market() {
     <div className="flex flex-wrap gap-2 items-center">
       {([['closures', 'Closed companies'], ['changes', 'New & changing'], ['expansion', 'Where to expand'], ['buy', 'Companies to buy'], ['prices', 'Price index'], ['settings', 'Settings']] as [Tab, string][]).map(([t, l]) => <Button key={t} variant={tab === t ? 'default' : 'outline'} onClick={() => setTab(t)}>{l}</Button>)}
       {tab !== 'settings' && <select aria-label="Area" className="h-10 border rounded-md px-2 bg-white text-sm" value={scope} onChange={e => setScope(e.target.value)}>
-        <option value="watched">My watched areas</option>{tab === 'expansion' && <option value="national">Whole country</option>}{US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+        <option value="watched">My watched areas</option>{tab === 'expansion' && <option value="national">Whole country</option>}{REGISTRY_AREAS.map(s => <option key={s} value={s}>{s}</option>)}
       </select>}
     </div>
     {tab === 'closures' && <Closures scope={scope} />}
@@ -306,7 +306,7 @@ function Settings() {
       <p className="text-sm text-muted-foreground">The radar, closures, buy list and price index focus here.</p>
       {Object.entries(d.regions).map(([k, l]) => <label key={k} className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={busy} checked={d.settings.regions.includes(k)} onChange={e => void save({ regions: e.target.checked ? [...d.settings.regions, k] : d.settings.regions.filter(r => r !== k) }, 'Areas saved')} />{l}</label>)}
       <div className="flex flex-wrap gap-1">{d.settings.states.map(s => <Badge key={s} variant="outline" className="cursor-pointer" onClick={() => void save({ states: d.settings.states.filter(x => x !== s) }, `${s} removed`)}>{s} ✕</Badge>)}</div>
-      <select aria-label="Add a whole state" className="h-9 border rounded-md px-2 bg-white text-sm" value="" onChange={e => e.target.value && void save({ states: [...d.settings.states, e.target.value] }, `${e.target.value} added`)}><option value="">Add a whole state…</option>{US_STATES.filter(s => !d.settings.states.includes(s)).map(s => <option key={s} value={s}>{s}</option>)}</select>
+      <select aria-label="Add a whole state" className="h-9 border rounded-md px-2 bg-white text-sm" value="" onChange={e => e.target.value && void save({ states: [...d.settings.states, e.target.value] }, `${e.target.value} added`)}><option value="">Add a whole state…</option>{REGISTRY_AREAS.filter(s => !d.settings.states.includes(s)).map(s => <option key={s} value={s}>{s}</option>)}</select>
     </CardContent></Card>
     <Card className="bg-white"><CardContent className="p-5 space-y-3">
       <p className="font-bold">Daily radar email</p>

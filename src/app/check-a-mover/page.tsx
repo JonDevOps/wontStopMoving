@@ -6,7 +6,7 @@ import { CheckCircle2, AlertTriangle, XCircle, Search, ShieldCheck, HelpCircle }
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { US_STATES } from '@/lib/registry';
+import { REGISTRY_AREAS } from '@/lib/registry';
 
 type Result = { dot: string; name: string; legalName: string; city: string; state: string; active: boolean; trucks: number };
 type Check = {
@@ -73,7 +73,7 @@ export default function CheckAMoverPage() {
           <label className="text-sm font-semibold text-primary" htmlFor="mover-q">Company name, USDOT number or MC number</label>
           <div className="flex flex-col sm:flex-row gap-2">
             <Input id="mover-q" required minLength={2} placeholder="e.g. Bay Area Movers, or USDOT 1234567" value={q} onChange={e => setQ(e.target.value)} className="h-12" />
-            <select aria-label="State (optional)" className="h-12 border rounded-md px-3 bg-white" value={state} onChange={e => setState(e.target.value)}><option value="">Any state</option>{US_STATES.map(s => <option key={s} value={s}>{s}</option>)}</select>
+            <select aria-label="State (optional)" className="h-12 border rounded-md px-3 bg-white" value={state} onChange={e => setState(e.target.value)}><option value="">Any state</option>{REGISTRY_AREAS.map(s => <option key={s} value={s}>{s}</option>)}</select>
             <Button type="submit" className="h-12 px-6 font-bold" disabled={busy}><Search className="h-4 w-4 mr-1" />{busy ? 'Checking…' : 'Check'}</Button>
           </div>
           <p className="text-xs text-muted-foreground">Source: U.S. Department of Transportation (FMCSA) public records, updated daily.</p>

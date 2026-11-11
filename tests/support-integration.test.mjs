@@ -21,10 +21,10 @@ import { checkAgentApplication, networkCoverage, REGIONS, VETTING_CHECKS } from 
 import { isPrivateAddress, htmlToText } from '../src/lib/server/safe-fetch.ts';
 import { cleanMoveDetails, diffMoveDetails, formatMoveDate } from '../src/lib/move-details.ts';
 import { cleanLocation, teamFromJob, isOnTeam, describeActivity } from '../src/lib/job-activity.ts';
-import { toMover, siteFromEmail, saneUnits, filterMovers, sortMovers, ourRank, moversCsv, moverLikelihood } from '../src/lib/registry.ts';
+import { toMover, siteFromEmail, saneUnits, filterMovers, sortMovers, ourRank, moversCsv, moverLikelihood, REGISTRY_AREAS, isProvince } from '../src/lib/registry.ts';
 import { diffMovers, closureReason, mdy, zipOf, zipsWithin, expansionScore, acquisitionScore, isRecruitCandidate, moverVerdict, countyKey } from '../src/lib/market.ts';
 import { gzipSync } from 'node:zlib';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
@@ -1266,4 +1266,17 @@ test('market radar API: closures with a takeover plan, settings, recruiting and 
   assert.equal((await fetch(`${base}/api/public/check-mover/not-a-number`)).status, 400);
   assert.equal((await fetch(`${base}/check-a-mover`)).status, 200);
   assert.equal((await fetch(`${base}/mover-closed`)).status, 200);
+});
+
+test('registry covers Canadian provinces: postal codes are located by their first three characters', () => {
+  assert.equal(REGISTRY_AREAS.length, 52 + 13);
+  assert.equal(isProvince('ON'), true); assert.equal(isProvince('CA'), false); // CA is California, not Canada.
+  const seen = [];
+  const lookup = key => { seen.push(key); return key === 'M5V' ? [43.64, -79.39] : null; };
+  const m = toMover(census({ dot_number: '555', legal_name: 'TORONTO MOVING INC', phy_state: 'ON', phy_zip: 'm5v3l9', phy_city: 'TORONTO' }), { mc: 'MC555', hhg: true, active: true, broker: false }, lookup);
+  assert.equal(m.zip, 'M5V 3L9'); assert.deepEqual(seen, ['M5V']); assert.deepEqual([m.lat, m.lng], [43.64, -79.39]); assert.equal(m.state, 'ON');
+  const us = toMover(census(), undefined, lookup);
+  assert.equal(us.zip, '95112'); assert.equal(seen[1], '95112');
+  const zips = JSON.parse(readFileSync(new URL('../src/data/zip-latlng.json', import.meta.url), 'utf8'));
+  assert.ok(Array.isArray(zips.M5V) && Array.isArray(zips['95112']));
 });
