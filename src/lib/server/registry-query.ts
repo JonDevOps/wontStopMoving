@@ -59,7 +59,7 @@ export async function searchRegistry(q: RegistryQuery, us: OurFleet | null, opts
     rank: rank ? { rank: rank.rank, of: rank.of, nextUp: rank.nextUp.map(m => ({ dot: m.dot, name: m.dba || m.name, city: m.city, state: m.state, units: m.units, drivers: m.drivers, years: yearsInBusiness(m), gap: rank.gapTo(m) })) } : null,
     points: opts.points ? sorted.filter(m => m.lat !== null && m.lng !== null).slice(0, national ? 30000 : 15000).map(m => [m.dot, m.lat, m.lng, m.dba || m.name, m.units, m.state]) : undefined,
     totals: { units: rows.reduce((n, m) => n + m.units, 0), drivers: rows.reduce((n, m) => n + m.drivers, 0) },
-    updatedAt: summaries.filter(s => !national ? states.includes(s.state) : true).map(s => s.updatedAt).filter(Boolean).sort()[0] || null,
+    updatedAt: summaries.filter(s => !national ? states.includes(s.state) : true).map(s => s.updatedAt).filter(Boolean).sort().pop() || null,
   };
 }
 

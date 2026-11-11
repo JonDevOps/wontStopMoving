@@ -38,12 +38,15 @@ export async function expansion(states?: string[]): Promise<(CountyRow & { per10
   for (const d of jobs.docs) bump(zipOf(d.data().pickupAddress), 'bookings');
   const supply = new Map<string, { movers: number; trucks: number }>();
   for (const s of summaries) for (const [c3, v] of Object.entries((s as any).counties || {}) as [string, { movers: number; trucks: number }][]) supply.set(countyKey(s.state, c3), v);
+  // Skip states not loaded yet, or whose county codes don't match the Census (e.g. Connecticut's 2022 planning regions).
+  const matchedByState = new Map<string, number>();
+  for (const [fips, v] of supply) if (COUNTY_POP[fips]) { const st = FIPS_STATE[fips.slice(0, 2)]; matchedByState.set(st, (matchedByState.get(st) || 0) + v.movers); }
   const rows = Object.entries(COUNTY_POP).map(([fips, [name, population]]) => {
     const state = FIPS_STATE[fips.slice(0, 2)] || '';
     const sup = supply.get(fips) || { movers: 0, trucks: 0 }, dem = demand.get(fips) || { quotes: 0, bookings: 0 };
     const row: CountyRow = { fips, name, state, population, movers: sup.movers, trucks: sup.trucks, quotes: dem.quotes, bookings: dem.bookings };
     return { ...row, per10k: moversPer10k(row), trucksPer10k: population ? Math.round((sup.trucks / population) * 100000) / 10 : 0, score: expansionScore(row) };
-  }).filter(r => r.state && (!states?.length || states.includes(r.state)));
+  }).filter(r => r.state && (matchedByState.get(r.state) || 0) > 0 && (!states?.length || states.includes(r.state)));
   return rows.sort((a, b) => b.score - a.score);
 }
 

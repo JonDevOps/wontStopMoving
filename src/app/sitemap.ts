@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next';
 import { allPublicPosts } from '@/lib/server/blog';
 import { ALL_LOCATIONS, CITIES_BY_STATE, slugify } from '@/lib/location-data';
 import { SERVICES, SITE_URL } from '@/lib/seo';
+import { cityIndex } from '@/lib/server/city-reports';
 
 /**
  * Public pages, including every state and city service-area page.
@@ -35,6 +36,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry('/agents', 0.5),
     entry('/check-a-mover', 0.7),
     entry('/mover-closed', 0.6),
+    entry('/shop', 0.6),
+    entry('/moving-reports', 0.6, 'weekly'),
     entry('/privacy', 0.2, 'yearly'),
     entry('/terms', 0.2, 'yearly'),
     entry('/accessibility', 0.2, 'yearly'),
@@ -62,5 +65,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ];
   });
 
-  return [...core, ...services, ...blog, ...places];
+  // City moving-market reports (from the federal mover registry); skipped if the registry isn't reachable.
+  const reports = await cityIndex().then(list => [...list.map(c => entry(`/moving-reports/${c.state.toLowerCase()}/${c.slug}`, 0.5, 'weekly'))]).catch(() => []);
+  return [...core, ...services, ...blog, ...places, ...reports];
 }

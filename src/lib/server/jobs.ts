@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import { HttpError, isId } from "./auth";
 import { enqueueEmail, notifyPaidJob } from "./notifications";
+import { confirmShopOrder } from './shop';
 import { routeNewJob } from './routing';
 import { recordReferralForPaidQuote } from "./referrals";
 import { stripe } from "@/lib/stripe";
@@ -30,6 +31,8 @@ function idOf(value: string | { id: string } | null | undefined): string | null 
  * than once (from both the webhook and the customer's return page).
  */
 export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Promise<{ jobId: string | null }> {
+  // Supplies shop orders share the checkout confirmation paths (webhook and return page).
+  if (session.metadata?.type === "shop") { await confirmShopOrder(session); return { jobId: null }; }
   if (session.payment_status !== "paid") return { jobId: null };
   const md = session.metadata || {};
   const customerId = md.customerId;
@@ -126,6 +129,7 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
 /** A failed attempt never downgrades a paid booking or a newer Checkout attempt. */
 export async function recordFailedCheckout(session: Stripe.Checkout.Session) {
   if (session.payment_status === 'paid') return;
+  if (session.metadata?.type === 'shop') return; // Unpaid shop orders simply stay pending.
   const md = session.metadata || {};
   if (!isId(md.customerId)) throw new HttpError(400, 'Payment is missing its customer.');
   const booking = md.flow === 'booking' && isId(md.jobId);

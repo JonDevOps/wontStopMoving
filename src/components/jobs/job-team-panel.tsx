@@ -89,7 +89,7 @@ function AssignForm({ options, busy, onAssign }: { options: Record<AssigneeKind,
         {(Object.keys(ASSIGNEE_LABELS) as AssigneeKind[]).map(k => <option key={k} value={k}>{ASSIGNEE_LABELS[k]}</option>)}
       </select>
       <select aria-label="Person" required className="h-10 border rounded-md px-2 bg-white text-sm sm:col-span-2" value={assigneeId} onChange={e => setAssigneeId(e.target.value)}>
-        <option value="">{list.length ? 'Choose…' : `No approved ${ASSIGNEE_LABELS[kind].toLowerCase()}s yet`}</option>
+        <option value="">{list.length ? 'Choose…' : ({ provider: 'No approved movers yet', employee: 'No crew members yet', agent: 'No approved agents yet' } as const)[kind]}</option>
         {list.map(o => <option key={o.id} value={o.id}>{o.name}{o.base ? ` (${o.base})` : ''}</option>)}
       </select>
       {kind === 'agent' && <select aria-label="Agent role" className="h-10 border rounded-md px-2 bg-white text-sm" value={agentRole} onChange={e => setAgentRole(e.target.value as AgentJobRole)}>

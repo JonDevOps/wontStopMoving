@@ -217,6 +217,9 @@ function Handoffs({ shipments, agents, busy, post }: { shipments: Shipment[]; ag
   </div>;
 }
 
+const niceName = (s: string) => (s || '').toLowerCase().replace(/\b([a-z])/g, c => c.toUpperCase()).replace(/\b(Llc|Inc|Usa)\b/g, w => w.toUpperCase());
+const fmtPhone = (p: string) => (p?.length === 10 ? `(${p.slice(0, 3)}) ${p.slice(3, 6)}-${p.slice(6)}` : p);
+
 type Candidate = { dot: string; name: string; dba: string; city: string; state: string; phone: string; email: string; site: string; officer: string; units: number; drivers: number; years: number; mc: string; kind: string | null };
 
 /** Established movers from the federal registry, state by state, starting with states that have no agent. */
@@ -248,8 +251,8 @@ function RecruitFinder({ gaps, post, busy }: { gaps: string[]; post: (b: Record<
     {err && <p role="alert" className="text-sm">{err}</p>}
     {list && (list.length ? <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-muted-foreground border-b">{['', 'Company', 'Trucks', 'Years', 'Owner & contact'].map(h => <th key={h} className="p-2 font-medium">{h}</th>)}</tr></thead>
       <tbody>{list.map(c => <tr key={c.dot} className="border-b last:border-0"><td className="p-2"><input type="checkbox" aria-label={`Select ${c.dba || c.name}`} checked={picked.has(c.dot)} onChange={e => setPicked(p => { const n = new Set(p); if (e.target.checked) n.add(c.dot); else n.delete(c.dot); return n; })} /></td>
-        <td className="p-2"><p className="font-semibold">{c.dba || c.name}</p><p className="text-xs text-muted-foreground">{c.city}, {c.state} · USDOT {c.dot}{c.mc ? ` · ${c.mc}` : ''}{c.site ? ` · ${c.site.replace(/^https?:\/\//, '')}` : ''}</p></td>
-        <td className="p-2">{c.units}</td><td className="p-2">{c.years}</td><td className="p-2 text-xs">{c.officer}{c.phone && <><br /><a className="underline" href={`tel:${c.phone}`}>{c.phone}</a></>}{c.email && <><br />{c.email}</>}</td></tr>)}</tbody></table></div>
+        <td className="p-2"><p className="font-semibold">{niceName(c.dba || c.name)}</p><p className="text-xs text-muted-foreground">{niceName(c.city)}, {c.state} · USDOT {c.dot}{c.mc ? ` · ${c.mc}` : ''}{c.site ? ` · ${c.site.replace(/^https?:\/\//, '')}` : ''}</p></td>
+        <td className="p-2">{c.units}</td><td className="p-2">{c.years}</td><td className="p-2 text-xs">{niceName(c.officer)}{c.phone && <><br /><a className="underline" href={`tel:${c.phone}`}>{fmtPhone(c.phone)}</a></>}{c.email && <><br />{c.email}</>}</td></tr>)}</tbody></table></div>
       : <p className="text-sm text-muted-foreground">No new candidates in this state (or its data hasn’t loaded yet).</p>)}
   </CardContent></Card>;
 }

@@ -17,6 +17,7 @@ type Ev = { id: string; type: string; dot: string; state: string; county: string
 
 const nice = (s: string) => (s || '').toLowerCase().replace(/\b([a-z])/g, c => c.toUpperCase()).replace(/\b(Llc|Inc)\b/g, w => w.toUpperCase());
 const phone = (p: string) => (p?.length === 10 ? `(${p.slice(0, 3)}) ${p.slice(3, 6)}-${p.slice(6)}` : p);
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const money = (n: number | null | undefined) => (typeof n === 'number' ? `$${Math.round(n).toLocaleString()}` : '—');
 
 function Market() {
@@ -80,7 +81,7 @@ function Closures({ scope }: { scope: string }) {
       {shown.map(e => <Card key={e.id} className="bg-white"><CardContent className="p-4 flex flex-wrap justify-between gap-3">
         <div className="space-y-1">
           <p className="font-bold text-primary">{nice(e.dba || e.name)} <Badge variant="outline" className="ml-1 text-[10px]">{data?.stages[e.stage || 'new']}</Badge></p>
-          <p className="text-sm text-muted-foreground">{nice(e.city)}, {e.state} · {e.units} trucks · {e.drivers} drivers · {e.years} years{e.officer ? ` · owner: ${nice(e.officer)}` : ''}</p>
+          <p className="text-sm text-muted-foreground">{nice(e.city)}, {e.state} · {plural(e.units, 'truck')} · {plural(e.drivers, 'driver')} · {plural(e.years, 'year')}{e.officer ? ` · owner: ${nice(e.officer)}` : ''}</p>
           <p className="text-sm"><span className="font-semibold">{e.reason || 'No longer active'}</span>{e.effectiveDate ? ` on ${e.effectiveDate}` : ''}{e.confidence === 'unclear' ? ' (unconfirmed)' : ''}</p>
         </div>
         <div className="flex gap-2 items-start">{e.phone && <Button asChild size="sm" variant="outline"><a href={`tel:${e.phone}`}>Call {phone(e.phone)}</a></Button>}<Button size="sm" onClick={() => setOpen(e.dot)}>Takeover plan</Button></div>
@@ -124,7 +125,7 @@ function Takeover({ dot, onClose }: { dot: string; onClose: () => void }) {
         <section className="bg-white rounded-xl p-4 grid sm:grid-cols-2 gap-3 text-sm">
           <div><p className="text-xs font-bold uppercase text-muted-foreground">Owner / officer</p><p className="font-semibold">{nice(e.officer) || 'Not on file'}</p></div>
           <div><p className="text-xs font-bold uppercase text-muted-foreground">Contact</p>{e.phone ? <a className="underline" href={`tel:${e.phone}`}>{phone(e.phone)}</a> : '—'}{e.email && <><br /><a className="underline break-all" href={`mailto:${e.email}`}>{e.email}</a></>}</div>
-          <div><p className="text-xs font-bold uppercase text-muted-foreground">They had</p><p>{e.units} trucks · {e.drivers} drivers · {e.years} years{e.hhgAuth ? ' · interstate authority' : ''}</p></div>
+          <div><p className="text-xs font-bold uppercase text-muted-foreground">They had</p><p>{plural(e.units, 'truck')} · {plural(e.drivers, 'driver')} · {plural(e.years, 'year')}{e.hhgAuth ? ' · interstate authority' : ''}</p></div>
           <div><p className="text-xs font-bold uppercase text-muted-foreground">Check</p><a className="underline mr-2" href={d.links.safer} target="_blank" rel="noreferrer noopener">FMCSA</a><a className="underline mr-2" href={d.links.google} target="_blank" rel="noreferrer noopener">Google</a>{d.links.site && <a className="underline" href={d.links.site} target="_blank" rel="noreferrer noopener">Their website</a>}</div>
         </section>
 

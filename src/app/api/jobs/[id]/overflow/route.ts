@@ -12,6 +12,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const job = (await adminDb().doc(`jobs/${id}`).get()).data();
     if (!job) throw new HttpError(404, 'Move not found.');
     const miles = Math.min(Math.max(Number(new URL(req.url).searchParams.get('miles')) || 25, 5), 100);
-    return NextResponse.json({ ...(await overflowPartners(job, miles)), routing: job.routing ? { ...job.routing, computedAt: job.routing.computedAt?.toDate?.().toISOString() || null } : null }, { headers: { 'Cache-Control': 'private, no-store' } });
+    const zipOverride = new URL(req.url).searchParams.get('zip') || '';
+    const target = /^\d{5}$/.test(zipOverride) ? { ...job, pickupZip: zipOverride, pickupAddress: `${job.pickupAddress || ''} ${zipOverride}` } : job;
+    return NextResponse.json({ ...(await overflowPartners(target, miles)), routing: job.routing ? { ...job.routing, computedAt: job.routing.computedAt?.toDate?.().toISOString() || null } : null }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) { return errorResponse(error); }
 }
