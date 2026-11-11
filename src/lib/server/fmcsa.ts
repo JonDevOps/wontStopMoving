@@ -1,5 +1,5 @@
 import { mdy } from '@/lib/market';
-import { sodaHeaders } from './soda-token';
+import { politeFetch } from './soda-token';
 
 /**
  * Live lookups against free FMCSA open data (data.transportation.gov):
@@ -15,7 +15,7 @@ async function soda<T>(ds: keyof typeof DS, params: Record<string, string>): Pro
   const key = `${ds}?${qs}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < 10 * 60_000) return hit.value as T[];
-  const res = await fetch(`${BASE}/${DS[ds]}.json?${qs}`, { signal: AbortSignal.timeout(15_000), headers: { Accept: 'application/json', ...sodaHeaders() } });
+  const res = await politeFetch(`${BASE}/${DS[ds]}.json?${qs}`, 15_000, 3_000);
   if (!res.ok) throw new Error(`FMCSA data answered ${res.status}`);
   const value = await res.json() as T[];
   cache.set(key, { at: Date.now(), value });

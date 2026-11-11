@@ -1,5 +1,5 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { sodaHeaders } from './soda-token';
+import { politeFetch, RateLimited } from './soda-token';
 import { adminDb } from './firebase-admin';
 import { loadState, saveLite, saveState } from './registry-store';
 import { ourMetrics } from './competitors';
@@ -25,7 +25,7 @@ async function socrata<T>(url: string, params: Record<string, string>): Promise<
   const out: T[] = [];
   for (let offset = 0; ; offset += PAGE) {
     const qs = new URLSearchParams({ ...params, $limit: String(PAGE), $offset: String(offset) });
-    const res = await fetch(`${url}?${qs}`, { signal: AbortSignal.timeout(45_000), headers: { Accept: 'application/json', ...sodaHeaders() } });
+    const res = await politeFetch(`${url}?${qs}`, 45_000);
     if (!res.ok) throw new Error(`DOT open data answered ${res.status}`);
     const page = (await res.json()) as T[];
     out.push(...page);
@@ -116,7 +116,12 @@ export async function snapshotUs() {
 }
 
 /** Refreshes the stalest states until the time budget runs out. */
-export async function runRegistrySync(budgetMs = 240_000) {
+/**
+ * Refreshes the stalest state(s), gently: by default one state per run, so
+ * the 15-minute schedule spreads ~96 small requests across the day (each
+ * state refreshed about every 13 hours). Stops early if rate-limited.
+ */
+export async function runRegistrySync(budgetMs = 240_000, maxStates = 1) {
   const started = Date.now();
   const db = adminDb();
   const snap = await db.collection('registryStates').select('updatedAt').get();
@@ -125,9 +130,9 @@ export async function runRegistrySync(budgetMs = 240_000) {
     .sort((a, b) => (PRIORITY.includes(b) ? 1 : 0) - (PRIORITY.includes(a) ? 1 : 0) || (age.get(a) || 0) - (age.get(b) || 0));
   const done: { state: string; count: number; likely: number; changes: number }[] = [], failed: { state: string; error: string }[] = [];
   for (const state of due) {
-    if (Date.now() - started > budgetMs) break;
+    if (Date.now() - started > budgetMs || done.length + failed.length >= maxStates) break;
     try { done.push(await syncState(state)); }
-    catch (error) { failed.push({ state, error: error instanceof Error ? error.message : String(error) }); }
+    catch (error) { failed.push({ state, error: error instanceof Error ? error.message : String(error) }); if (error instanceof RateLimited) break; }
   }
   let snapshot = false;
   try { snapshot = await snapshotUs(); } catch (error) { console.error('Daily snapshot failed', error); }
