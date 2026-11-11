@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/server/firebase-admin';
 import { errorResponse, HttpError, isId, readJson, requireRole } from '@/lib/server/auth';
 import { CALL_TYPES, DISPOSITIONS, SERVICES } from '@/lib/sales-playbook';
 import { MOVE_PRICING, ADDON_PRICING, calculateMoveTotal } from '@/lib/pricing';
+import { zipRoadMiles } from '@/lib/server/distance';
 import { markLeadContacted } from '@/lib/server/leads';
 
 /**
@@ -68,7 +69,9 @@ export async function POST(req: Request) {
     const addOns = Array.isArray(body.addOns) ? body.addOns.filter((a: unknown): a is string => typeof a === 'string' && a in ADDON_PRICING).slice(0, 10) : [];
     const discounts = { isStudent: body.isStudent === true, isMilitary: body.isMilitary === true, isExpress: body.isExpress === true };
     // The quoted total is recalculated here, never trusted from the browser.
-    const estimatedTotal = moveSize ? calculateMoveTotal(moveSize, addOns, discounts) : null;
+    const zipIn = (v: unknown) => (String(v || '').match(/\b\d{5}\b/g) || []).pop() || '';
+    const miles = zipRoadMiles(zipIn(body.pickup), zipIn(body.dropoff));
+    const estimatedTotal = moveSize ? calculateMoveTotal(moveSize, addOns, { ...discounts, miles }) : null;
     const rep = (await db.doc(`users/${user.uid}`).get()).data();
 
     const ref = await db.collection('salesCalls').add({

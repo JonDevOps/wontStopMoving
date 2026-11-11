@@ -23,6 +23,9 @@ import { cleanMoveDetails, diffMoveDetails, formatMoveDate } from '../src/lib/mo
 import { cleanLocation, teamFromJob, isOnTeam, describeActivity } from '../src/lib/job-activity.ts';
 import { toMover, siteFromEmail, saneUnits, filterMovers, sortMovers, ourRank, moversCsv, moverLikelihood, REGISTRY_AREAS, isProvince } from '../src/lib/registry.ts';
 import { diffMovers, closureReason, mdy, zipOf, zipsWithin, expansionScore, acquisitionScore, isRecruitCandidate, moverVerdict, countyKey } from '../src/lib/market.ts';
+import { priceCart, SALES_TAX_RATE } from '../src/lib/shop.ts';
+import { roadMilesBetween } from '../src/lib/distance.ts';
+import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
 import { gzipSync } from 'node:zlib';
 import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -1279,4 +1282,82 @@ test('registry covers Canadian provinces: postal codes are located by their firs
   assert.equal(us.zip, '95112'); assert.equal(seen[1], '95112');
   const zips = JSON.parse(readFileSync(new URL('../src/data/zip-latlng.json', import.meta.url), 'utf8'));
   assert.ok(Array.isArray(zips.M5V) && Array.isArray(zips['95112']));
+});
+
+test('mileage pricing: road miles from ZIP coordinates; first miles included, then per mile; long distance flagged', () => {
+  const zips = { '94043': [37.41, -122.07], '95112': [37.35, -121.88], '95354': [37.64, -120.99], '92101': [32.72, -117.16] };
+  const look = z => zips[z];
+  const sj = roadMilesBetween('94043', '95112', look);
+  assert.ok(sj >= 12 && sj <= 16, String(sj)); // Mountain View → San Jose ≈ 11 mi straight, ~14 road.
+  assert.equal(roadMilesBetween('94043', '94043', look), 3);
+  assert.equal(roadMilesBetween('94043', '00000', look), null);
+  assert.equal(mileageFee(MILEAGE.includedMiles), 0);
+  assert.equal(mileageFee(MILEAGE.includedMiles + 10), 10 * MILEAGE.perMile);
+  const modesto = roadMilesBetween('94043', '95354', look);
+  assert.equal(calculateMoveTotal('studio', [], { miles: modesto }), 825 + mileageFee(modesto));
+  assert.equal(calculateMoveTotal('studio', [], {}), 825); // No ZIPs → flat price as before.
+  assert.equal(isLongDistance(roadMilesBetween('94043', '92101', look)), true);
+  assert.equal(isLongDistance(sj), false);
+});
+
+test('supplies shop: carts are priced on the server; unknown items and bad quantities dropped; delivery free over $150', () => {
+  assert.equal(priceCart([], 'delivery'), null);
+  assert.equal(priceCart([{ id: 'nope', qty: 2 }, { id: 'tape', qty: -1 }], 'pickup'), null);
+  const small = priceCart([{ id: 'tape', qty: 2 }, { id: 'tape', qty: 1 }, { id: 'box-small', qty: 10 }], 'delivery');
+  assert.deepEqual(small.lines.map(l => [l.id, l.qty, l.total]), [['tape', 3, 48], ['box-small', 10, 25]]);
+  assert.equal(small.subtotal, 73); assert.equal(small.delivery, 15);
+  assert.equal(small.tax, Math.round(73 * SALES_TAX_RATE * 100) / 100);
+  assert.equal(small.total, Math.round((73 + 15 + small.tax) * 100) / 100);
+  assert.equal(priceCart([{ id: 'kit-2br', qty: 1 }], 'delivery').delivery, 0);
+  assert.equal(priceCart([{ id: 'tape', qty: 1 }], 'pickup').delivery, 0);
+  assert.equal(priceCart([{ id: 'box-small', qty: 100000 }], 'pickup').lines[0].qty, 200);
+});
+
+test('shop checkout and confirmation: signed-in only, moves must be the customer’s, payment confirmed once with matching amount', async () => {
+  const checkout = (token, body) => fetch(`${base}/api/shop/checkout`, authorized(token, body));
+  assert.equal((await fetch(`${base}/api/shop/checkout`, json({ items: [{ id: 'tape', qty: 1 }], fulfillment: 'pickup' }))).status, 401);
+  assert.equal((await checkout(customerToken, { items: [], fulfillment: 'pickup' })).status, 400);
+  assert.equal((await checkout(customerToken, { items: [{ id: 'tape', qty: 1 }], fulfillment: 'teleport' })).status, 400);
+  assert.equal((await checkout(customerToken, { items: [{ id: 'tape', qty: 1 }], fulfillment: 'with-move', jobId: 'someone-elses-job' })).status, 400);
+  assert.equal((await checkout(customerToken, { items: [{ id: 'tape', qty: 1 }], fulfillment: 'pickup' })).status, 503); // Stripe off in tests.
+  assert.equal((await db.collection('shopOrders').where('customerId', '==', auth.currentUser.uid).get()).size, 0); // Nothing saved before Stripe.
+
+  const orderRef = db.collection('shopOrders').doc('shop-order-1');
+  await orderRef.set({ customerId: auth.currentUser.uid, email: 'test-customer@example.com', status: 'pending', fulfillment: 'pickup', lines: [{ id: 'tape', name: 'Packing tape 6-pack', qty: 1, price: 16, total: 16 }], subtotal: 16, delivery: 0, tax: 1.46, total: 17.46, createdAt: Timestamp.now() });
+  const paid = (amount, id) => ({ id, type: 'checkout.session.completed', data: { object: { id: `cs_${id}`, payment_status: 'paid', amount_total: amount, payment_intent: `pi_${id}`, metadata: { type: 'shop', orderId: 'shop-order-1', customerId: auth.currentUser.uid } } } });
+  assert.equal((await webhook(paid(999, 'evt_shop_wrong'))).status, 200); // Wrong amount: acknowledged, not marked paid.
+  assert.equal((await orderRef.get()).data().status, 'pending');
+  assert.equal((await webhook(paid(1746, 'evt_shop_ok'))).status, 200);
+  assert.equal((await orderRef.get()).data().status, 'paid');
+  const before = (await db.collection('emailOutbox').get()).size;
+  assert.equal((await webhook(paid(1746, 'evt_shop_again'))).status, 200);
+  assert.equal((await db.collection('emailOutbox').get()).size, before); // Confirmed once.
+
+  const mine = await (await fetch(`${base}/api/shop/orders`, { headers: { Authorization: `Bearer ${customerToken}` } })).json();
+  assert.ok(mine.orders.some(o => o.id === 'shop-order-1' && o.status === 'paid'));
+  assert.equal((await fetch(`${base}/api/admin/shop`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 403);
+  assert.equal((await fetch(`${base}/api/admin/shop`, authorized(adminToken, { id: 'shop-order-1', status: 'ready' }))).status, 200);
+  assert.equal((await orderRef.get()).data().status, 'ready');
+  assert.equal((await fetch(`${base}/shop`)).status, 200);
+});
+
+test('distance API and city moving reports (aggregates from the registry; small cities get no page)', async () => {
+  const d = await (await fetch(`${base}/api/distance?from=94043&to=95112`)).json();
+  assert.ok(d.miles > 5 && d.miles < 30); assert.equal(d.fee, 0);
+  assert.equal((await fetch(`${base}/api/distance?from=abc&to=95112`)).status, 400);
+
+  const ll = () => [45.52, -122.68];
+  const portland = Array.from({ length: 7 }, (_, i) => toMover(census({ dot_number: String(900 + i), legal_name: `PORTLAND MOVING ${i} LLC`, phy_state: 'OR', phy_city: 'PORTLAND', phy_zip: '97201', power_units: String(2 + i), add_date: i === 0 ? '20260901' : '20100101' }), { mc: '', hhg: i % 2 === 0, active: true, broker: false }, ll));
+  writeFileSync(join(process.env.REGISTRY_LOCAL_DIR, 'OR.lite.json.gz'), gzipSync(Buffer.from(JSON.stringify(portland))));
+  await db.doc('registryStates/OR').set({ state: 'OR', count: 7, likely: 7, units: 35, drivers: 70, top: [], updatedAt: Timestamp.now() });
+  const page = await fetch(`${base}/moving-reports/or/portland`);
+  assert.equal(page.status, 200);
+  const html = (await page.text()).replace(/<!-- -->/g, '');
+  assert.match(html, /Moving companies in Portland, OR/);
+  assert.match(html, /7 moving companies registered/);
+  assert.match(html, /57%<\/p><p[^>]*>licensed to move you to another state/); // Federal household-goods authority, not self-reported operation.
+  assert.doesNotMatch(html, /PORTLAND MOVING 3/); // Aggregates only: no individual company named.
+  assert.equal((await fetch(`${base}/moving-reports/or/salem`)).status, 404);
+  const index = await (await fetch(`${base}/moving-reports`)).text();
+  assert.match(index, /\/moving-reports\/or\/portland/);
 });

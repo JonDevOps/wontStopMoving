@@ -100,7 +100,8 @@ function QuoteReviewContent({ id }: { id: string }) {
   const price = quote.isCustomQuote ? customQuoteTotal(quote.pricing) : calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
     isStudent: !!details?.isStudent,
     isMilitary: !!details?.isMilitary,
-    isExpress: !!details?.addOns?.express
+    isExpress: !!details?.addOns?.express,
+    miles: typeof quote.estimatedMiles === "number" ? quote.estimatedMiles : null,
   });
 
   return (

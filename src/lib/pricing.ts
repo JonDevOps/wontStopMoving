@@ -31,10 +31,26 @@ export const ADDON_PRICING: Record<string, number> = {
   'piano': 450,        // Specialized Item: Piano Upright
 };
 
+/**
+ * Distance pricing. Local moves include the first `includedMiles` road miles
+ * (pickup to drop-off); after that each mile adds `perMile`. Over
+ * `longDistanceMiles` it's a long-distance move: we still show an estimate,
+ * but recommend a custom quote (fuel, driver hours, tolls, scheduling).
+ */
+export const MILEAGE = { includedMiles: 25, perMile: 3, longDistanceMiles: 150 } as const;
+
+export function mileageFee(miles: number | null | undefined): number {
+  if (typeof miles !== 'number' || !Number.isFinite(miles) || miles <= MILEAGE.includedMiles) return 0;
+  return Math.round((miles - MILEAGE.includedMiles) * MILEAGE.perMile);
+}
+export const isLongDistance = (miles: number | null | undefined) => typeof miles === 'number' && miles > MILEAGE.longDistanceMiles;
+
 export interface PriceCalculationOptions {
   isStudent?: boolean;
   isMilitary?: boolean;
   isExpress?: boolean;
+  /** Estimated road miles between pickup and drop-off (see lib/distance). */
+  miles?: number | null;
 }
 
 /**
@@ -54,6 +70,9 @@ export function calculateMoveTotal(
       total += ADDON_PRICING[addon];
     }
   });
+
+  // Distance beyond the included local miles
+  total += mileageFee(options.miles);
 
   // Express Moving: 25% Priority Fee on the base rate
   if (options.isExpress) {

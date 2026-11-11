@@ -36,7 +36,7 @@ import { collection, serverTimestamp, doc, setDoc, addDoc, getDoc } from "fireba
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { sendSignupVerification } from '@/lib/email-verification';
 import { useToast } from "@/hooks/use-toast";
-import { calculateMoveTotal } from "@/lib/pricing";
+import { calculateMoveTotal, MILEAGE } from "@/lib/pricing";
 import Link from "next/link";
 import { TermsAcceptance } from '@/components/legal/terms-acceptance';
 import { termsAcceptance, TERMS_VERSION } from '@/lib/terms';
@@ -112,10 +112,21 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
     watch("pianoMoving") && "piano",
   ].filter(Boolean) as string[];
 
+  // Road-mile estimate between the two ZIP codes (free ZIP coordinates; see /api/distance).
+  const [distance, setDistance] = useState<{ miles: number | null; fee?: number; longDistance?: boolean } | null>(null);
+  const pickupZipValue = (watch("pickupZip") || "").trim(), dropoffZipValue = (watch("dropoffZip") || "").trim();
+  useEffect(() => {
+    if (!/^\d{5}$/.test(pickupZipValue) || !/^\d{5}$/.test(dropoffZipValue)) { setDistance(null); return; }
+    let cancelled = false;
+    fetch(`/api/distance?from=${pickupZipValue}&to=${dropoffZipValue}`).then(r => r.json()).then(d => { if (!cancelled) setDistance(d); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [pickupZipValue, dropoffZipValue]);
+
   const estimatedTotal = calculateMoveTotal(watch("moveSize") || "studio", selectedAddOnKeys, {
     isStudent: !!watch("isStudent"),
     isMilitary: !!watch("isMilitary"),
     isExpress: !!watch("expressMoving"),
+    miles: distance?.miles ?? null,
   });
 
   // Pre-fill fields if user is logged in
@@ -198,6 +209,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
         moveSize: data.moveSize,
         specialItems: data.specialItems || "",
         estimatedTotal,
+        estimatedMiles: distance?.miles ?? null,
         customerId: currentUserId,
         preferredProviderId: providerId || null,
         // Where this customer came from (ads, search, referral link) for marketing reports.
@@ -520,6 +532,11 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
                 <div className="space-y-1">
                   <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Date</p>
                   <p className="font-bold text-primary">{watch("moveDate")}</p>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Distance</p>
+                  <p className="font-bold text-primary">{distance?.miles ? `About ${distance.miles.toLocaleString()} road miles` : "Enter both ZIP codes"}{distance?.fee ? ` · mileage $${distance.fee.toLocaleString()} (first ${MILEAGE.includedMiles} miles included)` : distance?.miles ? ` · first ${MILEAGE.includedMiles} miles included` : ""}</p>
+                  {distance?.longDistance && <p className="text-xs text-amber-700 font-semibold">This is a long-distance move. This estimate is a starting point; we’ll confirm a fixed long-distance price with you.</p>}
                 </div>
                 <div className="space-y-1">
                   <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">Size</p>

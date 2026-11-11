@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { PhoneCall, PhoneIncoming, PhoneOutgoing, CheckCircle2, RotateCcw, Calculator, Copy, Sparkles, ShieldCheck, MessageSquareWarning, Save, CalendarClock, Target } from "lucide-react";
-import { MOVE_PRICING, ADDON_PRICING, calculateMoveTotal } from "@/lib/pricing";
+import { MOVE_PRICING, ADDON_PRICING, MILEAGE, calculateMoveTotal } from "@/lib/pricing";
 import { useAuth } from "@/firebase";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
@@ -77,7 +77,16 @@ export function SalesScriptTool() {
   const progress = totalItems ? Math.round((doneCount / totalItems) * 100) : 0;
   const showsQuote = callType !== "service" && callType !== "past-customer";
 
-  const total = calculateMoveTotal(moveSize, addOns, { isStudent, isMilitary, isExpress });
+  // Road miles between the ZIP codes in the pickup/drop-off fields (if both contain one).
+  const [miles, setMiles] = useState<number | null>(null);
+  const pickupZip = (pickup.match(/\b\d{5}\b/g) || []).pop() || "", dropoffZip = (dropoff.match(/\b\d{5}\b/g) || []).pop() || "";
+  useEffect(() => {
+    if (!pickupZip || !dropoffZip) { setMiles(null); return; }
+    let cancelled = false;
+    fetch(`/api/distance?from=${pickupZip}&to=${dropoffZip}`).then(r => r.json()).then(d => { if (!cancelled) setMiles(typeof d.miles === "number" ? d.miles : null); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [pickupZip, dropoffZip]);
+  const total = calculateMoveTotal(moveSize, addOns, { isStudent, isMilitary, isExpress, miles });
   const platformFee = Math.round(total * 0.15);
   const dispositionInfo = DISPOSITIONS.find(d => d.id === disposition);
 
@@ -116,7 +125,7 @@ Move size: ${MOVE_PRICING[moveSize]?.description || moveSize}
 From: ${pickup || "TBD"}  To: ${dropoff || "TBD"}
 Date: ${moveDate || "Flexible"}
 Add-ons: ${addOns.length ? addOns.map(a => ADDON_LABELS[a] || a).join(", ") : "None"}
-Estimated total: $${total.toLocaleString()}
+Estimated total: $${total.toLocaleString()}${miles ? ` (about ${miles} road miles)` : ''}
 Get your instant quote and book online: https://wontstopmoving.com/quote
 Your mover is paid only after you confirm the job is done.`;
     try { await navigator.clipboard.writeText(text); toast({ title: "Quote summary copied", description: "Paste it into an email or text to the customer." }); }
@@ -352,6 +361,7 @@ Your mover is paid only after you confirm the job is done.`;
                 </div>
                 <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-2">
                   <div className="flex justify-between items-center"><span className="text-xs font-bold uppercase text-slate-400">Estimated total</span><span className="text-3xl font-black text-accent">${total.toLocaleString()}</span></div>
+                  <p className="text-xs text-slate-400">{miles ? `About ${miles.toLocaleString()} road miles${miles > MILEAGE.longDistanceMiles ? " · long distance: confirm a fixed price" : ""} (first ${MILEAGE.includedMiles} included, then $${MILEAGE.perMile}/mile)` : "Add ZIP codes to pickup and drop-off to include distance."}</p>
                   <div className="flex justify-between text-[11px] text-slate-400 pt-2 border-t border-white/10"><span>Platform fee (15%): ${platformFee.toLocaleString()}</span><span>Provider (85%): ${(total - platformFee).toLocaleString()}</span></div>
                 </div>
               </>}

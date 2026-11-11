@@ -65,7 +65,7 @@ export async function saveLite(state: string, rows: Mover[]) {
 }
 
 export async function loadNational(states: string[]): Promise<{ rows: Mover[]; states: string[] }> {
-  if (national && Date.now() - national.at < TTL) return national;
+  if (national && !localDir() && Date.now() - national.at < TTL) return national; // No caching for local (test) files.
   const parts = await Promise.all(states.map(async s => {
     const bytes = await readFileBytes(`${s}.lite.json.gz`).catch(() => null);
     return bytes ? { s, rows: JSON.parse(gunzipSync(bytes).toString('utf8')) as Mover[] } : null;
