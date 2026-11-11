@@ -80,3 +80,5 @@ env:
       - RUNTIME
   - variable: TYPESAFE_API_KEY
     secret: TYPESAFE_API_KEY
+  - variable: SODA_APP_TOKEN
+    secret: SODA_APP_TOKEN
