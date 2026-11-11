@@ -24,8 +24,9 @@ export async function GET(req: Request) {
 }
 
 /**
- * { action: 'invite', email } adds an admin: right away if the email already
- * has an account, otherwise when they first sign in with it.
+ * { action: 'invite', email } adds an admin: right away if that email already
+ * has an account with a verified email, otherwise when they first sign in
+ * with it verified (so nobody can pre-register someone else's address).
  * { action: 'cancel', email } withdraws a pending invite.
  * { action: 'remove', uid } takes admin access away (back to a customer account).
  */
@@ -40,7 +41,8 @@ export async function POST(req: Request) {
     if (body.action === 'invite') {
       const email = normalizeEmail(body.email);
       if (!isEmail(email)) throw new HttpError(400, 'Enter a valid email address.');
-      const existing = await adminAuth().getUserByEmail(email).catch(() => null);
+      const found = await adminAuth().getUserByEmail(email).catch((error: { code?: string }) => { if (error?.code === 'auth/user-not-found') return null; throw error; });
+      const existing = found?.emailVerified ? found : null;
       if (existing) {
         const ref = db.doc(`users/${existing.uid}`), p = (await ref.get()).data();
         if (p?.role === 'admin') throw new HttpError(409, 'That person is already an admin.');
@@ -52,7 +54,7 @@ export async function POST(req: Request) {
         await enqueueEmail(`admin-invite:${email}:${Date.now()}`, {
           category: 'account', referenceId: email, to: email,
           subject: 'You have admin access to Wont Stop Moving',
-          text: `Hi,\n\n${by} gave you admin access to the Wont Stop Moving dashboard.\n\n${existing ? 'Sign in as usual' : `Sign in with Google using this email address (${email})`} and choose Admin:\nhttps://wontstopmoving.com/login?role=admin\n\nWont Stop Moving`,
+          text: `Hi,\n\n${by} gave you admin access to the Wont Stop Moving dashboard.\n\n${existing ? 'Sign in as usual' : `Sign in with Google using this email address (${email}), or verify this email on your existing account first`} and choose Admin:\nhttps://wontstopmoving.com/login?role=admin\n\nWont Stop Moving`,
         });
       } catch (error) { console.error('Admin invite email failed', error); }
       return NextResponse.json({ status: existing ? 'granted' : 'invited' });

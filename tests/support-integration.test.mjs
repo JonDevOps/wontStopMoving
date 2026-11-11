@@ -815,6 +815,14 @@ test('admin invites: only admins invite; a verified sign-in with the invited ema
   assert.equal((await db.doc('adminInvites/invitee@example.com').get()).data().status, 'claimed');
   assert.equal(await claim(), false); // Single use.
 
+  // An existing account with an unverified email gets a pending invite, not instant admin.
+  const unverified = await extraUser('squatter@example.com', 'squatter');
+  await db.doc(`users/${unverified.user.uid}`).set({ role: 'customer' });
+  assert.equal((await (await team(adminToken, { action: 'invite', email: 'squatter@example.com' })).json()).status, 'invited');
+  assert.equal((await db.doc(`users/${unverified.user.uid}`).get()).data().role, 'customer');
+  await team(adminToken, { action: 'cancel', email: 'squatter@example.com' });
+  await deleteApp(unverified.app);
+
   // Someone else verified with a different email gains nothing.
   assert.equal((await (await fetch(`${base}/api/auth/claim-admin`, authorized(customerToken, {}))).json()).admin, false);
 

@@ -38,11 +38,11 @@ function Team() {
 
     <Card className="bg-white"><CardContent className="p-6 space-y-3">
       <h2 className="font-bold text-lg">Add an admin</h2>
-      <form className="flex flex-col sm:flex-row gap-3" onSubmit={e => { e.preventDefault(); const target = email.trim(); void act({ action: 'invite', email: target }, s => s === 'granted' ? `${target} is now an admin.` : `Invite saved. ${target} becomes an admin the first time they sign in with Google using that email.`).then(() => setEmail('')); }}>
+      <form className="flex flex-col sm:flex-row gap-3" onSubmit={e => { e.preventDefault(); const target = email.trim(); void act({ action: 'invite', email: target }, s => s === 'granted' ? `${target} is now an admin.` : `Invite saved. ${target} becomes an admin when they sign in with that email verified (Google sign-in counts).`).then(() => setEmail('')); }}>
         <Input type="email" required placeholder="name@example.com" value={email} onChange={e => setEmail(e.target.value)} aria-label="Email address" />
         <Button type="submit" disabled={busy}>Add admin</Button>
       </form>
-      <p className="text-xs text-muted-foreground">If they already have an account, it becomes an admin account right away. If not, they get an email and become an admin when they first sign in with that address (it must be verified, which Google sign-in always is).</p>
+      <p className="text-xs text-muted-foreground">If they already have an account with a verified email, it becomes an admin account right away. Otherwise they get an email and become an admin when they sign in with that address verified (Google sign-in always is).</p>
       {notice && <p role="status" className="text-sm font-medium">{notice}</p>}
     </CardContent></Card>
 
