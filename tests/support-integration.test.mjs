@@ -12,6 +12,7 @@ import { TERMS_VERSION, TERMS_DOCUMENT_PATH, termsAcceptance } from '../src/lib/
 import { customQuoteSchema, customQuoteTotal } from '../src/lib/custom-quotes.ts';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { dueFollowUpStep, followUpEmail } from '../src/lib/quote-followups.ts';
+import { classifyChannel, cleanLeadSource } from '../src/lib/attribution.ts';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -445,6 +446,71 @@ test('unsubscribe links stop follow-ups and add the address to the suppression l
   const oneClick = await fetch(`${base}/api/unsubscribe?q=test-unsub&t=${token}`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' });
   assert.equal(oneClick.status, 200);
   assert.equal((await q.get()).data().followUpsStopped, true);
+});
+
+test('lead sources are classified into marketing channels and bounded', () => {
+  assert.equal(classifyChannel(null), 'Direct');
+  assert.equal(classifyChannel({ refCode: 'ABCD2345', utmMedium: 'cpc' }), 'Referral');
+  assert.equal(classifyChannel({ utmSource: 'google', utmMedium: 'cpc' }), 'Paid search');
+  assert.equal(classifyChannel({ utmSource: 'facebook', utmMedium: 'cpc' }), 'Paid social');
+  assert.equal(classifyChannel({ utmMedium: 'email' }), 'Email');
+  assert.equal(classifyChannel({ referrerHost: 'www.google.com' }), 'Organic search');
+  assert.equal(classifyChannel({ referrerHost: 'l.facebook.com' }), 'Social');
+  assert.equal(classifyChannel({ referrerHost: 'www.facebook.com' }), 'Social');
+  assert.equal(classifyChannel({ referrerHost: 'blog.example.org' }), 'Other website');
+  assert.equal(classifyChannel({ referrerHost: 'wontstopmoving.com', landingPath: '/quote' }), 'Direct');
+  const cleaned = cleanLeadSource({ utmSource: 'x'.repeat(500), refCode: 'bad code!', extra: { nested: true } });
+  assert.equal(cleaned.utmSource.length, 100);
+  assert.equal(cleaned.refCode, undefined);
+  assert.equal('extra' in cleaned, false);
+  assert.equal(cleanLeadSource('nope'), null);
+});
+
+test('customers review completed moves once, and the provider rating updates', async () => {
+  const uid = auth.currentUser.uid;
+  await db.doc('providers/review-prov').set({ uid: 'review-prov', status: 'approved', rating: 4, reviewCount: 1 });
+  await db.doc('jobs/review-job').set({ customerId: uid, providerIds: ['review-prov'], status: 'completed', paymentStatus: 'paid' });
+  await db.doc('jobs/review-open').set({ customerId: uid, providerIds: ['review-prov'], status: 'confirmed', paymentStatus: 'paid' });
+  const review = (token, body) => fetch(`${base}/api/reviews`, authorized(token, body));
+  assert.equal((await review(customerToken, { jobId: 'review-job', rating: 7 })).status, 400);
+  assert.equal((await review(customerToken, { jobId: 'review-open', rating: 5 })).status, 409);
+  assert.equal((await review(adminToken, { jobId: 'review-job', rating: 5 })).status, 404); // Not the admin's move.
+  const ok = await review(customerToken, { jobId: 'review-job', rating: 5, comment: 'Careful, fast and friendly crew.' });
+  assert.equal(ok.status, 200);
+  const provider = (await db.doc('providers/review-prov').get()).data();
+  assert.equal(provider.reviewCount, 2);
+  assert.equal(provider.rating, 4.5);
+  assert.equal((await db.doc('providers/review-prov/reviews/review-job').get()).data().rating, 5);
+  assert.equal((await review(customerToken, { jobId: 'review-job', rating: 5 })).status, 409); // Only once.
+});
+
+test('referral links: each customer gets a code, and a paid referred quote earns one reward', async () => {
+  const me = token => fetch(`${base}/api/referrals/me`, { headers: { Authorization: `Bearer ${token}` } });
+  const adminRef = await (await me(adminToken)).json();
+  assert.match(adminRef.code, /^[A-Z2-9]{8}$/);
+  assert.ok(adminRef.link.endsWith(`/quote?ref=${adminRef.code}`));
+  assert.equal((await (await me(adminToken)).json()).code, adminRef.code); // Stable.
+  const customerCode = (await (await me(customerToken)).json()).code;
+  const customerUid = auth.currentUser.uid;
+  const pay = async (quoteId, code) => {
+    await db.doc(`quotes/${quoteId}`).set({ customerId: customerUid, status: 'new', moveSize: 'studio', name: 'Referred Friend', referralCode: code });
+    const event = { id: `evt_${quoteId}`, type: 'checkout.session.completed', data: { object: { id: `cs_${quoteId}`, payment_status: 'paid', amount_total: 82500, metadata: { flow: 'quote', quoteId, customerId: customerUid } } } };
+    assert.equal((await webhook(event)).status, 200);
+    return event;
+  };
+  const event = await pay('referred-quote', adminRef.code);
+  await webhook(event); // Retried webhook: still one reward.
+  const reward = (await db.doc('referrals/job_quote_referred-quote').get()).data();
+  assert.equal(reward.status, 'earned');
+  assert.equal(reward.amountUsd, 25);
+  assert.equal((await db.collection('referrals').where('quoteId', '==', 'referred-quote').get()).size, 1);
+  await pay('self-referred-quote', customerCode); // Self-referrals don't count.
+  assert.equal((await db.doc('referrals/job_quote_self-referred-quote').get()).exists, false);
+  const list = await (await fetch(`${base}/api/admin/referrals`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.ok(list.referrals.some(r => r.id === 'job_quote_referred-quote' && r.status === 'earned'));
+  assert.equal((await fetch(`${base}/api/admin/referrals`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 403);
+  await fetch(`${base}/api/admin/referrals`, authorized(adminToken, { id: 'job_quote_referred-quote' }));
+  assert.equal((await db.doc('referrals/job_quote_referred-quote').get()).data().status, 'paid');
 });
 
 test('creating a custom quote queues one email to the customer with the private link', async () => {

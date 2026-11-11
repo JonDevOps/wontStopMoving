@@ -14,8 +14,9 @@ type Lead = {
   id: string; status: LeadStatus; name: string; phone: string; email: string; moveSize: string; pickup: string; dropoff: string;
   moveDate: string; estimatedTotal: number; assignedTo: string | null; assignedName: string | null; lostReason: string | null;
   createdAt: number | null; firstContactAt: number | null; lastContactAt: number | null; responseMinutes: number | null;
-  followUpStep: number; followUpsStopped: string | null;
+  followUpStep: number; followUpsStopped: string | null; channel: string; referred: boolean;
 };
+type Group = { name: string; leads: number; booked: number; lost: number; revenue: number; bookedPercent: number };
 type Metrics = { today: number; waiting: number; medianResponseMinutes: number | null; within5Percent: number | null; bookedPercent: number | null; bookedRevenue: number; pipelineValue: number };
 type Filter = 'new' | 'mine' | 'contacted' | 'booked' | 'lost' | 'all';
 
@@ -35,6 +36,9 @@ export function LeadInbox({ playbookPath }: { playbookPath: string }) {
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [lostReasons, setLostReasons] = useState<string[]>([]);
+  const [bySource, setBySource] = useState<Group[]>([]);
+  const [byRep, setByRep] = useState<Group[]>([]);
+  const [lostBreakdown, setLostBreakdown] = useState<{ name: string; count: number }[]>([]);
   const [filter, setFilter] = useState<Filter>('new');
   const [busy, setBusy] = useState<string | null>(null);
   const [losing, setLosing] = useState<string | null>(null);
@@ -43,8 +47,8 @@ export function LeadInbox({ playbookPath }: { playbookPath: string }) {
 
   const load = useCallback(async () => {
     try {
-      const r = await apiFetch<{ leads: Lead[]; metrics: Metrics; lostReasons: string[] }>(auth, '/api/admin/leads');
-      setLeads(r.leads); setMetrics(r.metrics); setLostReasons(r.lostReasons);
+      const r = await apiFetch<{ leads: Lead[]; metrics: Metrics; lostReasons: string[]; bySource: Group[]; byRep: Group[]; lostBreakdown: { name: string; count: number }[] }>(auth, '/api/admin/leads');
+      setLeads(r.leads); setMetrics(r.metrics); setLostReasons(r.lostReasons); setBySource(r.bySource); setByRep(r.byRep); setLostBreakdown(r.lostBreakdown);
     } catch (e) { setLeads([]); setNotice(e instanceof Error ? e.message : 'Could not load leads.'); }
   }, [auth]);
   useEffect(() => { void load(); }, [load]);
@@ -87,6 +91,19 @@ export function LeadInbox({ playbookPath }: { playbookPath: string }) {
       </CardContent></Card>)}
     </div>}
 
+    {(bySource.length > 0 || byRep.length > 0) && <details className="bg-white rounded-xl border p-4">
+      <summary className="font-bold cursor-pointer">Pipeline breakdown (last 60 days)</summary>
+      <div className="grid lg:grid-cols-2 gap-6 mt-4">
+        {([['By source', bySource], ['By rep', byRep]] as [string, Group[]][]).map(([title, rows]) => <div key={title} className="overflow-x-auto">
+          <h2 className="font-bold mb-2">{title}</h2>
+          <table className="w-full text-sm"><thead><tr className="text-left text-muted-foreground"><th className="py-1 pr-2">{title === 'By source' ? 'Source' : 'Rep'}</th><th className="pr-2">Leads</th><th className="pr-2">Booked</th><th className="pr-2">Rate</th><th>Revenue</th></tr></thead>
+            <tbody>{rows.map(g => <tr key={g.name} className="border-t"><td className="py-1.5 pr-2 font-medium">{g.name}</td><td className="pr-2">{g.leads}</td><td className="pr-2">{g.booked}</td><td className="pr-2">{g.bookedPercent}%</td><td>{money(g.revenue)}</td></tr>)}</tbody></table>
+        </div>)}
+        {lostBreakdown.length > 0 && <div><h2 className="font-bold mb-2">Why leads were lost</h2><ul className="text-sm space-y-1">{lostBreakdown.map(r => <li key={r.name}>{r.name}: <strong>{r.count}</strong></li>)}</ul></div>}
+      </div>
+      <p className="text-xs text-muted-foreground mt-3">Source comes from ad tags (utm_source, utm_medium), the referring website and referral links. Tag your ads with utm parameters to see paid channels separately.</p>
+    </details>}
+
     <div className="flex flex-wrap gap-2" role="tablist" aria-label="Lead status">
       {([['new', 'New'], ['mine', 'My open leads'], ['contacted', 'Contacted'], ['booked', 'Booked'], ['lost', 'Lost'], ['all', 'All']] as [Filter, string][]).map(([v, label]) =>
         <Button key={v} role="tab" aria-selected={filter === v} variant={filter === v ? 'default' : 'outline'} onClick={() => setFilter(v)}>{label} ({counts[v]})</Button>)}
@@ -105,7 +122,7 @@ export function LeadInbox({ playbookPath }: { playbookPath: string }) {
                 <Badge className={`${STATUS_STYLE[l.status]} border-none capitalize`}>{l.status}</Badge>
                 {wait && <span className={`text-xs font-bold ${wait.urgent ? 'text-red-700' : 'text-amber-700'}`}>{wait.text}</span>}
               </div>
-              <p className="text-sm">{l.moveSize} · {l.pickup || '?'} → {l.dropoff || '?'} · {l.moveDate || 'no date'} · <strong>{money(l.estimatedTotal)}</strong></p>
+              <p className="text-sm">{l.moveSize} · {l.pickup || '?'} → {l.dropoff || '?'} · {l.moveDate || 'no date'} · <strong>{money(l.estimatedTotal)}</strong> · <span className="text-muted-foreground">{l.channel}</span></p>
               <p className="text-xs text-muted-foreground">
                 {l.createdAt ? `Requested ${new Date(l.createdAt).toLocaleString()}` : ''}
                 {l.responseMinutes !== null ? ` · first contact after ${minutes(l.responseMinutes)}` : ''}

@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useFirestore, useUser } from "@/firebase";
-import { setDoc, updateDoc, doc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Star, Loader2, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api-client";
 
 interface ReviewFormProps {
   jobId: string;
@@ -15,59 +15,32 @@ interface ReviewFormProps {
   onReviewSubmitted: () => void;
 }
 
-export function ReviewForm({ jobId, providerId, onReviewSubmitted }: ReviewFormProps) {
-  const { user } = useUser();
-  const firestore = useFirestore();
+/** Rate the provider after a completed move. Saved on the server, which updates the provider's rating. */
+export function ReviewForm({ jobId, onReviewSubmitted }: ReviewFormProps) {
+  const auth = useAuth();
   const { toast } = useToast();
 
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleReviewUrl, setGoogleReviewUrl] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firestore || !user) return;
     if (rating === 0) {
-      toast({
-        variant: "destructive",
-        title: "Rating required",
-        description: "Please select a star rating before submitting.",
-      });
+      toast({ variant: "destructive", title: "Rating required", description: "Please choose a star rating before submitting." });
       return;
     }
-
     setIsSubmitting(true);
     try {
-      // 1. Add review to the provider's reviews subcollection
-      // One review per job: the review's ID is the job ID.
-      await setDoc(doc(firestore, "providers", providerId, "reviews", jobId), {
-        jobId,
-        customerId: user.uid,
-        customerName: user.displayName || "Anonymous",
-        rating,
-        comment,
-        createdAt: serverTimestamp(),
-      });
-
-      // 2. Mark the job as reviewed so we don't prompt again
-      await updateDoc(doc(firestore, "jobs", jobId), {
-        reviewed: true,
-      });
-
-      toast({
-        title: "Review Submitted! 🎉",
-        description: "Thank you for sharing your experience.",
-      });
-      
-      onReviewSubmitted();
+      const result = await apiFetch<{ googleReviewUrl: string | null }>(auth, "/api/reviews", { jobId, rating, comment });
+      toast({ title: "Thanks for your review!", description: "Your feedback helps other customers book with confidence." });
+      if (result.googleReviewUrl) { setGoogleReviewUrl(result.googleReviewUrl); setDone(true); }
+      else onReviewSubmitted();
     } catch (error) {
-      console.error("Error submitting review:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to submit review. Please try again.",
-      });
+      toast({ variant: "destructive", title: "Couldn't submit your review", description: error instanceof Error ? error.message : "Please try again." });
     } finally {
       setIsSubmitting(false);
     }
@@ -77,53 +50,35 @@ export function ReviewForm({ jobId, providerId, onReviewSubmitted }: ReviewFormP
     <Card className="border-none shadow-xl bg-accent text-white mt-8 overflow-hidden relative">
       <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32" />
       <CardHeader className="relative z-10 pb-4">
-        <CardTitle className="text-2xl font-black uppercase tracking-widest text-white">Rate your Provider</CardTitle>
+        <CardTitle className="text-2xl font-black uppercase tracking-widest text-white">{done ? "Thank you!" : "Rate your provider"}</CardTitle>
         <CardDescription className="text-accent-foreground font-medium">
-          How was your moving experience? Your feedback helps others book with confidence.
+          {done ? "Glad the move went well. Would you share your review on Google too? It helps other families find us." : "How was your move? Your feedback helps others book with confidence."}
         </CardDescription>
       </CardHeader>
       <CardContent className="relative z-10">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                type="button"
-                className="focus:outline-none transition-transform hover:scale-110 active:scale-95"
-                onMouseEnter={() => setHoverRating(star)}
-                onMouseLeave={() => setHoverRating(0)}
-                onClick={() => setRating(star)}
-              >
-                <Star 
-                  className={`w-10 h-10 ${
-                    (hoverRating || rating) >= star 
-                      ? "fill-white text-white drop-shadow-md" 
-                      : "text-white/30 fill-transparent"
-                  } transition-all duration-200`} 
-                />
-              </button>
-            ))}
+        {done && googleReviewUrl ? (
+          <div className="flex flex-wrap gap-3">
+            <Button asChild className="h-12 bg-white text-accent hover:bg-slate-50 font-black uppercase tracking-widest"><a href={googleReviewUrl} target="_blank" rel="noopener noreferrer">Review us on Google</a></Button>
+            <Button type="button" variant="ghost" className="h-12 text-white hover:bg-white/10" onClick={onReviewSubmitted}>No thanks</Button>
           </div>
-          
-          <Textarea 
-            placeholder="Tell us what you loved (or what could be improved)..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            className="bg-white/10 border-white/20 text-white placeholder:text-white/50 min-h-[100px] focus-visible:ring-white"
-          />
-
-          <Button 
-            type="submit" 
-            disabled={isSubmitting} 
-            className="w-full h-12 bg-white text-accent hover:bg-slate-50 font-black uppercase tracking-widest"
-          >
-            {isSubmitting ? (
-              <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Submitting</>
-            ) : (
-              <><Send className="w-4 h-4 mr-2" /> Submit Review</>
-            )}
-          </Button>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex gap-2" role="radiogroup" aria-label="Star rating">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button key={star} type="button" role="radio" aria-checked={rating === star} aria-label={`${star} star${star === 1 ? "" : "s"}`}
+                  className="focus:outline-none transition-transform hover:scale-110 active:scale-95"
+                  onMouseEnter={() => setHoverRating(star)} onMouseLeave={() => setHoverRating(0)} onClick={() => setRating(star)}>
+                  <Star className={`w-10 h-10 ${(hoverRating || rating) >= star ? "fill-white text-white drop-shadow-md" : "text-white/30 fill-transparent"} transition-all duration-200`} />
+                </button>
+              ))}
+            </div>
+            <Textarea placeholder="Tell us what you loved, or what could be better…" value={comment} maxLength={2000} onChange={(e) => setComment(e.target.value)} aria-label="Your review"
+              className="bg-white/10 border-white/20 text-white placeholder:text-white/50 min-h-[100px] focus-visible:ring-white" />
+            <Button type="submit" disabled={isSubmitting} className="w-full h-12 bg-white text-accent hover:bg-slate-50 font-black uppercase tracking-widest">
+              {isSubmitting ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Submitting</> : <><Send className="w-4 h-4 mr-2" /> Submit review</>}
+            </Button>
+          </form>
+        )}
       </CardContent>
     </Card>
   );

@@ -43,6 +43,7 @@ import { termsAcceptance, TERMS_VERSION } from '@/lib/terms';
 import { TermsConfirmation } from '@/components/legal/terms-confirmation';
 import { apiFetch } from '@/lib/api-client';
 import { ZipHint } from '@/components/forms/zip-hint';
+import { readLeadSource } from '@/components/analytics/attribution-capture';
 
 const formSchema = z.object({
   pickupZip: z.string().min(5, "Invalid Zip"),
@@ -199,6 +200,8 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
         estimatedTotal,
         customerId: currentUserId,
         preferredProviderId: providerId || null,
+        // Where this customer came from (ads, search, referral link) for marketing reports.
+        ...(() => { const source = readLeadSource(); return source ? { leadSource: source, ...(source.refCode ? { referralCode: source.refCode } : {}) } : {}; })(),
         status: 'new',
         termsAcceptance: termsAcceptance(currentUserId!, 'quote', serverTimestamp()),
         createdAt: serverTimestamp(),

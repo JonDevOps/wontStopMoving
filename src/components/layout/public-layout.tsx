@@ -79,6 +79,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       title: "Resources",
       links: [
         { label: "Blog", href: "/blog" },
+        { label: "Customer Reviews", href: "/reviews" },
         { label: "FAQs", href: "/faq" },
         { label: "Customer Support", href: "/contact" },
       ]
