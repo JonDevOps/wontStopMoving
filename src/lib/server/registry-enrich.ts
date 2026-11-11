@@ -4,6 +4,7 @@ import { loadState } from './registry-store';
 import { classifyMover, jevConfigured, type MoverKind } from './jev';
 import { lookupSos, sosSearchUrl, type SosRecord } from './sos';
 import { stateSummaries } from './registry-query';
+import { runPriceIndex } from './price-index';
 import type { Mover } from '@/lib/registry';
 
 /**
@@ -64,8 +65,15 @@ async function pool<T>(items: T[], limit: number, deadline: number, fn: (t: T) =
  * state, California and Washington first) that aren't classified yet.
  */
 export async function runEnrichment(budgetMs = 45_000) {
-  if (!jevConfigured()) return { classified: 0, skipped: 'Jev is not configured' };
   const deadline = Date.now() + budgetMs;
+  // Jev sorting gets the first ~60% of the run; the price index gets the rest.
+  const classified = jevConfigured() ? await classifyTop(Date.now() + budgetMs * 0.6) : 0;
+  let priced = 0;
+  if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) { try { priced = (await runPriceIndex(deadline)).priced; } catch (error) { console.error('Price index failed', error); } }
+  return { classified, priced };
+}
+
+async function classifyTop(deadline: number) {
   const summaries = (await stateSummaries(true)).sort((a, b) => (['CA', 'WA'].includes(b.state) ? 1 : 0) - (['CA', 'WA'].includes(a.state) ? 1 : 0));
   let classified = 0;
   for (const s of summaries) {
@@ -77,5 +85,5 @@ export async function runEnrichment(budgetMs = 45_000) {
     const rows = new Map((await loadState(s.state)).map(m => [m.dot, m]));
     await pool(todo.map(d => rows.get(d)).filter(Boolean) as Mover[], 6, deadline, async m => { await classifyAndSave(m); classified++; });
   }
-  return { classified };
+  return classified;
 }

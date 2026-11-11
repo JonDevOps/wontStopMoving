@@ -2,7 +2,10 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from './firebase-admin';
 import { loadState, saveState } from './registry-store';
 import { ourMetrics } from './competitors';
-import zipLatLng from '@/data/zip-latlng.json';
+import { zipLookup } from './geo';
+import { backfillClosures, recordChanges } from './market-events';
+import { monitorNetwork } from './network-monitor';
+import { sendDailyRadar } from './radar';
 import { sizeScore, sortMovers, toMover, US_STATES, type AuthorityRow, type CensusRow, type Mover } from '@/lib/registry';
 
 /**
@@ -16,8 +19,6 @@ const AUTHORITY = 'https://data.transportation.gov/resource/6eyk-hxee.json';
 const PAGE = 20000;
 const STALE_MS = 20 * 3600_000;
 const PRIORITY = ['CA', 'WA'];
-const zips = zipLatLng as unknown as Record<string, [number, number]>;
-const zipLookup = (zip: string) => zips[zip] || null;
 
 async function socrata<T>(url: string, params: Record<string, string>): Promise<T[]> {
   const out: T[] = [];
@@ -31,7 +32,7 @@ async function socrata<T>(url: string, params: Record<string, string>): Promise<
   }
 }
 
-export async function syncState(state: string): Promise<{ state: string; count: number; likely: number }> {
+export async function syncState(state: string): Promise<{ state: string; count: number; likely: number; changes: number }> {
   const [census, authority] = await Promise.all([
     socrata<CensusRow>(CENSUS, { $where: `phy_state='${state}' AND crgo_household='X' AND status_code='A'`, $order: 'dot_number' }),
     socrata<Record<string, string>>(AUTHORITY, { $select: 'dot_number,docket_number,hhg_chk,common_stat,broker_stat', $where: `bus_state_code='${state}' AND (hhg_chk='Y' OR common_stat='A' OR broker_stat='A')`, $order: 'dot_number' }),
@@ -45,23 +46,36 @@ export async function syncState(state: string): Promise<{ state: string; count: 
     if (!prev || (row.hhg && !prev.hhg) || (row.active && !prev.active)) auth.set(dot, row);
   }
   const rows = census.map(r => toMover(r, auth.get(String(Number(r.dot_number || 0))), zipLookup));
+  // Compare with the previous snapshot before replacing it (new, closed, grew, shrank).
+  const previous = await loadState(state).catch(() => [] as Mover[]);
   await saveState(state, rows);
+  let changes = 0;
+  if (previous.length) { try { changes = await recordChanges(state, previous, rows); } catch (error) { console.error('Change detection failed', state, error); } }
 
   const likely = rows.filter(m => m.likelyMover);
   const top = sortMovers(likely, 'size').slice(0, 300).map(m => ({
     dot: m.dot, name: m.name, dba: m.dba, city: m.city, state: m.state, zip: m.zip, county: m.county, phone: m.phone, email: m.email, site: m.site, mc: m.mc, org: m.org,
     units: m.units, drivers: m.drivers, miles: m.miles, added: m.added, interstate: m.interstate, hhgAuth: m.hhgAuth, broker: m.broker, lat: m.lat, lng: m.lng, moverScore: m.moverScore, size: Math.round(sizeScore(m)),
   }));
+  // Per-county totals for the expansion view (likely movers only).
+  const counties: Record<string, { movers: number; trucks: number }> = {};
+  for (const m of likely) { if (!/^\d{3}$/.test(m.county)) continue; const c = (counties[m.county] ||= { movers: 0, trucks: 0 }); c.movers++; c.trucks += m.units; }
   const located = rows.filter(m => m.lat !== null && m.lng !== null) as (Mover & { lat: number; lng: number })[];
   // 2.5th-97.5th percentile box, so one mis-geocoded ZIP doesn't stretch a state across the map.
   const pct = (xs: number[], p: number) => xs.sort((x, y) => x - y)[Math.min(xs.length - 1, Math.max(0, Math.floor(xs.length * p)))];
   const bbox = located.length ? { south: pct(located.map(m => m.lat), 0.025), north: pct(located.map(m => m.lat), 0.975), west: pct(located.map(m => m.lng), 0.025), east: pct(located.map(m => m.lng), 0.975) } : null;
   await adminDb().doc(`registryStates/${state}`).set({
     state, count: rows.length, likely: likely.length, units: likely.reduce((n, m) => n + m.units, 0), drivers: likely.reduce((n, m) => n + m.drivers, 0),
-    top, bbox, center: bbox ? [(bbox.south + bbox.north) / 2, (bbox.west + bbox.east) / 2] : null, updatedAt: FieldValue.serverTimestamp(),
-  });
+    top, bbox, center: bbox ? [(bbox.south + bbox.north) / 2, (bbox.west + bbox.east) / 2] : null, counties, updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+  // First time for a state: load the last ~18 months of closures so the radar starts with history.
+  const summary = (await adminDb().doc(`registryStates/${state}`).get()).data();
+  if (!summary?.backfilledAt) {
+    try { const n = await backfillClosures(state); await adminDb().doc(`registryStates/${state}`).update({ backfilledAt: FieldValue.serverTimestamp(), backfilled: n }); }
+    catch (error) { console.error('Closure backfill failed', state, error); }
+  }
   await updateTrackedCompetitors(rows);
-  return { state, count: rows.length, likely: likely.length };
+  return { state, count: rows.length, likely: likely.length, changes };
 }
 
 /** Keeps tracked competitors' fleet numbers current and logs a daily snapshot. */
@@ -107,7 +121,7 @@ export async function runRegistrySync(budgetMs = 240_000) {
   const age = new Map(snap.docs.map(d => [d.id, (d.data().updatedAt as Timestamp | undefined)?.toMillis() || 0]));
   const due = US_STATES.filter(s => Date.now() - (age.get(s) || 0) > STALE_MS)
     .sort((a, b) => (PRIORITY.includes(b) ? 1 : 0) - (PRIORITY.includes(a) ? 1 : 0) || (age.get(a) || 0) - (age.get(b) || 0));
-  const done: { state: string; count: number; likely: number }[] = [], failed: { state: string; error: string }[] = [];
+  const done: { state: string; count: number; likely: number; changes: number }[] = [], failed: { state: string; error: string }[] = [];
   for (const state of due) {
     if (Date.now() - started > budgetMs) break;
     try { done.push(await syncState(state)); }
@@ -115,7 +129,26 @@ export async function runRegistrySync(budgetMs = 240_000) {
   }
   let snapshot = false;
   try { snapshot = await snapshotUs(); } catch (error) { console.error('Daily snapshot failed', error); }
-  return { done, failed, remaining: due.length - done.length - failed.length, snapshot };
+  const daily = await runDailyTasks();
+  return { done, failed, remaining: due.length - done.length - failed.length, snapshot, daily };
+}
+
+/**
+ * Once a day after 7am Pacific (when the overnight state refreshes are in):
+ * re-check partners' federal compliance and send the market radar email.
+ */
+export async function runDailyTasks() {
+  const now = new Date();
+  const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', hourCycle: 'h23' }).format(now));
+  if (hour < 7) return null;
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(now), ref = adminDb().doc(`marketSettings/daily-${day}`);
+  const claimed = await adminDb().runTransaction(async tx => { if ((await tx.get(ref)).exists) return false; tx.create(ref, { startedAt: FieldValue.serverTimestamp() }); return true; });
+  if (!claimed) return null;
+  const out: Record<string, unknown> = {};
+  try { out.monitor = await monitorNetwork(); } catch (error) { console.error('Network monitor failed', error); }
+  try { out.radar = await sendDailyRadar(); } catch (error) { console.error('Market radar failed', error); }
+  await ref.set({ ...out, finishedAt: FieldValue.serverTimestamp() }, { merge: true });
+  return out;
 }
 
 export { loadState };

@@ -22,6 +22,7 @@ import { isPrivateAddress, htmlToText } from '../src/lib/server/safe-fetch.ts';
 import { cleanMoveDetails, diffMoveDetails, formatMoveDate } from '../src/lib/move-details.ts';
 import { cleanLocation, teamFromJob, isOnTeam, describeActivity } from '../src/lib/job-activity.ts';
 import { toMover, siteFromEmail, saneUnits, filterMovers, sortMovers, ourRank, moversCsv, moverLikelihood } from '../src/lib/registry.ts';
+import { diffMovers, closureReason, mdy, zipOf, zipsWithin, expansionScore, acquisitionScore, isRecruitCandidate, moverVerdict, countyKey } from '../src/lib/market.ts';
 import { gzipSync } from 'node:zlib';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -1144,4 +1145,109 @@ test('mover registry API: admin-only search, area ranking, tracking competitors 
   assert.equal((await fetch(`${base}/api/admin/registry/999?state=CA`, { headers: { Authorization: `Bearer ${adminToken}` } })).status, 404);
 
   for (const path of ['/api/cron/registry-sync', '/api/cron/registry-enrich']) assert.equal((await fetch(`${base}${path}`, { method: 'POST' })).status, 401);
+});
+
+test('market logic: changes between days, closure reasons, expansion and buy scores, and the public verdict', () => {
+  const ll = () => [37.35, -121.88];
+  const a = toMover(census(), { mc: 'MC1', hhg: true, active: true, broker: false }, ll);
+  const b = toMover(census({ dot_number: '22', legal_name: 'SF RELOCATION INC', power_units: '10' }), { mc: '', hhg: true, active: true, broker: false }, ll);
+  const bBigger = { ...b, units: 14 };
+  const c = toMover(census({ dot_number: '33', legal_name: 'NEW MOVERS LLC' }), undefined, ll);
+  const changes = diffMovers([a, b], [bBigger, c]).map(x => `${x.type}:${x.mover.dot}${x.from !== undefined ? `:${x.from}->${x.to}` : ''}`).sort();
+  assert.deepEqual(changes, ['closed:1234567', 'grew:22:10->14', 'new:33']);
+  assert.deepEqual(diffMovers([b], [{ ...b, units: 11 }]), []); // Small changes are noise.
+
+  assert.equal(mdy('02/10/2026'), '2026-02-10');
+  assert.deepEqual(closureReason({ status: 'I', revocations: [{ type: 'INVOLUNTARY REVOCATION', date: '2026-05-11', license: 'COMMON' }], insuranceCancelled: [{ date: '2026-04-01', insurer: 'X', kind: 'BIPD' }] }), { reason: 'Operating authority involuntary revocation', date: '2026-05-11', confidence: 'confirmed' });
+  assert.equal(closureReason({ revocations: [], insuranceCancelled: [{ date: '2026-03-31', insurer: 'LLOYDS', kind: 'CARGO' }] }).reason, 'Insurance cancelled (CARGO, LLOYDS)');
+  assert.deepEqual(closureReason({ status: 'I', revocations: [], insuranceCancelled: [], lastFiling: '2026-05-08' }), { reason: 'USDOT number made inactive', date: '2026-05-08', confidence: 'likely' });
+
+  assert.equal(zipOf('123 Main St, San Jose, CA 95112-1234'), '95112');
+  assert.equal(countyKey('CA', '085'), '06085');
+  const near = zipsWithin([37.35, -121.88], 10, { '95112': [37.35, -121.88], '95008': [37.28, -121.95], '94103': [37.77, -122.41] });
+  assert.deepEqual(near, ['95112', '95008']);
+  const underserved = expansionScore({ fips: '1', name: 'A', state: 'CA', population: 500000, movers: 5, trucks: 10, quotes: 0, bookings: 0 });
+  const crowded = expansionScore({ fips: '2', name: 'B', state: 'CA', population: 500000, movers: 400, trucks: 900, quotes: 0, bookings: 0 });
+  assert.ok(underserved > crowded);
+  assert.ok(expansionScore({ fips: '2', name: 'B', state: 'CA', population: 500000, movers: 400, trucks: 900, quotes: 30, bookings: 3 }) > crowded);
+  assert.equal(expansionScore({ fips: '3', name: 'C', state: 'CA', population: 5000, movers: 0, trucks: 0, quotes: 0, bookings: 0 }), 0);
+
+  const now = Date.parse('2026-11-11T00:00:00Z');
+  const old = { ...a, units: 6, added: '1995-01-01', updated: '2022-01-01', name: 'SMITH & SONS MOVING' };
+  assert.ok(acquisitionScore(old, 31, now) >= 70);
+  assert.equal(acquisitionScore({ ...old, units: 200 }, 31, now), 0); // Too big to be a small-owner buy.
+  assert.equal(acquisitionScore(old, 5, now), 0);
+  assert.equal(isRecruitCandidate({ ...a, units: 12 }, 16), true);
+  assert.equal(isRecruitCandidate({ ...a, units: 12, hhgAuth: false }, 16), false);
+
+  const good = moverVerdict({ status: 'A', interstate: true, hhgAuthority: true, commonActive: true, brokerActive: false, liabilityOnFile: 750000, cargoOnFile: 5000, revokedOn: null, years: 12, safety: 'S', state: 'CA', units: 10 });
+  assert.equal(good.level, 'good');
+  const broker = moverVerdict({ status: 'A', interstate: true, hhgAuthority: false, commonActive: false, brokerActive: true, liabilityOnFile: null, cargoOnFile: null, revokedOn: null, years: 4, safety: '', state: 'FL', units: 0 });
+  assert.equal(broker.level, 'caution');
+  assert.ok(broker.checks.some(c => /broker/i.test(c.text)));
+  const revoked = moverVerdict({ status: 'A', interstate: true, hhgAuthority: true, commonActive: false, brokerActive: false, liabilityOnFile: null, cargoOnFile: null, revokedOn: '2026-05-11', years: 6, safety: '', state: 'CA', units: 2 });
+  assert.equal(revoked.level, 'bad');
+  const local = moverVerdict({ status: 'A', interstate: false, hhgAuthority: null, commonActive: null, brokerActive: false, liabilityOnFile: null, cargoOnFile: null, revokedOn: null, years: 8, safety: '', state: 'CA', units: 3 });
+  assert.equal(local.level, 'good');
+  assert.ok(local.notes.some(n => /CPUC/.test(n)));
+});
+
+test('market radar API: closures with a takeover plan, settings, recruiting and overflow from the registry; public checker validates input', async () => {
+  const get = async (token, qs) => fetch(`${base}/api/admin/market?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+  const post = async (token, body) => fetch(`${base}/api/admin/market`, authorized(token, body));
+  assert.equal((await get(customerToken, 'view=closures')).status, 403);
+  await db.doc('registryEvents/closed-777').set({ type: 'closed', dot: '777', state: 'CA', county: '085', zip: '95112', lat: 37.35, lng: -121.88, name: 'OLD VALLEY MOVING INC', dba: '', city: 'SAN JOSE', phone: '4085550199', email: '', site: '', officer: 'PAT OWNER', mc: 'MC777', units: 4, drivers: 5, years: 22, hhgAuth: true, interstate: true, reason: 'Operating authority involuntary revocation', effectiveDate: '2026-10-01', confidence: 'confirmed', day: '2026-10-01' });
+  await db.doc('registryEvents/closed-888').set({ type: 'closed', dot: '888', state: 'TX', county: '201', zip: '77002', lat: 29.75, lng: -95.36, name: 'HOUSTON MOVERS', dba: '', city: 'HOUSTON', phone: '', email: '', site: '', officer: '', mc: '', units: 2, drivers: 2, years: 5, hhgAuth: false, interstate: false, day: '2026-10-02' });
+  const closures = await (await get(adminToken, 'view=closures')).json();
+  assert.deepEqual(closures.events.map(e => e.dot), ['777']); // Watched areas default to the Bay Area and Puget Sound.
+  assert.equal(closures.events[0].stage, 'new');
+  const texas = await (await get(adminToken, 'view=closures&scope=TX')).json();
+  assert.deepEqual(texas.events.map(e => e.dot), ['888']);
+
+  const plan = await (await get(adminToken, 'view=takeover&dot=777')).json();
+  assert.ok(plan.zips.includes('95112'));
+  assert.equal(plan.takeover.stage, 'new');
+  assert.equal(plan.links.landing, 'https://wontstopmoving.com/mover-closed');
+  assert.equal((await post(adminToken, { action: 'takeover-update', dot: '777', stage: 'owner-contacted', assets: { phone: true }, notes: 'Owner open to selling the number.' })).status, 200);
+  const after = await (await get(adminToken, 'view=takeover&dot=777')).json();
+  assert.equal(after.takeover.stage, 'owner-contacted');
+  assert.equal(after.takeover.assets.phone, true);
+  assert.equal(after.takeover.log.length, 1);
+  assert.equal((await post(adminToken, { action: 'takeover-update', dot: '777', stage: 'bogus' })).status, 400);
+  assert.equal((await post(adminToken, { action: 'takeover-update', dot: '999', stage: 'done' })).status, 404);
+  assert.equal((await post(adminToken, { action: 'takeover-scripts', dot: '777' })).status, 502); // No AI key in tests.
+
+  assert.equal((await post(adminToken, { action: 'settings', states: ['TX'], autoAssign: false, maxMiles: 50 })).status, 200);
+  const settings = await (await get(adminToken, 'view=settings')).json();
+  assert.deepEqual(settings.settings.states, ['TX']);
+  assert.equal(settings.routing.autoAssign, false);
+  assert.equal(settings.routing.maxMiles, 50);
+  const both = await (await get(adminToken, 'view=closures')).json();
+  assert.deepEqual(both.events.map(e => e.dot).sort(), ['777', '888']);
+  await post(adminToken, { action: 'settings', states: [], autoAssign: true });
+
+  // Recruiting and overflow use the CA registry file written by the registry test.
+  const recruits = await (await fetch(`${base}/api/admin/agents/recruits?state=CA`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.ok(recruits.candidates.some(c => c.dot === '22')); // 30 trucks, 16 years, household-goods authority.
+  assert.ok(!recruits.candidates.some(c => c.dot === '1234567')); // Already an agent (applied in the agent network test).
+  const added = await (await fetch(`${base}/api/admin/agents`, authorized(adminToken, { action: 'prospect-add-many', movers: [{ dot: '22', state: 'CA' }] }))).json();
+  assert.equal(added.added, 1);
+  const prospect = (await db.collection('agentProspects').where('dot', '==', '22').get()).docs[0].data();
+  assert.equal(prospect.region, 'US-CA'); assert.match(prospect.notes, /USDOT 22\b/);
+  assert.equal((await (await fetch(`${base}/api/admin/agents`, authorized(adminToken, { action: 'prospect-add-many', movers: [{ dot: '22', state: 'CA' }] }))).json()).added, 0);
+  const again = await (await fetch(`${base}/api/admin/agents/recruits?state=CA`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.ok(!again.candidates.some(c => c.dot === '22'));
+
+  await db.doc('jobs/overflow-job').set({ customerId: auth.currentUser.uid, status: 'confirmed', pickupAddress: '1 Main St, San Jose, CA 95112', dropoffAddress: 'Oakland', state: 'CA', createdAt: Timestamp.now() });
+  await db.doc('providers/near-provider').set({ businessName: 'Near Movers', status: 'approved', zipCode: '95112' });
+  const overflow = await (await fetch(`${base}/api/jobs/overflow-job/overflow`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.equal(overflow.zip, '95112');
+  assert.ok(overflow.network.some(n => n.id === 'near-provider' && n.miles === 0));
+  assert.ok(overflow.registry.some(m => m.dot === '1234567'));
+  assert.equal((await fetch(`${base}/api/jobs/overflow-job/overflow`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 403);
+
+  assert.equal((await fetch(`${base}/api/public/check-mover?q=a`)).status, 400);
+  assert.equal((await fetch(`${base}/api/public/check-mover/not-a-number`)).status, 400);
+  assert.equal((await fetch(`${base}/check-a-mover`)).status, 200);
+  assert.equal((await fetch(`${base}/mover-closed`)).status, 200);
 });

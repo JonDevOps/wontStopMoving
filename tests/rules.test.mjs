@@ -287,3 +287,14 @@ test('mover registry data is server-only', async () => {
     await assertFails(setDoc(doc(as('boss'), path), { x: 1 }));
   }
 });
+
+test('market radar data is server-only', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'registryEvents/closed-1'), { type: 'closed' });
+    await setDoc(doc(ctx.firestore(), 'takeovers/1'), { stage: 'new' });
+  });
+  for (const path of ['registryEvents/closed-1', 'takeovers/1', 'marketSettings/radar', 'networkAlerts/a1', 'priceIntel/1']) {
+    await assertFails(getDoc(doc(as('boss'), path)));
+    await assertFails(setDoc(doc(as('boss'), path), { x: 1 }));
+  }
+});
