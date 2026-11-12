@@ -261,7 +261,8 @@ function Buy({ scope }: { scope: string }) {
 // ---- Price index ----------------------------------------------------------------------------
 
 type Q = { low: number; median: number; high: number; count: number } | null;
-type PriceData = { checked: number; published: number; hourly: { twoMovers: Q; threeMovers: Q; minimumHours: Q }; bySize: { size: string; ours: number | null; flat: Q; hourlyEstimate: Q; crew: number; hours: number }[]; companies: { id: string; name: string; city: string; state: string; url: string; prices: { published: boolean; twoMovers: number | null; threeMovers: number | null; minimumHours: number | null; notes: string } | null; error: string | null; fetchedAt: string | null }[] };
+type PriceChangeRow = { id: string; name: string; city: string; state: string; source: string; url: string; direction: string; at: string | null; changes: { field: string; label: string; from: number; to: number; pct: number }[] };
+type PriceData = { changes: PriceChangeRow[]; checked: number; published: number; hourly: { twoMovers: Q; threeMovers: Q; minimumHours: Q }; bySize: { size: string; ours: number | null; flat: Q; hourlyEstimate: Q; crew: number; hours: number }[]; companies: { id: string; name: string; city: string; state: string; url: string; prices: { published: boolean; twoMovers: number | null; threeMovers: number | null; minimumHours: number | null; notes: string } | null; error: string | null; fetchedAt: string | null }[] };
 const SIZE: Record<string, string> = { studio: 'Studio', oneBedroom: '1 bedroom', twoBedroom: '2 bedrooms', threeBedroom: '3 bedrooms', fourBedroom: '4+ bedrooms' };
 function Prices({ scope }: { scope: string }) {
   const auth = useAuth();
@@ -271,7 +272,16 @@ function Prices({ scope }: { scope: string }) {
   const range = (q: Q) => (q ? `${money(q.low)}–${money(q.high)} (median ${money(q.median)}, ${q.count})` : '—');
   return <div className="space-y-4">
     <div className="flex flex-wrap justify-between gap-2 items-center">
-      <p className="text-sm text-muted-foreground">{data ? `${data.published} of ${data.checked} websites read publish prices.` : ''} AI reads competitors’ websites monthly (tracked competitors first, then the biggest movers in your areas), a few each hour.</p>
+      <p className="text-sm text-muted-foreground">{data ? `${data.published} of ${data.checked} websites read publish prices.` : ''} AI reads tracked competitors’ websites weekly and the biggest movers in your areas monthly, a few each hour. Price changes are listed below and in the daily radar email.</p>
+      {data && <div className="bg-white rounded-xl p-4 space-y-2">
+        <p className="font-bold text-sm">Price changes, last 90 days ({data.changes.length})</p>
+        {!data.changes.length ? <p className="text-sm text-muted-foreground">No changes yet. A change shows up the second time a website is read.</p> :
+          <ul className="space-y-2 text-sm">{data.changes.slice(0, 50).map(c => <li key={c.id} className="border-b last:border-0 pb-2">
+            <a className="font-semibold underline" href={c.url} target="_blank" rel="noreferrer noopener">{c.name}</a> <span className="text-muted-foreground">{c.city}{c.state && !c.city.includes(c.state) ? `, ${c.state}` : ''}{c.source === 'competitor' ? ' · tracked' : ''}{c.at ? ` · ${new Date(c.at).toLocaleDateString()}` : ''}</span>
+            <span className={`ml-2 text-xs font-bold ${c.direction === 'up' ? 'text-red-600' : c.direction === 'down' ? 'text-green-700' : 'text-slate-600'}`}>{c.direction === 'up' ? '▲ raised' : c.direction === 'down' ? '▼ lowered' : 'changed'}</span><br />
+            <span className="text-xs">{c.changes.map(x => x.field === 'minimumHours' ? `${x.label} ${x.from} → ${x.to}` : `${x.label} ${money(x.from)} → ${money(x.to)} (${x.pct > 0 ? '+' : ''}${x.pct}%)`).join(' · ')}</span>
+          </li>)}</ul>}
+      </div>}
       <Button size="sm" variant="outline" disabled={busy} onClick={async () => { setBusy(true); try { const r = await apiFetch<{ priced: number }>(auth, '/api/admin/market', { action: 'price-refresh' }); toast({ title: `Read ${r.priced} more websites` }); await reload(); } catch (e) { toast({ variant: 'destructive', title: 'That didn’t work', description: e instanceof Error ? e.message : '' }); } finally { setBusy(false); } }}>{busy ? 'Reading websites…' : 'Read more now'}</Button>
     </div>
     {error && <p role="alert">{error}</p>}

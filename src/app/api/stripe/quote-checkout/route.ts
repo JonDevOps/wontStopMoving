@@ -8,6 +8,8 @@ import { errorResponse, HttpError, isId, readJson, requireRole, requireStripe, s
 import { requireCurrentTerms, bookingTermsAcceptance } from '@/lib/server/terms';
 import { TERMS_VERSION } from '@/lib/terms';
 import { customQuoteSchema } from '@/lib/custom-quotes';
+import { usableCredit } from '@/lib/rewards';
+import { applyCredit } from '@/lib/server/rewards';
 
 /**
  * Pays for a quote. The move size, add-ons and discounts are read from the
@@ -43,10 +45,17 @@ export async function POST(req: Request) {
     const total = q.isCustomQuote ? q.pricing.total : calculateMoveTotal(moveSize, addOns, {
       isStudent: !!details.isStudent,
       isMilitary: !!details.isMilitary,
+      isSenior: !!details.isSenior,
       isExpress: !!details.addOns?.express,
       // Distance from the quote's ZIP codes, worked out here (never trusted from the browser).
       miles: zipRoadMiles(q.pickupZip || details.pickupZip, q.dropoffZip || details.dropoffZip),
     });
+
+    // Move credit (rewards and gift cards) covers up to the platform's share of the price.
+    const db = adminDb();
+    const balance = body.useCredit === true ? Number((await db.doc(`rewardWallets/${user.uid}`).get()).data()?.balance || 0) : 0;
+    const credit = usableCredit(total, balance);
+    const charge = Math.round((total - credit) * 100);
 
     const origin = siteOrigin(req);
     requireStripe();
@@ -59,21 +68,23 @@ export async function POST(req: Request) {
             currency: "usd",
             product_data: {
               name: q.isCustomQuote ? 'Custom moving quote' : `${moveSize.toUpperCase()} Professional Move`,
-              description: q.isCustomQuote ? q.description.slice(0, 500) : `Wont Stop Moving relocation with ${addOns.length} add-on${addOns.length === 1 ? "" : "s"}.`,
+              description: `${q.isCustomQuote ? q.description.slice(0, 440) : `Wont Stop Moving relocation with ${addOns.length} add-on${addOns.length === 1 ? "" : "s"}.`}${credit ? ` $${credit.toFixed(2)} move credit applied.` : ''}`,
             },
-            unit_amount: Math.round(total * 100),
+            unit_amount: charge,
           },
           quantity: 1,
         },
       ],
-      metadata: { flow: "quote", quoteId, customerId: user.uid, moveSize, termsVersion: TERMS_VERSION },
+      metadata: { flow: "quote", quoteId, customerId: user.uid, moveSize, termsVersion: TERMS_VERSION, ...(credit ? { creditApplied: credit.toFixed(2) } : {}) },
+      // Held credit comes back when an unpaid checkout expires, so don't hold it for a whole day.
+      ...(credit ? { expires_at: Math.floor(Date.now() / 1000) + 60 * 60 } : {}),
       success_url: `${origin}/dashboard/customer/moves?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/dashboard/customer/quotes?cancelled=true`,
     });
-    const db = adminDb();
     await db.runTransaction(async tx => {
       const current = (await tx.get(quote.ref)).data();
       if (!current || current.status === 'processed' || current.status === 'expired' || current.paymentStatus === 'paid' || (current.isCustomQuote && current.expiresAt.toMillis() <= Date.now())) throw new HttpError(409, 'This quote is no longer available.');
+      if (credit) await applyCredit(tx, user.uid, -credit, 'checkout', `checkout-${session.id}`, { quoteId, sessionId: session.id });
       const acceptance = bookingTermsAcceptance(user.uid);
       tx.set(db.doc(`checkoutTerms/${session.id}`), { customerId: user.uid, quoteId, termsAcceptance: acceptance });
       tx.update(quote.ref, { checkoutSessionId: session.id, paymentStatus: 'pending', paymentFailedAt: FieldValue.delete(), bookingTermsAcceptance: acceptance });

@@ -147,7 +147,8 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">Call Us</p>
-                        <p className="text-xl font-bold text-primary">(415) 214-5474</p>
+                        <a href="tel:+14152145474" className="text-xl font-bold text-primary hover:text-accent">(415) 214-5474</a>
+                        <a href="/contact.vcf" download className="block text-sm font-bold text-accent underline mt-1">Save our contact to your phone</a>
                       </div>
                     </div>
                     

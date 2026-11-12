@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { TermsConfirmation } from '@/components/legal/terms-confirmation';
 import { TERMS_VERSION } from '@/lib/terms';
 import { customQuotePricingText } from '@/lib/custom-quotes';
+import { usableCredit } from '@/lib/rewards';
+import { FinancingNote } from '@/components/dashboard/financing-note';
 
 export default function MyQuotesPage() {
   const { user } = useUser();
@@ -28,7 +30,7 @@ export default function MyQuotesPage() {
     setPayingQuoteId(quoteId);
     try {
       // The server reads your quote and calculates the total.
-      const { url } = await apiFetch<{ url: string }>(auth, "/api/stripe/quote-checkout", { quoteId, termsAccepted: true, termsVersion: TERMS_VERSION });
+      const { url } = await apiFetch<{ url: string }>(auth, "/api/stripe/quote-checkout", { quoteId, termsAccepted: true, termsVersion: TERMS_VERSION, useCredit: true });
       window.location.href = url;
     } catch (error) {
       toast({
@@ -50,6 +52,12 @@ export default function MyQuotesPage() {
       .catch(() => {});
   }, [user, auth]);
   const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
+  // Move credit is applied automatically at checkout (up to 15% of the move).
+  const [credit, setCredit] = useState(0);
+  useEffect(() => {
+    if (!user) return;
+    apiFetch<{ balance: number }>(auth, "/api/rewards/me").then(w => setCredit(w.balance)).catch(() => {});
+  }, [user, auth]);
 
   // Query for all quotes requested by the current user
   const quotesQuery = useMemoFirebase(() => {
@@ -81,6 +89,13 @@ export default function MyQuotesPage() {
           </div>
         </header>
 
+        {credit > 0 && (
+          <p role="status" className="rounded-2xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-900">
+            You have <b>${credit.toFixed(2)}</b> of move credit. It&apos;s applied automatically when you pay (up to 15% of a move). <Link className="underline" href="/dashboard/customer/rewards">See rewards</Link>
+          </p>
+        )}
+        <FinancingNote />
+
         {needsVerification && (
           <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             Verify your email address to see quotes our team has sent you. Use the link in your verification email, then reload this page.
@@ -110,6 +125,7 @@ export default function MyQuotesPage() {
               const estimatedTotal = calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
                 isStudent: !!details?.isStudent,
                 isMilitary: !!details?.isMilitary,
+                isSenior: !!details?.isSenior,
                 isExpress: !!details?.addOns?.express,
                 miles: typeof quote.estimatedMiles === "number" ? quote.estimatedMiles : null,
               });
@@ -129,6 +145,7 @@ export default function MyQuotesPage() {
                               </Badge>
                               {details?.isStudent && <Badge className="bg-blue-500 text-[9px] font-black uppercase"><GraduationCap className="h-3 w-3 mr-1" /> Student</Badge>}
                               {details?.isMilitary && <Badge className="bg-green-600 text-[9px] font-black uppercase"><Shield className="h-3 w-3 mr-1" /> Military</Badge>}
+                              {details?.isSenior && <Badge className="bg-purple-600 text-[9px] font-black uppercase">Senior</Badge>}
                               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                                 {quote.createdAt ? format(quote.createdAt.toDate(), "MMM d, yyyy") : "Date TBD"}
                               </span>
@@ -139,6 +156,7 @@ export default function MyQuotesPage() {
                           </div>
                           <div className="text-right">
                             <p className="text-2xl font-black text-primary">${estimatedTotal.toLocaleString()}</p>
+                            {!isProcessed && usableCredit(estimatedTotal, credit) > 0 && <p className="text-xs font-bold text-green-700">−${usableCredit(estimatedTotal, credit).toFixed(2)} move credit at checkout</p>}
                             <Badge 
                               className={
                                 quote.status === 'processed' ? "bg-green-500 hover:bg-green-500" :

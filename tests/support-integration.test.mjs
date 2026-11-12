@@ -30,6 +30,10 @@ import { buildLegends, STATE_ZONE, brandOf, revenueRange } from '../src/lib/lege
 import { igUsername, ytRef, summarizePosts, combineStats, socialScore, activityOf, metricsFromStats } from '../src/lib/social-stats.ts';
 import { explainRank, sizeParts } from '../src/lib/registry.ts';
 import { METROS } from '../src/lib/metros.ts';
+import { usableCredit, giftCardAmount, normalizeGiftCode, formatGiftCode, isGiftCodeCore } from '../src/lib/rewards.ts';
+import { diffPrices, describeChange } from '../src/lib/price-watch.ts';
+import { parseFeed, matchDemand } from '../src/lib/demand.ts';
+import { profileIssues, EMPTY_PROFILE } from '../src/lib/mover-profile.ts';
 import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, columnChanges, filterCarriers, sortCarriers, tupleToMover, servicesLabel, KNOWN_COLUMNS, partnerScore, isPartnerCandidate, newPartnerCarriers, newCarrierAlerts, primaryCategory, CATEGORY_COLOR } from '../src/lib/carriers.ts';
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
@@ -1741,4 +1745,203 @@ test('Legends board, Google lookups and social numbers: safe when not set up; ou
   assert.equal(list.us.metrics.followers, 800); assert.equal(list.us.metrics.postsPerMonth, 6); assert.equal(list.us.metrics.avgPostLikes, 25);
   assert.equal(list.us.social.activity, 'active'); assert.equal(typeof list.us.social.score, 'number');
   assert.equal(list.statsReady.youtube, false);
+});
+
+test('rewards: credit covers at most 15% of a move; gift card codes are normalized', () => {
+  assert.equal(usableCredit(1000, 500), 150);
+  assert.equal(usableCredit(1000, 40), 40);
+  assert.equal(usableCredit(0, 40), 0);
+  assert.equal(usableCredit(825, -5), 0);
+  assert.equal(giftCardAmount(100), 100);
+  assert.equal(giftCardAmount(24), null);
+  assert.equal(giftCardAmount(10.5), null);
+  assert.equal(giftCardAmount(1001), null);
+  assert.equal(normalizeGiftCode('wsm-abcd-efgh'), 'ABCDEFGH');
+  assert.equal(formatGiftCode('ABCDEFGH'), 'WSM-ABCD-EFGH');
+  assert.equal(isGiftCodeCore('ABCDEFGH'), true);
+  assert.equal(isGiftCodeCore('ABCDEFG0'), false); // No zeros in codes.
+});
+
+test('gift cards: issued once on a matching payment, redeemed once into move credit; expired checkouts only return credit they held', async () => {
+  const uid = auth.currentUser.uid;
+  assert.equal((await fetch(`${base}/api/gift-cards/checkout`, json({ amount: 50, recipientEmail: 'friend@example.com' }))).status, 401);
+  assert.equal((await fetch(`${base}/api/gift-cards/checkout`, authorized(customerToken, { amount: 5, recipientEmail: 'friend@example.com' }))).status, 400);
+  assert.equal((await fetch(`${base}/api/gift-cards/checkout`, authorized(customerToken, { amount: 50, recipientEmail: 'not-an-email' }))).status, 400);
+
+  const orderRef = db.doc('giftCardOrders/gc-order-1');
+  await orderRef.set({ buyerUid: uid, buyerEmail: 'test-customer@example.com', amount: 50, recipientEmail: 'friend@example.com', recipientName: 'Sam', fromName: 'Alex', message: '', status: 'pending', createdAt: Timestamp.now() });
+  const paid = (amount, id) => ({ id, type: 'checkout.session.completed', data: { object: { id: `cs_${id}`, payment_status: 'paid', amount_total: amount, metadata: { type: 'giftcard', orderId: 'gc-order-1', customerId: uid } } } });
+  assert.equal((await webhook(paid(4000, 'evt_gc_wrong'))).status, 200);
+  assert.equal((await orderRef.get()).data().status, 'pending');
+  assert.equal((await webhook(paid(5000, 'evt_gc_ok'))).status, 200);
+  assert.equal((await webhook(paid(5000, 'evt_gc_again'))).status, 200);
+  const order = (await orderRef.get()).data();
+  assert.equal(order.status, 'paid');
+  assert.equal((await db.collection('giftCards').where('orderId', '==', 'gc-order-1').get()).size, 1);
+
+  const redeem = code => fetch(`${base}/api/rewards/redeem`, authorized(customerToken, { code }));
+  assert.equal((await redeem('WSM-2222-2222')).status, 404);
+  const ok = await redeem(formatGiftCode(order.code).toLowerCase());
+  assert.equal(ok.status, 200);
+  assert.equal((await ok.json()).amount, 50);
+  assert.equal((await redeem(formatGiftCode(order.code))).status, 409);
+  const me = await (await fetch(`${base}/api/rewards/me`, { headers: { Authorization: `Bearer ${customerToken}` } })).json();
+  assert.equal(me.balance, 50);
+  assert.ok(me.ledger.some(e => e.reason === 'gift-card' && e.amount === 50));
+
+  // An expired checkout that never held credit gives nothing back.
+  const expired = (id, credit) => ({ id, type: 'checkout.session.expired', data: { object: { id: `cs_${id}`, payment_status: 'unpaid', metadata: { flow: 'quote', customerId: uid, creditApplied: String(credit) } } } });
+  assert.equal((await webhook(expired('evt_exp_none', 20))).status, 200);
+  assert.equal((await db.doc(`rewardWallets/${uid}`).get()).data().balance, 50);
+  // One that held $20 gets it back, once.
+  await db.doc(`rewardWallets/${uid}`).set({ balance: 30 }, { merge: true });
+  await db.doc(`rewardWallets/${uid}/ledger/checkout-cs_evt_exp_held`).set({ amount: -20, reason: 'checkout', createdAt: Timestamp.now() });
+  assert.equal((await webhook(expired('evt_exp_held', 20))).status, 200);
+  assert.equal((await webhook(expired('evt_exp_held', 20))).status, 200);
+  assert.equal((await db.doc(`rewardWallets/${uid}`).get()).data().balance, 50);
+  assert.equal((await fetch(`${base}/gift-cards`)).status, 200);
+});
+
+test('price watch: real changes are listed, AI wobbles and missing prices are not', () => {
+  const flat = { studio: null, oneBedroom: null, twoBedroom: 1200, threeBedroom: null, fourBedroom: null };
+  const base = { published: true, twoMovers: 150, threeMovers: 200, fourMovers: null, minimumHours: 3, travelFee: 99, flat };
+  assert.deepEqual(diffPrices(base, base), []);
+  assert.deepEqual(diffPrices(null, base), []); // First reading: nothing to compare.
+  assert.deepEqual(diffPrices(base, { ...base, published: false }), []);
+  assert.deepEqual(diffPrices(base, { ...base, twoMovers: 152 }), []); // Under $5.
+  assert.deepEqual(diffPrices(base, { ...base, threeMovers: null }), []); // Missing, not a change.
+  const changes = diffPrices(base, { ...base, twoMovers: 165, minimumHours: 2, flat: { ...flat, twoBedroom: 1100 } });
+  assert.deepEqual(changes.map(c => c.field), ['twoMovers', 'minimumHours', 'flat.twoBedroom']);
+  assert.equal(describeChange(changes[0]), '2 movers/hr $150 → $165 (+10%)');
+  assert.equal(describeChange(changes[1]), 'Minimum hours 3 → 2');
+});
+
+test('outreach tracker: admin-only; built-in list with saved status; custom entries can be added and removed', async () => {
+  const get = token => fetch(`${base}/api/admin/outreach`, { headers: { Authorization: `Bearer ${token}` } });
+  const post = (token, body) => fetch(`${base}/api/admin/outreach`, authorized(token, body));
+  assert.equal((await get(customerToken)).status, 403);
+  const first = await (await get(adminToken)).json();
+  assert.ok(first.items.length >= 30);
+  assert.equal(first.items.find(i => i.id === 'yelp').status, 'todo');
+  assert.equal((await post(adminToken, { id: 'yelp', status: 'listed', listingUrl: 'https://www.yelp.com/biz/wont-stop-moving', notes: 'Owner: Jon' })).status, 200);
+  assert.equal((await post(adminToken, { id: 'yelp', status: 'done?' })).status, 400);
+  assert.equal((await post(adminToken, { id: 'not-a-thing', status: 'listed' })).status, 404);
+  assert.equal((await post(adminToken, { id: 'yelp', action: 'remove' })).status, 400); // Built-ins can't be removed.
+  const added = await (await post(adminToken, { action: 'add', name: 'Local Realtor Group', url: 'javascript:alert(1)', kind: 'other' })).json();
+  const after = await (await get(adminToken)).json();
+  const yelp = after.items.find(i => i.id === 'yelp');
+  assert.equal(yelp.status, 'listed');
+  assert.equal(yelp.listingUrl, 'https://www.yelp.com/biz/wont-stop-moving');
+  const custom = after.items.find(i => i.id === added.id);
+  assert.equal(custom.url, ''); // Only http(s) links are kept.
+  assert.equal((await post(adminToken, { id: added.id, action: 'remove' })).status, 200);
+  assert.ok(!(await (await get(adminToken)).json()).items.some(i => i.id === added.id));
+});
+
+test('concierge: customers ask for partner services on their own moves; admins introduce a partner (customer emailed once)', async () => {
+  const uid = auth.currentUser.uid;
+  await db.doc('jobs/concierge-job').set({ customerId: uid, status: 'confirmed', moveDate: '2027-01-15', pickupAddress: '94103', dropoffAddress: '94110', state: 'California' });
+  await db.doc('jobs/concierge-other').set({ customerId: 'someone-else', status: 'confirmed' });
+  const ask = body => fetch(`${base}/api/concierge`, authorized(customerToken, body));
+  assert.equal((await ask({ jobId: 'concierge-job', service: 'spaceship' })).status, 400);
+  assert.equal((await ask({ jobId: 'concierge-other', service: 'cleaning' })).status, 404);
+  const created = await ask({ jobId: 'concierge-job', service: 'cleaning', note: 'Need it the day after' });
+  assert.equal(created.status, 200);
+  const { id } = await created.json();
+  assert.equal((await ask({ jobId: 'concierge-job', service: 'cleaning' })).status, 409);
+  const mine = await (await fetch(`${base}/api/concierge?jobId=concierge-job`, { headers: { Authorization: `Bearer ${customerToken}` } })).json();
+  assert.equal(mine.requests.length, 1);
+
+  const adminPost = body => fetch(`${base}/api/admin/concierge`, authorized(adminToken, body));
+  assert.equal((await fetch(`${base}/api/admin/concierge`, authorized(customerToken, { action: 'partner', name: 'X', services: ['cleaning'] }))).status, 403);
+  assert.equal((await adminPost({ action: 'partner', name: 'Sparkle Cleaners', services: [] })).status, 400);
+  const partner = await (await adminPost({ action: 'partner', name: 'Sparkle Cleaners', services: ['cleaning'], phone: '415-555-0100', area: 'Bay Area' })).json();
+  const before = (await db.collection('emailOutbox').get()).size;
+  assert.equal((await adminPost({ action: 'request', id, status: 'introduced', partnerId: partner.id, referralFee: 40 })).status, 200);
+  const req = (await db.doc(`conciergeRequests/${id}`).get()).data();
+  assert.equal(req.partnerName, 'Sparkle Cleaners');
+  assert.equal(req.referralFee, 40);
+  const afterIntro = (await db.collection('emailOutbox').get()).size;
+  assert.equal(afterIntro, before + 1);
+  assert.equal((await adminPost({ action: 'request', id, status: 'introduced', partnerId: partner.id })).status, 200);
+  assert.equal((await db.collection('emailOutbox').get()).size, afterIntro); // Introduced once.
+});
+
+test('move documents: chosen per move (interstate adds federal booklets, storage adds an agreement); signatures need a full name', async () => {
+  const uid = auth.currentUser.uid;
+  await db.doc('quotes/docs-quote').set({ customerId: uid, pickupZip: '94103', dropoffZip: '98101', details: JSON.stringify({ addOns: { storage: true } }) });
+  await db.doc('jobs/docs-job').set({ customerId: uid, quoteId: 'docs-quote', status: 'confirmed' });
+  await db.doc('jobs/docs-local').set({ customerId: uid, status: 'confirmed', pickupAddress: '94103', dropoffAddress: '94110' });
+  const get = id => fetch(`${base}/api/move-documents?jobId=${id}`, { headers: { Authorization: `Bearer ${customerToken}` } }).then(r => r.json());
+  const interstate = await get('docs-job');
+  assert.equal(interstate.facts.interstate, true);
+  assert.ok(['rights-responsibilities', 'ready-to-move', 'storage'].every(id => interstate.outstanding.includes(id)));
+  const local = await get('docs-local');
+  assert.equal(local.facts.interstate, false);
+  assert.ok(!local.outstanding.includes('rights-responsibilities'));
+  const sign = body => fetch(`${base}/api/move-documents`, authorized(customerToken, { jobId: 'docs-job', agree: true, ...body }));
+  assert.equal((await sign({ docId: 'valuation', signedName: 'Test Customer' })).status, 400); // No choice made.
+  assert.equal((await sign({ docId: 'order-for-service', signedName: 'Test' })).status, 400); // Not a full name.
+  assert.equal((await sign({ docId: 'bill-of-lading', signedName: 'Test Customer' })).status, 400); // Signed on moving day.
+  assert.equal((await sign({ docId: 'valuation', signedName: 'Test Customer', choice: 'full' })).status, 200);
+  const after = await get('docs-job');
+  assert.ok(!after.outstanding.includes('valuation'));
+  assert.equal(after.signatures.find(s => s.docId === 'valuation').choice, 'full');
+  assert.equal((await fetch(`${base}/api/move-documents?jobId=concierge-other`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 404);
+});
+
+test('demand monitor: parses RSS and Atom, keeps only people hiring movers, refuses Craigslist feeds', async () => {
+  const rss = `<rss><channel><item><title><![CDATA[Need movers in Oakland next week]]></title><link>https://example.com/p/1</link><description>&lt;b&gt;Any good movers?&lt;/b&gt; 2 bedroom</description><pubDate>Tue, 10 Nov 2026 10:00:00 GMT</pubDate></item>
+    <item><title>Now hiring movers in Oakland</title><link>https://example.com/p/2</link><description>Apply now</description></item></channel></rss>`;
+  const items = parseFeed(rss);
+  assert.equal(items.length, 2);
+  assert.equal(items[0].text, 'Any good movers? 2 bedroom');
+  assert.equal(items[0].published, '2026-11-10T10:00:00.000Z');
+  const hit = matchDemand(items[0], ['Oakland', 'Seattle']);
+  assert.deepEqual(hit.places, ['Oakland']);
+  assert.ok(hit.score > matchDemand(items[0], []).score);
+  assert.equal(matchDemand(items[1], ['Oakland']), null); // Job ad.
+  assert.equal(matchDemand({ title: 'Moving our office hours', text: '' }), null);
+  const atom = parseFeed('<feed><entry><title>Looking for a mover</title><link href="https://example.org/e/1"/><summary>Seattle to Portland</summary><updated>2026-11-11T00:00:00Z</updated></entry></feed>');
+  assert.equal(atom[0].link, 'https://example.org/e/1');
+
+  const post = body => fetch(`${base}/api/admin/demand`, authorized(adminToken, body));
+  assert.equal((await fetch(`${base}/api/admin/demand`, authorized(customerToken, { action: 'run' }))).status, 403);
+  const saved = await (await post({ action: 'settings', feeds: ['https://sfbay.craigslist.org/search/lbg?format=rss', 'javascript:alert(1)', 'https://www.google.com/alerts/feeds/1/2'], places: 'Oakland, San Jose' })).json();
+  assert.deepEqual(saved.feeds, ['https://www.google.com/alerts/feeds/1/2']);
+  assert.deepEqual(saved.places, ['Oakland', 'San Jose']);
+  await db.doc('demandSignals/aaaaaaaaaaaaaaaaaaaaaaaa').set({ title: 'Need movers', link: 'https://example.com/x', text: '', phrases: ['need movers'], places: [], score: 50, status: 'new', foundAt: Timestamp.now() });
+  assert.equal((await post({ action: 'status', id: 'aaaaaaaaaaaaaaaaaaaaaaaa', status: 'contacted' })).status, 200);
+  assert.equal((await post({ action: 'status', id: 'aaaaaaaaaaaaaaaaaaaaaaaa', status: 'spam' })).status, 400);
+  const view = await (await fetch(`${base}/api/admin/demand`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.equal(view.signals.find(s => s.id === 'aaaaaaaaaaaaaaaaaaaaaaaa').status, 'contacted');
+});
+
+test('mover credentials: issues block new jobs until fixed; movers edit their own details, only admins record background results', async () => {
+  const now = Date.parse('2026-11-12T12:00:00Z');
+  const full = { ...EMPTY_PROFILE, usdot: '123', insuranceCarrier: 'Acme', policyNumber: 'P1', insuranceExpires: '2027-06-01', backgroundStatus: 'clear' };
+  assert.deepEqual(profileIssues(full, { needsDot: true }, now), []);
+  assert.ok(profileIssues({ ...full, usdot: '' }, { needsDot: true }, now).some(i => i.field === 'usdot' && i.blocking));
+  assert.deepEqual(profileIssues({ ...full, usdot: '' }, { needsDot: false }, now), []);
+  const soon = profileIssues({ ...full, insuranceExpires: '2026-12-01' }, { needsDot: true }, now);
+  assert.equal(soon[0].blocking, false);
+  assert.ok(profileIssues({ ...full, insuranceExpires: '2026-11-01' }, { needsDot: true }, now)[0].blocking);
+  assert.ok(profileIssues({ ...full, backgroundStatus: 'not-started' }, { needsDot: true }, now).some(i => i.field === 'background'));
+
+  const mover = await extraUser('credentials-mover@example.com', 'credentials-mover');
+  await db.doc(`users/${mover.user.uid}`).set({ role: 'provider', name: 'Cred Mover', email: 'credentials-mover@example.com' });
+  await db.doc(`providers/${mover.user.uid}`).set({ name: 'Cred Mover', status: 'approved', hasDotVehicle: false });
+  const token = await mover.token();
+  assert.equal((await fetch(`${base}/api/provider/credentials`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 403);
+  const saved = await (await fetch(`${base}/api/provider/credentials`, authorized(token, { insuranceCarrier: 'Acme Insurance', policyNumber: 'POL-9', insuranceExpires: '2030-01-31', cargoCoverage: '100000', backgroundConsent: true, backgroundStatus: 'clear' }))).json();
+  assert.equal(saved.profile.backgroundStatus, 'consented'); // Movers can't mark themselves clear.
+  assert.equal(saved.profile.cargoCoverage, 100000);
+  assert.deepEqual(saved.issues, []);
+  assert.equal((await fetch(`${base}/api/admin/credentials`, authorized(token, { uid: mover.user.uid, backgroundStatus: 'clear' }))).status, 403);
+  assert.equal((await fetch(`${base}/api/admin/credentials`, authorized(adminToken, { uid: mover.user.uid, backgroundStatus: 'clear' }))).status, 200);
+  const list = await (await fetch(`${base}/api/admin/credentials`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  const row = list.movers.find(m => m.uid === mover.user.uid);
+  assert.equal(row.profile.backgroundStatus, 'clear');
+  assert.equal(row.blocking, false);
+  await deleteApp(mover.app);
 });
