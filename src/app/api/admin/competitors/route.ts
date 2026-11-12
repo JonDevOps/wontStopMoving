@@ -4,7 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/server/firebase-admin';
 import { errorResponse, HttpError, isId, readJson, requireRole } from '@/lib/server/auth';
 import { ourMetrics, refreshSocialStats, refreshStaleSocialStats, refreshStandings } from '@/lib/server/competitors';
-import { statsReady } from '@/lib/server/social-stats';
+import { instagramTokenStatus, statsReady } from '@/lib/server/social-stats';
 import { activityOf, combineStats, socialScore, type PlatformStats } from '@/lib/social-stats';
 import { cleanMetrics, cleanSocials, normalizeWebsite, parseCompetitorList, scoreboard, type Tier } from '@/lib/competitors';
 import { fetchPublicPageText } from '@/lib/server/safe-fetch';
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
         actions: competitors.flatMap(c => c.actions.filter((a: any) => a.done && a.doneAt).map((a: any) => ({ competitor: c.name, text: a.text, area: a.area, impact: a.impact, at: a.doneAt }))),
       };
     }
-    return NextResponse.json({ us, competitors, progress, statsReady: statsReady() }, { headers: { 'Cache-Control': 'private, no-store' } });
+    return NextResponse.json({ us, competitors, progress, statsReady: statsReady(), igToken: await instagramTokenStatus() }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) { return errorResponse(error); }
 }
 
