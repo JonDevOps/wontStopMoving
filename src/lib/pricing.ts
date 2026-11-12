@@ -48,6 +48,8 @@ export const isLongDistance = (miles: number | null | undefined) => typeof miles
 export interface PriceCalculationOptions {
   isStudent?: boolean;
   isMilitary?: boolean;
+  /** 62 or older. */
+  isSenior?: boolean;
   isExpress?: boolean;
   /** Estimated road miles between pickup and drop-off (see lib/distance). */
   miles?: number | null;
@@ -79,8 +81,8 @@ export function calculateMoveTotal(
     total += (plan.baseFee * 0.25);
   }
 
-  // Discounts: 5% for Students or Military (not cumulative for MVP)
-  if (options.isStudent || options.isMilitary) {
+  // Discounts: 5% for students, military or seniors (one discount per move)
+  if (options.isStudent || options.isMilitary || options.isSenior) {
     total = total * 0.95;
   }
 

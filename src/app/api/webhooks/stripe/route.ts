@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { confirmPaidCheckout, recordFailedCheckout } from "@/lib/server/jobs";
 import { HttpError } from "@/lib/server/auth";
+import { releaseCheckoutCredit } from "@/lib/server/rewards";
 
 /** Stripe webhook. Every event is signature-checked before anything is written. */
 export async function POST(req: Request) {
@@ -24,6 +25,10 @@ export async function POST(req: Request) {
   // endpoint and signing secret, and must not confirm platform bookings.
   if (event.account || event.livemode !== (process.env.STRIPE_SECRET_KEY || '').startsWith('sk_live_')) {
     return NextResponse.json({ received: true });
+  }
+
+  if (event.type === "checkout.session.expired") {
+    await releaseCheckoutCredit(event.data.object as Stripe.Checkout.Session);
   }
 
   if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded" ||

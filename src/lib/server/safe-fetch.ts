@@ -79,3 +79,29 @@ export async function fetchPublicPageText(raw: string, maxChars = 14_000): Promi
   }
   throw new Error('The website redirected too many times.');
 }
+
+/** Fetches an RSS/Atom feed from a public address (same SSRF checks and size cap as pages). */
+export async function fetchPublicFeed(raw: string): Promise<string> {
+  let url = await assertPublicUrl(raw);
+  for (let hop = 0; hop < 4; hop++) {
+    const res = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(9000), headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WontStopMovingFeeds/1.0)', Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' } });
+    if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+      url = await assertPublicUrl(new URL(res.headers.get('location')!, url).toString());
+      continue;
+    }
+    if (!res.ok) throw new Error(`The feed answered with an error (${res.status}).`);
+    if (!/xml|rss|atom/i.test(res.headers.get('content-type') || '')) throw new Error('That address is not an RSS or Atom feed.');
+    const reader = res.body?.getReader();
+    let xml = '', bytes = 0;
+    const decoder = new TextDecoder();
+    while (reader) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      xml += decoder.decode(value, { stream: true });
+      if (bytes > MAX_BYTES) { await reader.cancel(); break; }
+    }
+    return xml;
+  }
+  throw new Error('The feed redirected too many times.');
+}

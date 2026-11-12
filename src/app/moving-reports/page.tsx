@@ -21,6 +21,7 @@ export default async function MovingReportsIndex() {
         <header className="space-y-3 text-center">
           <h1 className="text-3xl sm:text-5xl font-black text-primary uppercase tracking-tighter">Moving <span className="text-accent">market reports</span></h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">How many licensed moving companies serve each city, how established they are, and what moves cost there, from federal FMCSA records updated daily.</p>
+          <p className="text-sm"><Link className="underline font-bold text-primary" href="/moving-cost">Want a price? See moving costs by city →</Link></p>
         </header>
         {!states.length ? <p className="text-center text-muted-foreground">Reports are being prepared. Check back soon.</p> :
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

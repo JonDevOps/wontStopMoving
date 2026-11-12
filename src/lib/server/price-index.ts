@@ -6,12 +6,15 @@ import { fetchPublicPageText } from './safe-fetch';
 import { stateSummaries } from './registry-query';
 import { radarSettings, watchedStates } from './market';
 import { MOVE_PRICING } from '@/lib/pricing';
+import { REFRESH_DAYS, diffPrices, type PriceChange } from '@/lib/price-watch';
 
 /**
  * The price index: AI reads movers' websites (home page plus a pricing page
  * if linked) and records the prices they publish. Stored in
- * priceIntel/{dot or competitor id}; refreshed monthly by the hourly
- * enrichment job, and summarized per area against our prices.
+ * priceIntel/{dot or competitor id} with every reading kept under
+ * priceIntel/{id}/history. Tracked competitors are re-read weekly, others
+ * monthly, by the hourly enrichment job. When published prices change, a
+ * priceChanges/{id} record is written for the admin page and the daily radar.
  */
 export type Prices = {
   published: boolean; twoMovers: number | null; threeMovers: number | null; fourMovers: number | null; minimumHours: number | null; travelFee: number | null;
@@ -59,9 +62,11 @@ async function targets(): Promise<Target[]> {
   const [competitors, settings, summaries, fresh] = await Promise.all([
     db.collection('competitors').select('name', 'website', 'state', 'location', 'dot').limit(2000).get(),
     radarSettings(), stateSummaries(),
-    db.collection('priceIntel').where('fetchedAt', '>=', Timestamp.fromMillis(Date.now() - 30 * 86400000)).select().get(),
+    db.collection('priceIntel').where('fetchedAt', '>=', Timestamp.fromMillis(Date.now() - REFRESH_DAYS.registry * 86400000)).select('source', 'fetchedAt').get(),
   ]);
-  const done = new Set(fresh.docs.map(d => d.id));
+  const weekAgo = Date.now() - REFRESH_DAYS.competitor * 86400000;
+  // Fresh enough: competitors read this week, everyone else this month.
+  const done = new Set(fresh.docs.filter(d => d.data().source !== 'competitor' || (d.data().fetchedAt?.toMillis?.() || 0) >= weekAgo).map(d => d.id));
   const list: Target[] = competitors.docs.filter(d => d.data().website).map(d => ({ key: d.data().dot ? String(d.data().dot) : d.id, name: d.data().name, state: d.data().state || '', city: d.data().location || '', site: d.data().website, source: 'competitor' as const }));
   for (const st of watchedStates(settings)) {
     for (const t of summaries.find(s => s.state === st)?.top || []) if (t.site) list.push({ key: String(t.dot), name: String(t.dba || t.name), state: st, city: String(t.city || ''), site: String(t.site), source: 'registry' });
@@ -76,13 +81,35 @@ export async function runPriceIndex(deadline: number, max = 6) {
     if (Date.now() > deadline - 15_000) break;
     try {
       const { prices, url } = await readPrices(t.site);
-      await adminDb().doc(`priceIntel/${t.key}`).set({ ...t, url, prices, fetchedAt: FieldValue.serverTimestamp() });
+      const ref = adminDb().doc(`priceIntel/${t.key}`);
+      const before = (await ref.get()).data()?.prices as Prices | null | undefined;
+      const changes = diffPrices(before, prices);
+      await ref.set({ ...t, url, prices, fetchedAt: FieldValue.serverTimestamp() });
+      await ref.collection('history').add({ prices, url, at: FieldValue.serverTimestamp() });
+      if (changes.length) await recordPriceChange(t, url, changes);
       priced++;
     } catch (error) {
       await adminDb().doc(`priceIntel/${t.key}`).set({ ...t, error: error instanceof Error ? error.message.slice(0, 200) : 'failed', prices: null, fetchedAt: FieldValue.serverTimestamp() });
     }
   }
   return { priced };
+}
+
+async function recordPriceChange(t: Target, url: string, changes: PriceChange[]) {
+  await adminDb().collection('priceChanges').add({
+    key: t.key, name: t.name, state: t.state, city: t.city, source: t.source, url, changes,
+    direction: changes.every(c => c.to > c.from) ? 'up' : changes.every(c => c.to < c.from) ? 'down' : 'mixed',
+    at: FieldValue.serverTimestamp(),
+  });
+}
+
+export type PriceChangeRow = { id: string; key: string; name: string; state: string; city: string; source: string; url: string; changes: PriceChange[]; direction: string; at: string | null };
+
+/** Recent price changes (newest first), optionally only in some states. */
+export async function recentPriceChanges(states: string[] = [], sinceMs = Date.now() - 90 * 86400000): Promise<PriceChangeRow[]> {
+  const snap = await adminDb().collection('priceChanges').where('at', '>=', Timestamp.fromMillis(sinceMs)).orderBy('at', 'desc').limit(300).get();
+  return snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<PriceChangeRow, 'id' | 'at'>), at: d.data().at?.toDate?.().toISOString() || null }))
+    .filter(r => !states.length || states.includes(r.state));
 }
 
 const quantiles = (xs: number[]) => {
@@ -107,6 +134,7 @@ export async function priceSummary(states: string[]) {
     return rate ? rate * Math.max(hours, r.prices!.minimumHours || 0) + (r.prices!.travelFee || 0) : null;
   }).filter((v): v is number => v !== null));
   return {
+    changes: await recentPriceChanges(states).catch(() => []),
     checked: rows.length, published: pub.length,
     hourly: { twoMovers: quantiles(pub.map(r => r.prices!.twoMovers).filter((v): v is number => v !== null)), threeMovers: quantiles(pub.map(r => r.prices!.threeMovers).filter((v): v is number => v !== null)), minimumHours: quantiles(pub.map(r => r.prices!.minimumHours).filter((v): v is number => v !== null)) },
     bySize: (Object.keys(typical) as (keyof typeof typical)[]).map(k => ({ size: k, ours: ours[k] ?? null, flat: flat(k), hourlyEstimate: implied(k), crew: typical[k][0], hours: typical[k][1] })),
