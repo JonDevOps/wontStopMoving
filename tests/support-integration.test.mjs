@@ -1745,6 +1745,8 @@ test('Legends board, Google lookups and social numbers: safe when not set up; ou
   assert.equal(list.us.metrics.followers, 800); assert.equal(list.us.metrics.postsPerMonth, 6); assert.equal(list.us.metrics.avgPostLikes, 25);
   assert.equal(list.us.social.activity, 'active'); assert.equal(typeof list.us.social.score, 'number');
   assert.equal(list.statsReady.youtube, false);
+});
+
 test('rewards: credit covers at most 15% of a move; gift card codes are normalized', () => {
   assert.equal(usableCredit(1000, 500), 150);
   assert.equal(usableCredit(1000, 40), 40);
