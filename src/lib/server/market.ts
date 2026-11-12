@@ -4,7 +4,8 @@ import { COUNTY_MOVING, COUNTY_POP, ZIPS, ZIP_COUNTY } from './geo';
 import { loadState } from './registry-store';
 import { stateSummaries } from './registry-query';
 import { acquisitionScore, countyKey, expansionScore, isRecruitCandidate, milesBetween, moversPer10k, STATE_FIPS, zipOf, type CountyRow } from '@/lib/market';
-import { REGION_PRESETS, sortMovers, REGISTRY_AREAS, US_STATES, yearsInBusiness, type Mover } from '@/lib/registry';
+import { REGION_PRESETS, inArea } from '@/lib/regions';
+import { sortMovers, REGISTRY_AREAS, US_STATES, yearsInBusiness, type Mover } from '@/lib/registry';
 
 /** Areas the radar watches and where alerts go (marketSettings/radar). */
 export type RadarSettings = { regions: string[]; states: string[]; email: string };
@@ -16,10 +17,10 @@ export async function radarSettings(): Promise<RadarSettings> {
     email: typeof s.email === 'string' && s.email ? s.email : process.env.ADMIN_NOTIFICATION_EMAIL || 'jonathan@w3develops.org',
   };
 }
-export const watchedStates = (s: RadarSettings) => [...new Set([...s.regions.map(r => REGION_PRESETS[r].state), ...s.states])];
+export const watchedStates = (s: RadarSettings) => [...new Set([...s.regions.flatMap(r => REGION_PRESETS[r].states), ...s.states])];
 /** Is a company inside the watched areas (preset counties, or a whole watched state)? */
 export const inWatch = (s: RadarSettings, m: { state: string; county: string }) =>
-  s.states.includes(m.state) || s.regions.some(r => REGION_PRESETS[r].state === m.state && REGION_PRESETS[r].counties.includes(m.county));
+  s.states.includes(m.state) || s.regions.some(r => inArea(REGION_PRESETS[r], m.state, m.county));
 
 // ---- Where to expand ------------------------------------------------------------
 

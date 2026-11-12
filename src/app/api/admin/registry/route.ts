@@ -10,7 +10,8 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { REGION_BY_CODE } from '@/lib/agents';
 import { importDue, servicesLabel, tupleToMover } from '@/lib/carriers';
 import { jevConfigured } from '@/lib/server/jev';
-import { moversCsv, REGION_PRESETS, REGISTRY_AREAS, yearsInBusiness, type Mover, type SortKey } from '@/lib/registry';
+import { REGION_PRESETS } from '@/lib/regions';
+import { moversCsv, REGISTRY_AREAS, yearsInBusiness, type Mover, type SortKey } from '@/lib/registry';
 
 /**
  * The national mover registry (free FMCSA data): search, map points, our

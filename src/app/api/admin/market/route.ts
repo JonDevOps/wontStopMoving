@@ -10,7 +10,8 @@ import { routingSettings } from '@/lib/server/routing';
 import { sendDailyRadar } from '@/lib/server/radar';
 import { trackMovers } from '@/lib/server/registry-track';
 import { findMover } from '@/lib/server/registry-query';
-import { REGION_PRESETS, REGISTRY_AREAS } from '@/lib/registry';
+import { REGION_PRESETS, inArea } from '@/lib/regions';
+import { REGISTRY_AREAS } from '@/lib/registry';
 
 /**
  * Market Radar: closures (with the takeover playbook), new/grew/shrank,
@@ -25,14 +26,15 @@ export async function GET(req: Request) {
     const p = new URL(req.url).searchParams;
     const view = p.get('view') || 'closures';
     const settings = await radarSettings();
-    const scope = p.get('scope') || 'watched'; // 'watched' areas, or a state code
-    const states = REGISTRY_AREAS.includes(scope) ? [scope] : watchedStates(settings);
-    const keep = (e: { state: string; county: string }) => (REGISTRY_AREAS.includes(scope) ? e.state === scope : inWatch(settings, e));
+    const scope = p.get('scope') || 'watched'; // 'watched' areas, a state code, or one region / metro
+    const preset = REGION_PRESETS[scope];
+    const states = REGISTRY_AREAS.includes(scope) ? [scope] : preset ? preset.states : watchedStates(settings);
+    const keep = (e: { state: string; county: string }) => (REGISTRY_AREAS.includes(scope) ? e.state === scope : preset ? inArea(preset, e.state, e.county) : inWatch(settings, e));
     const days = Math.min(Math.max(Number(p.get('days')) || 365, 1), 730);
     const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
     const routing = await routingSettings();
 
-    if (view === 'settings') return NextResponse.json({ settings, routing, regions: Object.fromEntries(Object.entries(REGION_PRESETS).map(([k, r]) => [k, r.label])) });
+    if (view === 'settings') return NextResponse.json({ settings, routing, regions: Object.entries(REGION_PRESETS).map(([key, r]) => ({ key, label: r.label, kind: r.kind, pop: r.pop, states: r.states })) });
 
     if (view === 'closures') {
       const events = (await listEvents({ sinceDay: since, types: ['closed'], limit: 3000 })).filter(keep);
@@ -68,13 +70,13 @@ export async function GET(req: Request) {
     }
 
     if (view === 'expansion') {
-      const rows = await expansion(p.get('scope') === 'national' ? undefined : REGISTRY_AREAS.includes(scope) ? [scope] : undefined);
-      return NextResponse.json({ counties: rows.slice(0, 300) }, { headers: { 'Cache-Control': 'private, no-store' } });
+      const rows = await expansion(p.get('scope') === 'national' ? undefined : REGISTRY_AREAS.includes(scope) ? [scope] : preset ? preset.states : undefined);
+      return NextResponse.json({ counties: (preset ? rows.filter(r => inArea(preset, r.state, r.fips.slice(2))) : rows).slice(0, 300) }, { headers: { 'Cache-Control': 'private, no-store' } });
     }
 
     if (view === 'acquisitions') {
       const rows = await acquisitionTargets(states);
-      return NextResponse.json({ targets: rows.filter(r => REGISTRY_AREAS.includes(scope) || inWatch(settings, r) || settings.states.includes(r.state)).slice(0, 150) }, { headers: { 'Cache-Control': 'private, no-store' } });
+      return NextResponse.json({ targets: rows.filter(r => REGISTRY_AREAS.includes(scope) ? true : preset ? inArea(preset, r.state, r.county) : inWatch(settings, r) || settings.states.includes(r.state)).slice(0, 150) }, { headers: { 'Cache-Control': 'private, no-store' } });
     }
 
     if (view === 'prices') return NextResponse.json(await priceSummary(states), { headers: { 'Cache-Control': 'private, no-store' } });

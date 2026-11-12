@@ -5,7 +5,7 @@ import { listEvents, type MarketEvent } from './market-events';
 import { inWatch, radarSettings } from './market';
 import { loadNewCarriers } from './registry-store';
 import { CATEGORY_LABEL, categoriesOf, newCarrierAlerts, type CarrierTuple } from '@/lib/carriers';
-import { REGION_PRESETS } from '@/lib/registry';
+import { REGION_PRESETS } from '@/lib/regions';
 
 /**
  * The daily market radar email: in your watched areas, moving companies
