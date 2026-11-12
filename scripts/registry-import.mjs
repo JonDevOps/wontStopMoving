@@ -34,11 +34,11 @@ const outDir = opt('out') || process.env.REGISTRY_LOCAL_DIR;
 let bucket = null;
 async function getBucket() {
   if (bucket) return bucket;
-  const { initializeApp, applicationDefault } = await import('firebase-admin/app');
-  const { getStorage } = await import('firebase-admin/storage');
+  // The Cloud Storage client (installed with firebase-admin) uses Google's default credentials, including GitHub's keyless sign-in.
+  const { Storage } = await import('@google-cloud/storage');
   const name = process.env.STORAGE_BUCKET;
   if (!name) throw new Error('Set STORAGE_BUCKET (or --out for a local folder).');
-  bucket = getStorage(initializeApp({ credential: applicationDefault(), storageBucket: name })).bucket(name);
+  bucket = new Storage().bucket(name);
   return bucket;
 }
 async function readObject(name) {
