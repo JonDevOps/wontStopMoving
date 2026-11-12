@@ -68,3 +68,37 @@ export async function classifyPartner(m: Mover & { services?: string }): Promise
   const fit = (a?.choice in PARTNER_FITS ? a.choice : 'not_fit') as PartnerFit;
   return { fit, confidence: Number(a?.confidence || 0), probabilities: a?.probabilities || {}, model: out.model };
 }
+
+/** How Wont Stop Moving should treat a moving company. */
+export const STRATEGIES = {
+  partner: 'Agent or partner candidate: an established local mover outside our home market that could handle origin, destination, storage or overflow work for our network',
+  study: 'A legend to learn from: large, long-running, franchise or van line brand; study its marketing, pricing and service rather than fight it head on',
+  compete: 'Direct competitor in our home market (the San Francisco Bay Area, within about 60 miles of Mountain View, CA) that we must beat on reviews, price and marketing',
+  acquire: 'Possible acquisition or buy-out target: a smaller, long-running, owner-run business with a weak web and social presence',
+  ignore: 'Not relevant: not really a household mover, inactive, or too small or far away to matter',
+} as const;
+export type Strategy = keyof typeof STRATEGIES;
+
+/** What we know beyond the federal record (our own findings only; never Google Maps content). */
+export type StrategySignals = {
+  kind?: string | null; brand?: string | null; milesFromUs?: number | null; estimatedRevenue?: string | null;
+  website?: string | null; socialPlatforms?: string[]; social?: { followers?: number | null; postsLast30?: number | null; daysSinceLastPost?: number | null } | null;
+  legendGroup?: string | null;
+};
+
+export async function classifyStrategy(m: Mover, s: StrategySignals): Promise<{ strategy: Strategy; confidence: number; probabilities: Record<string, number>; model: string }> {
+  const state = JSON.stringify({
+    us: 'Wont Stop Moving: a young moving company and marketplace in Mountain View, CA, building a North American network of local agent movers',
+    company: {
+      legal_name: m.name, doing_business_as: m.dba || null, location: `${m.city}, ${m.state}`, miles_from_us: s.milesFromUs ?? null,
+      company_type: s.kind || null, brand_or_franchise: s.brand || null, legend_list: s.legendGroup || null,
+      power_units: m.units, drivers: m.drivers, miles_per_year: m.miles, registered_since: m.added || null, interstate: m.interstate, household_goods_authority: m.hhgAuth,
+      estimated_yearly_revenue: s.estimatedRevenue || null, website: s.website || m.site || null, social_platforms: s.socialPlatforms || [],
+      social_followers: s.social?.followers ?? null, posts_last_30_days: s.social?.postsLast30 ?? null, days_since_last_post: s.social?.daysSinceLastPost ?? null,
+    },
+  });
+  const out = await ask(state, { strategy: { type: 'choice', instructions: 'How should Wont Stop Moving treat this moving company?', criteria: { ...STRATEGIES } } });
+  const a = out.answers.strategy;
+  const strategy = (a?.choice in STRATEGIES ? a.choice : 'ignore') as Strategy;
+  return { strategy, confidence: Number(a?.confidence || 0), probabilities: a?.probabilities || {}, model: out.model };
+}

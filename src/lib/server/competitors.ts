@@ -5,6 +5,8 @@ import { adminDb } from './firebase-admin';
 import { generateJson } from './gemini';
 import { fetchPublicPageText } from './safe-fetch';
 import { cleanSocials, METRICS, scoreboard, type ActionItem, type Metrics } from '@/lib/competitors';
+import { combineStats, metricsFromStats, type PlatformStats } from '@/lib/social-stats';
+import { statsFor, statsReady } from './social-stats';
 
 /**
  * Competitor tracker storage and AI analysis.
@@ -32,7 +34,9 @@ export async function ourMetrics(): Promise<{ metrics: Metrics; auto: Metrics; m
   }
   const customers = jobsPerCustomer.size;
   const repeat = [...jobsPerCustomer.values()].filter(n => n > 1).length;
-  const auto: Metrics = { revenueUsd: Math.round(revenue), customersPerYear: customers, ...(customers ? { repeatRate: Math.round((repeat / customers) * 100) } : {}) };
+  // Followers, posts and likes come from Instagram/YouTube when those profiles have numbers.
+  const social = metricsFromStats(combineStats((settings.data()?.socialStats || {}) as Record<string, PlatformStats>));
+  const auto: Metrics = { revenueUsd: Math.round(revenue), customersPerYear: customers, ...(customers ? { repeatRate: Math.round((repeat / customers) * 100) } : {}), ...social };
   const manual = (settings.data()?.metrics || {}) as Metrics;
   return { metrics: { ...auto, ...manual }, auto, manual };
 }
@@ -139,4 +143,40 @@ export async function refreshStandings(): Promise<{ newlyPassed: string[] }> {
     await batch.commit();
   }
   return { newlyPassed };
+}
+
+/**
+ * Refreshes Instagram/YouTube numbers for a competitor ('us' = our own
+ * profiles) and fills in their followers, posts per month and likes per post.
+ */
+export async function refreshSocialStats(id: string) {
+  const db = adminDb();
+  const ref = id === 'us' ? db.doc('competitorSettings/us') : db.doc(`competitors/${id}`);
+  const data = (await ref.get()).data();
+  if (!data) throw new Error('Competitor not found.');
+  const stats = await statsFor(data.socials || {});
+  const now = FieldValue.serverTimestamp();
+  if (id === 'us') await ref.set({ socialStats: stats, socialStatsAt: now }, { merge: true });
+  else await ref.update({ socialStats: stats, socialStatsAt: now, metrics: { ...(data.metrics || {}), ...metricsFromStats(combineStats(stats)) }, updatedAt: now });
+  return stats;
+}
+
+/** Up to `limit` tracked competitors (and us) whose numbers are over a week old. */
+export async function refreshStaleSocialStats(limit = 10, deadline = Date.now() + 30_000) {
+  const ready = statsReady();
+  if (!ready.instagram && !ready.youtube) return 0;
+  const week = Date.now() - 7 * 86400_000;
+  const db = adminDb();
+  const has = (s: Record<string, string> | undefined) => !!s && ((ready.instagram && !!s.instagram) || (ready.youtube && !!s.youtube));
+  const us = (await db.doc('competitorSettings/us').get()).data();
+  const todo: string[] = [];
+  if (has(us?.socials) && !(us?.socialStatsAt?.toMillis?.() > week)) todo.push('us');
+  const snap = await db.collection('competitors').where('status', '==', 'tracking').limit(2000).get();
+  for (const d of snap.docs) { const c = d.data(); if (has(c.socials) && !(c.socialStatsAt?.toMillis?.() > week)) todo.push(d.id); }
+  let done = 0;
+  for (const id of todo.slice(0, limit)) {
+    if (Date.now() > deadline) break;
+    try { await refreshSocialStats(id); done++; } catch (error) { console.error('Social stats refresh failed', id, error); }
+  }
+  return done;
 }

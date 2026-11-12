@@ -7,6 +7,7 @@ import { isIP } from 'node:net';
  * every redirect), with a short timeout and a size cap.
  */
 const MAX_BYTES = 600_000;
+const SOCIAL_HOST = /^(facebook\.com|fb\.com|instagram\.com|tiktok\.com|youtube\.com|youtu\.be|linkedin\.com|x\.com|twitter\.com|yelp\.com|google\.com|g\.page|nextdoor\.com|bbb\.org|thumbtack\.com|angi\.com|angieslist\.com|homeadvisor\.com|threads\.(net|com)|pinterest\.[a-z.]+|reddit\.com|discord\.gg|discord\.com|bsky\.app|mastodon\.[a-z]+|mstdn\.[a-z]+|fosstodon\.org|mas\.to|medium\.com|github\.com)$/i;
 
 export function isPrivateAddress(ip: string): boolean {
   if (isIP(ip) === 6) {
@@ -72,7 +73,8 @@ export async function fetchPublicPageText(raw: string, maxChars = 14_000): Promi
       .filter(l => /price|pricing|rate|cost|quote|estimate/i.test(`${l.href} ${l.text}`)).map(l => l.href);
     const anchors = [...html.matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)].map(m => { try { return { href: new URL(m[1], url).toString(), text: m[2].replace(/<[^>]+>/g, ' ').trim() }; } catch { return null; } }).filter((l): l is { href: string; text: string } => !!l && /^https?:/.test(l.href));
     const about = [...new Set(anchors.filter(l => new URL(l.href).hostname.replace(/^www\./, '') === host && /about|team|story|founder|owner|history|who-we-are|our-company/i.test(`${l.href} ${l.text}`)).map(l => l.href))].slice(0, 3);
-    const social = [...new Set(anchors.map(l => l.href).filter(h => /^https?:\/\/([a-z]+\.)?(facebook|instagram|linkedin|yelp|x|twitter|youtube|tiktok|nextdoor|bbb|thumbtack|angi|google)\.(com|org)\//i.test(h)))].slice(0, 12);
+    // Profile links on any platform we track (see SOCIAL_PLATFORMS in src/lib/competitors.ts).
+    const social = [...new Set(anchors.map(l => l.href).filter(h => SOCIAL_HOST.test(new URL(h).hostname.replace(/^(www|m)\./, '')) && new URL(h).pathname.length > 1))].slice(0, 20);
     return { url: url.toString(), ...page, text: page.text.slice(0, maxChars), links: [...new Set(links)].slice(0, 5), about, social };
   }
   throw new Error('The website redirected too many times.');

@@ -19,7 +19,7 @@ import type { Mover } from '@/lib/registry';
  * registryEnrichment/{dot}.web.
  */
 export type Candidate = { url: string; source: Source; ok: boolean; matchedBy: string[]; error?: string };
-type Source = 'email' | 'guess' | 'google' | 'brave';
+type Source = 'email' | 'guess' | 'google' | 'brave' | 'places';
 export type WebPresence = {
   site: string | null; source: Source | null; matchedBy: string[];
   socials: Record<string, string>; possibleSocials: Record<string, string>;
@@ -75,6 +75,23 @@ async function braveCandidates(m: Mover) {
   if (!res.ok) throw new Error(`Brave answered ${res.status}`);
   const urls = ((await res.json())?.web?.results || []).map((r: { url?: string }) => r.url || '').filter(Boolean) as string[];
   return { sites: urls.filter(u => !isDirectory(u)), socials: urls.filter(u => platformOf(u)) };
+}
+
+/**
+ * A website suggested elsewhere (e.g. their Google Business listing): kept
+ * only if their own page checks out, and only when we have none yet.
+ */
+export async function adoptWebsite(m: Mover, url: string, source: Source): Promise<WebPresence | null> {
+  if (m.site) return null;
+  const ref = adminDb().doc(`registryEnrichment/${m.dot}`);
+  const cur = (await ref.get()).data()?.web;
+  if (cur?.site) return null;
+  const r = await check(m, url, source);
+  if (!r.candidate.ok || !r.page) return null;
+  const socials = cleanSocials(r.page.social || []);
+  const web = { site: new URL(r.candidate.url).origin, source, matchedBy: r.candidate.matchedBy, socials, possibleSocials: Object.fromEntries(Object.entries((cur?.possibleSocials || {}) as Record<string, string>).filter(([k]) => !socials[k])), tried: [r.candidate, ...(cur?.tried || [])].slice(0, 15), searched: cur?.searched || [] };
+  await ref.set({ dot: m.dot, state: m.state, web: { ...web, checkedAt: FieldValue.serverTimestamp() } }, { merge: true });
+  return { ...web, checkedAt: new Date().toISOString() };
 }
 
 export async function findWebPresence(m: Mover, refresh = false): Promise<WebPresence> {

@@ -68,3 +68,12 @@ export function matchPage(m: { name: string; dba?: string; city: string; phone?:
 export function urlsIn(text: string): string[] {
   return [...new Set([...text.matchAll(/https?:\/\/[^\s"'<>)\]]+/gi)].map(x => x[0].replace(/[.,;:!?]+$/, '')))];
 }
+
+/** How well a Google listing matches the federal record: name words, city, phone. */
+export function placeMatches(m: { name: string; dba?: string; city: string; phone?: string }, p: { displayName?: { text: string }; formattedAddress?: string; nationalPhoneNumber?: string }): boolean {
+  const name = (p.displayName?.text || '').toLowerCase(), addr = (p.formattedAddress || '').toLowerCase();
+  const phone = (p.nationalPhoneNumber || '').replace(/\D/g, '');
+  if (m.phone && phone && phone.endsWith(m.phone.slice(-10))) return true;
+  const named = [m.dba, m.name].filter(Boolean).some(n => { const t = nameTokens(n as string); return t.length > 0 && t.every(w => name.includes(w)); });
+  return named && (!m.city || addr.includes(m.city.toLowerCase()));
+}

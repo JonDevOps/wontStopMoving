@@ -3,10 +3,11 @@ import { adminDb } from './firebase-admin';
 import { loadPartners, loadState } from './registry-store';
 import { radarSettings, watchedStates } from './market';
 import { servicesLabel, tupleToMover } from '@/lib/carriers';
-import { classifyMover, classifyPartner, jevConfigured, type MoverKind, type PartnerFit } from './jev';
+import { classifyMover, classifyPartner, classifyStrategy, jevConfigured, type MoverKind, type PartnerFit, type Strategy, type StrategySignals } from './jev';
 import { lookupSos, sosSearchUrl, type SosRecord } from './sos';
 import { stateSummaries } from './registry-query';
 import { runPriceIndex } from './price-index';
+import { refreshStaleSocialStats } from './competitors';
 import type { Mover } from '@/lib/registry';
 
 /**
@@ -19,6 +20,10 @@ export type Enrichment = {
   partnerFit?: PartnerFit; partnerFitConfidence?: number;
   sos?: { best: SosRecord | null; matches: SosRecord[]; checkedAt: string | null; free: boolean; searchUrl: string };
   competitorId?: string | null;
+  placeId?: string | null; placeCheckedAt?: string | null;
+  site?: string | null; socials?: Record<string, string>;
+  strategy?: Strategy; strategyConfidence?: number; strategyAt?: string | null;
+  socialStats?: Record<string, unknown>;
 };
 
 const iso = (v: any) => v?.toDate?.().toISOString() || null;
@@ -31,10 +36,17 @@ export async function enrichmentFor(dots: string[]): Promise<Map<string, Enrichm
     for (const snap of await db.getAll(...refs)) {
       if (!snap.exists) continue;
       const e = snap.data()!;
-      out.set(snap.id, { kind: e.kind, kindConfidence: e.kindConfidence, partnerFit: e.partnerFit, partnerFitConfidence: e.partnerFitConfidence, classifiedAt: iso(e.classifiedAt), sos: e.sos ? { ...e.sos, checkedAt: iso(e.sos.checkedAt) } : undefined, competitorId: e.competitorId || null });
+      out.set(snap.id, { kind: e.kind, kindConfidence: e.kindConfidence, partnerFit: e.partnerFit, partnerFitConfidence: e.partnerFitConfidence, classifiedAt: iso(e.classifiedAt), sos: e.sos ? { ...e.sos, checkedAt: iso(e.sos.checkedAt) } : undefined, competitorId: e.competitorId || null, placeId: e.placeId, placeCheckedAt: iso(e.placeCheckedAt), site: e.web?.site || null, socials: e.web?.socials || {}, strategy: e.strategy, strategyConfidence: e.strategyConfidence, strategyAt: iso(e.strategyAt), socialStats: e.socialStats });
     }
   }
   return out;
+}
+
+/** Jev's call on how we should treat this company (partner, study, compete, acquire, ignore). */
+export async function strategyAndSave(m: Mover, signals: StrategySignals) {
+  const r = await classifyStrategy(m, signals);
+  await adminDb().doc(`registryEnrichment/${m.dot}`).set({ dot: m.dot, state: m.state, strategy: r.strategy, strategyConfidence: r.confidence, strategyProbabilities: r.probabilities, strategyAt: FieldValue.serverTimestamp() }, { merge: true });
+  return r;
 }
 
 export async function classifyAndSave(m: Mover) {
@@ -80,9 +92,12 @@ export async function runEnrichment(budgetMs = 45_000) {
   const classified = jevConfigured() ? await classifyTop(Date.now() + budgetMs * 0.45) : 0;
   let partners = 0;
   if (jevConfigured()) { try { partners = await classifyPartners(Date.now() + budgetMs * 0.15); } catch (error) { console.error('Partner sorting failed', error); } }
+  // Instagram/YouTube numbers for tracked competitors: a few each hour, weekly per company (up to ~10s).
+  let social = 0;
+  try { social = await refreshStaleSocialStats(5, Math.min(deadline, Date.now() + 10_000)); } catch (error) { console.error('Social stats refresh failed', error); }
   let priced = 0;
   if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) { try { priced = (await runPriceIndex(deadline)).priced; } catch (error) { console.error('Price index failed', error); } }
-  return { classified, partners, priced };
+  return { classified, partners, priced, social };
 }
 
 async function classifyTop(deadline: number) {

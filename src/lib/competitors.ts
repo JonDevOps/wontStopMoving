@@ -132,6 +132,15 @@ export const SOCIAL_PLATFORMS: { key: string; label: string; host: RegExp }[] = 
   { key: 'bbb', label: 'BBB', host: /(^|\.)bbb\.org$/ },
   { key: 'thumbtack', label: 'Thumbtack', host: /(^|\.)thumbtack\.com$/ },
   { key: 'angi', label: 'Angi', host: /(^|\.)(angi|angieslist|homeadvisor)\.com$/ },
+  // Also tracked (the platforms w3develops.org links to, plus Threads and Pinterest).
+  { key: 'threads', label: 'Threads', host: /(^|\.)threads\.(net|com)$/ },
+  { key: 'pinterest', label: 'Pinterest', host: /(^|\.)pinterest\.[a-z.]+$/ },
+  { key: 'reddit', label: 'Reddit', host: /(^|\.)reddit\.com$/ },
+  { key: 'discord', label: 'Discord', host: /(^|\.)(discord\.gg|discord\.com)$/ },
+  { key: 'bluesky', label: 'Bluesky', host: /(^|\.)bsky\.app$/ },
+  { key: 'mastodon', label: 'Mastodon', host: /(^|\.)(mastodon\.[a-z]+|mstdn\.[a-z]+|fosstodon\.org|mas\.to)$/ },
+  { key: 'medium', label: 'Medium', host: /(^|\.)medium\.com$/ },
+  { key: 'github', label: 'GitHub', host: /(^|\.)github\.com$/ },
 ];
 export const SOCIAL_LABEL = Object.fromEntries(SOCIAL_PLATFORMS.map(p => [p.key, p.label])) as Record<string, string>;
 
