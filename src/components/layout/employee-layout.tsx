@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { ProfileMenu } from "@/components/layout/profile-menu";
 import { usePathname, useRouter } from "next/navigation";
 import { 
   Truck, 
@@ -104,6 +105,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Calendar", href: "/dashboard/employee/calendar", icon: Calendar },
     { label: "Lead Inbox", href: "/dashboard/employee/leads", icon: Inbox },
     { label: "Sales Call Script", href: "/dashboard/employee/sales-script", icon: PhoneCall },
+    { label: "Feedback", href: "/dashboard/employee/feedback", icon: MessageSquare },
     { label: "Profile", href: "/dashboard/employee/profile", icon: User },
   ];
 
@@ -132,6 +134,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Employees", href: "/dashboard/admin/employees", icon: ShieldCheck },
     { label: "Applications", href: "/dashboard/admin/careers", icon: FileText },
     { label: "Team & Admins", href: "/dashboard/admin/team", icon: Users },
+    { label: "Feedback", href: "/dashboard/admin/feedback", icon: MessageSquare },
     { label: "Profile", href: "/dashboard/admin/profile", icon: User },
   ];
 
@@ -216,9 +219,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
 
           <div className="flex items-center gap-4">
             <Notifications />
-            <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-black">
-              {profile?.name?.[0] || 'M'}
-            </div>
+            <ProfileMenu role={isAdmin ? 'admin' : 'employee'} name={profile?.name} email={profile?.email || user?.email} />
           </div>
         </header>
 

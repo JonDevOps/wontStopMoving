@@ -2,6 +2,8 @@
 "use client";
 
 import Link from "next/link";
+import { ProfileMenu } from "@/components/layout/profile-menu";
+import { SupportDialog } from "@/components/support/support-dialog";
 import { usePathname, useRouter } from "next/navigation";
 import { 
   Truck, 
@@ -160,10 +162,9 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-4">
+            <SupportDialog name={profile?.name} email={profile?.email || user?.email} phone={profile?.phone} />
             <Notifications />
-            <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-black">
-              {profile?.name?.[0] || 'C'}
-            </div>
+            <ProfileMenu role="customer" name={profile?.name} email={profile?.email || user?.email} avatarClassName="bg-primary" />
           </div>
         </header>
 

@@ -1,4 +1,5 @@
 "use client";
+import { ProfileMenu } from '@/components/layout/profile-menu';
 import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
 import { Notifications } from '@/components/auth/notifications';
 
@@ -149,9 +150,7 @@ export function AgentLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-4">
             <Notifications />
-            <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-black">
-              {profile?.name?.[0] || 'A'}
-            </div>
+            <ProfileMenu role="agent" name={profile?.name} email={profile?.email || user?.email} />
           </div>
         </header>
 
