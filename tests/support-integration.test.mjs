@@ -29,6 +29,7 @@ import { guessDomains, isDirectory, matchPage, nameTokens, urlsIn } from '../src
 import { explainRank, sizeParts } from '../src/lib/registry.ts';
 import { METROS } from '../src/lib/metros.ts';
 import { usableCredit, giftCardAmount, normalizeGiftCode, formatGiftCode, isGiftCodeCore } from '../src/lib/rewards.ts';
+import { diffPrices, describeChange } from '../src/lib/price-watch.ts';
 import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, columnChanges, filterCarriers, sortCarriers, tupleToMover, servicesLabel, KNOWN_COLUMNS, partnerScore, isPartnerCandidate, newPartnerCarriers, newCarrierAlerts, primaryCategory, CATEGORY_COLOR } from '../src/lib/carriers.ts';
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
@@ -1706,4 +1707,18 @@ test('gift cards: issued once on a matching payment, redeemed once into move cre
   assert.equal((await webhook(expired('evt_exp_held', 20))).status, 200);
   assert.equal((await db.doc(`rewardWallets/${uid}`).get()).data().balance, 50);
   assert.equal((await fetch(`${base}/gift-cards`)).status, 200);
+});
+
+test('price watch: real changes are listed, AI wobbles and missing prices are not', () => {
+  const flat = { studio: null, oneBedroom: null, twoBedroom: 1200, threeBedroom: null, fourBedroom: null };
+  const base = { published: true, twoMovers: 150, threeMovers: 200, fourMovers: null, minimumHours: 3, travelFee: 99, flat };
+  assert.deepEqual(diffPrices(base, base), []);
+  assert.deepEqual(diffPrices(null, base), []); // First reading: nothing to compare.
+  assert.deepEqual(diffPrices(base, { ...base, published: false }), []);
+  assert.deepEqual(diffPrices(base, { ...base, twoMovers: 152 }), []); // Under $5.
+  assert.deepEqual(diffPrices(base, { ...base, threeMovers: null }), []); // Missing, not a change.
+  const changes = diffPrices(base, { ...base, twoMovers: 165, minimumHours: 2, flat: { ...flat, twoBedroom: 1100 } });
+  assert.deepEqual(changes.map(c => c.field), ['twoMovers', 'minimumHours', 'flat.twoBedroom']);
+  assert.equal(describeChange(changes[0]), '2 movers/hr $150 → $165 (+10%)');
+  assert.equal(describeChange(changes[1]), 'Minimum hours 3 → 2');
 });

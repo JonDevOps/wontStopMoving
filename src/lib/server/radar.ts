@@ -2,10 +2,12 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from './firebase-admin';
 import { enqueueEmail } from './notifications';
 import { listEvents, type MarketEvent } from './market-events';
-import { inWatch, radarSettings } from './market';
+import { inWatch, radarSettings, watchedStates } from './market';
 import { loadNewCarriers } from './registry-store';
 import { CATEGORY_LABEL, categoriesOf, newCarrierAlerts, type CarrierTuple } from '@/lib/carriers';
 import { REGION_PRESETS } from '@/lib/regions';
+import { describeChange } from '@/lib/price-watch';
+import { recentPriceChanges } from './price-index';
 
 /**
  * The daily market radar email: in your watched areas, moving companies
@@ -26,12 +28,15 @@ export async function sendDailyRadar(force = false) {
     db.collection('networkAlerts').where('at', '>=', Timestamp.fromMillis(Date.now() - 86400000)).get(),
     loadNewCarriers().catch(() => null),
   ]);
+  // Price changes: tracked competitors anywhere, other movers only in watched areas.
+  const priceChanges = (await recentPriceChanges([], Date.now() - 86400000).catch(() => []))
+    .filter(c => c.source === 'competitor' || watchedStates(settings).includes(c.state));
   // New partner carriers: once per census import (it runs before the radar), in the watched areas.
   const partners = newCarrierAlerts(newCarriers, Date.now(), (state, t) => inWatch(settings, { state, county: t[5] }));
   const local = events.filter(e => inWatch(settings, e));
   const by = (t: MarketEvent['type']) => local.filter(e => e.type === t);
   const closed = by('closed'), opened = by('new'), grew = by('grew'), shrank = by('shrank');
-  const total = closed.length + opened.length + grew.length + shrank.length + partners.length + passes.size + alerts.size;
+  const total = closed.length + opened.length + grew.length + shrank.length + partners.length + passes.size + alerts.size + priceChanges.length;
   if (!total && !force) return { sent: false };
   const areas = [...settings.regions.map(r => REGION_PRESETS[r].label), ...settings.states].join(', ');
   const section = (title: string, items: string[], hint: string) => (items.length ? `${title} (${items.length})\n${hint}\n${items.slice(0, 25).map(i => `  • ${i}`).join('\n')}${items.length > 25 ? `\n  …and ${items.length - 25} more` : ''}\n\n` : '');
@@ -41,10 +46,11 @@ export async function sendDailyRadar(force = false) {
     + section('NEW CARRIERS: possible partners', partners.map(({ state, t, score }) => partnerLine(state, t, score)), 'Freight, car carriers and other haulers new to the DOT list near you: reach out before they’re busy. Open the partner shortlist in the mover registry.')
     + section('GREW', grew.map(e => `${line(e)} · ${e.from} → ${e.to} trucks`), 'Competitors adding trucks.')
     + section('SHRANK', shrank.map(e => `${line(e)} · ${e.from} → ${e.to} trucks`), 'Possible trouble: watch for closure, crews looking for work, or an acquisition.')
+    + section('PRICE CHANGES', priceChanges.map(c => `${c.name}${c.city ? `, ${c.city}` : ''}${c.source === 'competitor' ? ' (tracked)' : ''} · ${c.changes.map(describeChange).join('; ')}`), 'Competitors changed their published prices. Compare in Market Radar → Price index.')
     + section('COMPETITORS YOU PASSED', passes.docs.map(d => `${d.data().name}${d.data().tier === 'legend' ? ' (legend!)' : ''}`), 'Nice work.')
     + section('PARTNER COMPLIANCE ALERTS', alerts.docs.map(d => `${d.data().name}: ${(d.data().issues || []).join('; ')}`), 'Pause assignments until it’s fixed.')
     + `Open Market Radar:\nhttps://wontstopmoving.com/dashboard/admin/market\n\nWont Stop Moving`;
-  await enqueueEmail(`market-radar:${day}`, { category: 'radar', referenceId: day, to: settings.email, subject: `Market radar: ${closed.length} closed, ${opened.length} new${partners.length ? `, ${partners.length} new partner carriers` : ''}${passes.size ? `, ${passes.size} passed` : ''}`, text });
+  await enqueueEmail(`market-radar:${day}`, { category: 'radar', referenceId: day, to: settings.email, subject: `Market radar: ${closed.length} closed, ${opened.length} new${partners.length ? `, ${partners.length} new partner carriers` : ''}${priceChanges.length ? `, ${priceChanges.length} price change${priceChanges.length === 1 ? '' : 's'}` : ''}${passes.size ? `, ${passes.size} passed` : ''}`, text });
   return { sent: true, closed: closed.length, opened: opened.length, partners: partners.length };
 }
 
