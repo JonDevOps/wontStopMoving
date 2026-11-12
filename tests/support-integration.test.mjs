@@ -27,6 +27,7 @@ import { priceCart, SALES_TAX_RATE } from '../src/lib/shop.ts';
 import { platformOf, cleanSocials, passGaps } from '../src/lib/competitors.ts';
 import { guessDomains, isDirectory, matchPage, nameTokens, urlsIn } from '../src/lib/web-presence.ts';
 import { explainRank, sizeParts } from '../src/lib/registry.ts';
+import { METROS } from '../src/lib/metros.ts';
 import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, columnChanges, filterCarriers, sortCarriers, tupleToMover, servicesLabel, KNOWN_COLUMNS, partnerScore, isPartnerCandidate, newPartnerCarriers, newCarrierAlerts, primaryCategory, CATEGORY_COLOR } from '../src/lib/carriers.ts';
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
@@ -1092,12 +1093,15 @@ test('registry: real movers are told apart from studios and freight; fleet typos
   const sf = toMover(census({ dot_number: '22', legal_name: 'SF RELOCATION INC', phy_city: 'SAN FRANCISCO', phy_zip: '94103', phy_cnty: '075', power_units: '30', total_drivers: '40' }), { mc: '', hhg: true, active: true, broker: false }, ll);
   const sea = toMover(census({ dot_number: '33', legal_name: 'SEATTLE MOVERS', phy_city: 'SEATTLE', phy_state: 'WA', phy_zip: '98101', phy_cnty: '033', power_units: '50' }), undefined, ll);
   const rows = [acme, studio, freight, sf, sea];
-  assert.deepEqual(filterMovers(rows, { region: 'bay-area' }).map(m => m.dot).sort(), ['1234567', '22']);
-  assert.deepEqual(filterMovers(rows, { region: 'puget-sound' }).map(m => m.dot), ['33']);
+  const bayArea = { states: ['CA'], counties: ['001', '013', '041', '055', '075', '081', '085', '095', '097'].map(c => `CA-${c}`) };
+  const pugetSound = { states: ['WA'], counties: ['WA-033', 'WA-053', 'WA-061'] };
+  assert.deepEqual(filterMovers(rows, { area: bayArea }).map(m => m.dot).sort(), ['1234567', '22']);
+  assert.deepEqual(filterMovers(rows, { area: pugetSound }).map(m => m.dot), ['33']);
+  assert.deepEqual(filterMovers(rows, { area: { states: ['CA'], counties: ['CA-075'] } }).map(m => m.dot), ['22']);
   assert.deepEqual(filterMovers(rows, { near: { lat: 37.77, lng: -122.41, miles: 10 } }).map(m => m.dot), ['22']);
   assert.deepEqual(filterMovers(rows, { bbox: { south: 37, west: -123, north: 38, east: -121 }, likelyOnly: false }).map(m => m.dot).sort(), ['1234567', '22', '57426', '7']);
   assert.deepEqual(sortMovers(filterMovers(rows, {}), 'units').map(m => m.dot), ['33', '22', '1234567']);
-  const r = ourRank(filterMovers(rows, { region: 'bay-area' }), { units: 15, drivers: 10, miles: 0, years: 2 }, 'units');
+  const r = ourRank(filterMovers(rows, { area: bayArea }), { units: 15, drivers: 10, miles: 0, years: 2 }, 'units');
   assert.equal(r.rank, 2); assert.equal(r.of, 3); assert.equal(r.nextUp[0].dot, '22'); assert.equal(r.gapTo(sf).units, 16);
   assert.deepEqual(filterMovers(rows, { noSite: true }).map(m => m.dot).sort(), ['22', '33'].filter(d => !rows.find(m => m.dot === d).site));
   assert.deepEqual(filterMovers(rows, { hasSite: true }).map(m => m.dot), ['1234567', '22', '33'].filter(d => rows.find(m => m.dot === d).site && rows.find(m => m.dot === d).likelyMover));
@@ -1107,6 +1111,19 @@ test('registry: real movers are told apart from studios and freight; fleet typos
   assert.deepEqual(sortMovers([acme, fresh], 'newest').map(m => m.dot), ['44', '1234567']);
   const csv = moversCsv([acme]).split('\n');
   assert.match(csv[0], /^DOT,MC,Legal name/); assert.match(csv[1], /^1234567,MC123456,ACME MOVING & STORAGE LLC/);
+});
+
+test('metro areas: every U.S. metro of 250,000+ people, with counties across state lines', () => {
+  assert.ok(METROS.length >= 190, `${METROS.length} metros`);
+  assert.equal(new Set(METROS.map(m => m.key)).size, METROS.length);
+  assert.equal(METROS[0].city, 'New York'); assert.deepEqual(METROS[0].states, ['NJ', 'NY']);
+  for (const m of METROS) { assert.ok(m.pop >= 250_000 && m.counties.length && m.center, m.label); assert.ok(m.counties.every(c => /^[A-Z]{2}-\d{3}$/.test(c) && REGISTRY_AREAS.includes(c.slice(0, 2))), m.label); }
+  const byCity = c => METROS.find(m => m.city === c && m.states.length);
+  assert.ok(byCity('Portland').counties.includes('WA-011') && byCity('Portland').counties.includes('OR-051')); // Vancouver, WA is in the Portland metro.
+  assert.ok(byCity('Seattle').counties.includes('WA-033'));
+  for (const c of ['Boise', 'Anchorage', 'Spokane', 'Honolulu', 'Albuquerque', 'Omaha']) assert.ok(METROS.some(m => m.city.startsWith(c)), c);
+  // Connecticut metros use the DOT's (old) county codes, not the Census planning regions.
+  assert.deepEqual(byCity('New Haven').counties, ['CT-009']);
 });
 
 test('mover registry API: admin-only search, area ranking, tracking competitors by DOT; jobs need the scheduler', async () => {
@@ -1132,6 +1149,8 @@ test('mover registry API: admin-only search, area ranking, tracking competitors 
   assert.equal(res.jev, false);
   const all = await (await search(adminToken, 'region=bay-area&likely=0')).json();
   assert.equal(all.total, 3);
+  const sanJose = await (await search(adminToken, 'region=msa-41940')).json(); // A metro: San Jose (Santa Clara County), not San Francisco.
+  assert.deepEqual(sanJose.rows.map(r => r.dot), ['1234567']);
   const nationwide = await (await search(adminToken, 'sort=size')).json();
   assert.equal(nationwide.mode, 'national');
   assert.equal(nationwide.total, 2); // Every likely mover in the country (only CA in this fixture), not just top lists.
@@ -1253,7 +1272,14 @@ test('market radar API: closures with a takeover plan, settings, recruiting and 
   assert.equal(settings.routing.maxMiles, 50);
   const both = await (await get(adminToken, 'view=closures')).json();
   assert.deepEqual(both.events.map(e => e.dot).sort(), ['777', '888']);
-  await post(adminToken, { action: 'settings', states: [], autoAssign: true });
+  const houston = await (await get(adminToken, 'view=closures&scope=msa-26420')).json(); // One metro (Harris County is in Houston's).
+  assert.deepEqual(houston.events.map(e => e.dot), ['888']);
+  assert.equal((await post(adminToken, { action: 'settings', states: [], regions: ['msa-26420', 'msa-bogus'], autoAssign: true })).status, 200);
+  const metroWatch = await (await get(adminToken, 'view=settings')).json();
+  assert.deepEqual(metroWatch.settings.regions, ['msa-26420']);
+  assert.ok(metroWatch.regions.length >= 190 && metroWatch.regions.find(r => r.key === 'msa-26420').label.startsWith('Houston'));
+  assert.deepEqual((await (await get(adminToken, 'view=closures')).json()).events.map(e => e.dot), ['888']); // Watching Houston only.
+  await post(adminToken, { action: 'settings', regions: ['bay-area', 'puget-sound'] });
 
   // Recruiting and overflow use the CA registry file written by the registry test.
   const recruits = await (await fetch(`${base}/api/admin/agents/recruits?state=CA`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();

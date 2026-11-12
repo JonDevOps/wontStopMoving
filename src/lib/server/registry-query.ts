@@ -2,7 +2,8 @@ import { adminDb } from './firebase-admin';
 import { loadCarriers, loadNational, loadPartners, loadStates } from './registry-store';
 import { zipLookup } from './geo';
 import { CATEGORY_COLOR, CATEGORY_KEYS, filterCarriers, primaryCategory, sortCarriers, tupleToMover, type CategoryKey, type LocatedCarrier } from '@/lib/carriers';
-import { explainRank, filterMovers, ourRank, REGION_PRESETS, sizeScore, sortMovers, REGISTRY_AREAS, yearsInBusiness, type Mover, type MoverFilters, type OurFleet, type SortKey, type UsProfile } from '@/lib/registry';
+import { REGION_PRESETS, areaCounties } from '@/lib/regions';
+import { explainRank, filterMovers, ourRank, sizeScore, sortMovers, REGISTRY_AREAS, yearsInBusiness, type Mover, type MoverFilters, type OurFleet, type SortKey, type UsProfile } from '@/lib/registry';
 
 /**
  * Answers registry searches. Searches inside a region, a few states or a map
@@ -35,7 +36,7 @@ export type RegistryQuery = MoverFilters & { type?: CarrierType; sort?: SortKey;
 export async function searchRegistry(q: RegistryQuery, us: UsProfile | null, opts: { points?: boolean; all?: boolean } = {}) {
   const summaries = await stateSummaries();
   let states: string[] = [];
-  if (q.region && REGION_PRESETS[q.region]) states = [REGION_PRESETS[q.region].state];
+  if (q.region && REGION_PRESETS[q.region]) states = REGION_PRESETS[q.region].states;
   else if (q.states?.length) states = q.states.filter(s => REGISTRY_AREAS.includes(s));
   else if (q.bbox) states = summaries.filter(s => s.bbox && overlaps(s.bbox, q.bbox!)).map(s => s.state);
 
@@ -53,7 +54,7 @@ export async function searchRegistry(q: RegistryQuery, us: UsProfile | null, opt
     rows = filterMovers(pool, { ...q, states: undefined, likelyOnly: false });
     complete = summaries.every(s => have.has(s.state));
   } else {
-    rows = filterMovers(await loadStates(states), { ...q, states: q.region ? undefined : states });
+    rows = filterMovers(await loadStates(states), { ...q, area: q.region ? REGION_PRESETS[q.region] : undefined, states: q.region ? undefined : states });
   }
   const near = q.near ? { lat: q.near.lat, lng: q.near.lng } : undefined;
   const sorted = sortMovers(rows, q.sort || 'size', near);
@@ -100,7 +101,7 @@ async function searchCarriers(q: RegistryQuery, type: Exclude<CarrierType, ''>, 
   let matches: (LocatedCarrier & { state: string })[] = [];
   if (!national) {
     for (const state of states) {
-      for (const m of filterCarriers(type === 'partners' ? await loadPartners(state) : await loadCarriers(state, type), { ...q, counties: preset?.counties }, zipLookup)) matches.push({ ...m, state });
+      for (const m of filterCarriers(type === 'partners' ? await loadPartners(state) : await loadCarriers(state, type), { ...q, counties: preset ? areaCounties(preset, state) : undefined }, zipLookup)) matches.push({ ...m, state });
     }
   }
   matches = sortCarriers(matches, q.sort || (type === 'partners' ? 'score' : 'size'), q.near) as typeof matches;
