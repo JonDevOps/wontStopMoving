@@ -20,7 +20,8 @@ type Competitor = {
   passedAt: string | null; passedHow: string | null; analyzedAt: string | null;
 };
 type Social = { stats: Record<string, PlatformStats>; summary: SocialSummary; score: number | null; activity: 'active' | 'slowing' | 'inactive' | 'unknown' };
-type Data = { us: { metrics: Metrics; auto: Metrics; manual: Metrics; socials: Record<string, string>; hasAuthority: boolean; social: Social; socialStatsAt: string | null }; competitors: Competitor[]; progress?: Progress; statsReady: { instagram: boolean; youtube: boolean } };
+type Data = { us: { metrics: Metrics; auto: Metrics; manual: Metrics; socials: Record<string, string>; hasAuthority: boolean; social: Social; socialStatsAt: string | null }; competitors: Competitor[]; progress?: Progress; statsReady: { instagram: boolean; youtube: boolean }; igToken: TokenStatus };
+type TokenStatus = { connected: boolean; valid: boolean; expiresAt: string | null; neverExpires: boolean; error?: string };
 type View = 'challenger' | 'legend' | 'actions' | 'social' | 'us' | 'progress';
 type Progress = { history: { day: string; metrics: Metrics; passed: number; actionsDone: number }[]; passes: { id: string; name: string; tier: Tier; at: string; how: string | null }[]; actions: { competitor: string; text: string; area: string; impact: string; at: string }[] };
 
@@ -103,7 +104,7 @@ function Competitors() {
     {notice && <p role="status" className="text-sm font-medium bg-white border rounded-lg p-3">{notice}</p>}
 
     {!data ? <p>Loading…</p> : view === 'progress' ? <ProgressView progress={data.progress} us={data.us.metrics} />
-      : view === 'social' ? <SocialView competitors={all.filter(c => c.status === 'tracking')} us={data.us} ready={data.statsReady} busy={!!busy} post={post} setNotice={setNotice} onOpen={c => { setView(c.tier); setOpenId(c.id); }} />
+      : view === 'social' ? <SocialView competitors={all.filter(c => c.status === 'tracking')} us={data.us} ready={data.statsReady} igToken={data.igToken} busy={!!busy} post={post} setNotice={setNotice} onOpen={c => { setView(c.tier); setOpenId(c.id); }} />
       : view === 'us' ? <OurNumbers us={data.us} busy={!!busy} onSave={(m, extra) => post({ action: 'us', metrics: m, ...extra }).then(r => r && setNotice('Our numbers saved.'))} />
       : view === 'actions' ? <ActionBoard items={openActions} onToggle={(cid, aid) => post({ action: 'toggle-action', id: cid, actionId: aid, done: true })} onOpen={c => { setView(c.tier); setOpenId(c.id); }} />
       : <>
@@ -302,12 +303,28 @@ function SocialLinks({ socials }: { socials: Record<string, string> }) {
   return <div className="flex flex-wrap gap-2">{entries.map(([k, url]) => <a key={k} href={url} target="_blank" rel="noreferrer noopener" className="text-xs px-2 py-1 rounded-full border hover:bg-slate-50">{SOCIAL_LABEL[k] || k}</a>)}</div>;
 }
 
-/** Side-by-side social presence for tracked competitors vs us, with the gap to the next one ahead. */
 const ACTIVITY: Record<string, { label: string; style: string }> = { active: { label: 'Active', style: 'bg-green-100 text-green-800' }, slowing: { label: 'Slowing', style: 'bg-amber-100 text-amber-800' }, inactive: { label: 'Inactive', style: 'bg-red-100 text-red-800' }, unknown: { label: 'No data', style: 'bg-slate-100 text-slate-600' } };
 const ago = (iso: string | null) => { if (!iso) return '—'; const d = Math.floor((Date.now() - Date.parse(iso)) / 86400_000); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`; };
 
+/**
+ * How long until our Instagram access token expires, read from Meta, so it
+ * resets by itself when a new token is saved. Warns 14 days ahead.
+ */
+const RENEW = 'firebase apphosting:secrets:set IG_ACCESS_TOKEN --project studio-6652665935-1850d';
+function TokenTimer({ t }: { t?: TokenStatus }) {
+  if (!t) return null;
+  const how = <p className="text-xs mt-1">To replace it: make a new token in your Meta app, run <code className="bg-white/60 px-1 rounded">{RENEW}</code>, paste it at the prompt, then redeploy. This timer resets on its own. (A system-user token from Meta Business Settings can be set to never expire.)</p>;
+  if (!t.connected) return <div className="rounded-xl border p-3 text-sm text-muted-foreground"><b className="text-foreground">Instagram key:</b> not connected yet (see GitHub issue #114).</div>;
+  if (!t.valid) return <div className="rounded-xl border-2 border-red-300 bg-red-50 p-3 text-sm text-red-900"><b>Instagram key has expired or stopped working.</b> Instagram numbers won’t update until it’s replaced.{t.error ? ` (${t.error})` : ''}{how}</div>;
+  if (t.neverExpires || !t.expiresAt) return <div className="rounded-xl border p-3 text-sm"><b>Instagram key:</b> ✓ working, never expires.</div>;
+  const days = Math.max(0, Math.floor((Date.parse(t.expiresAt) - Date.now()) / 86400_000));
+  const date = new Date(t.expiresAt).toLocaleDateString();
+  if (days <= 14) return <div className={`rounded-xl border-2 p-3 text-sm ${days <= 3 ? 'border-red-300 bg-red-50 text-red-900' : 'border-amber-300 bg-amber-50 text-amber-900'}`}><b>Replace the Instagram key soon: {days === 0 ? 'it expires today' : `${days} day${days === 1 ? '' : 's'} left`}</b> (expires {date}).{how}</div>;
+  return <div className="rounded-xl border p-3 text-sm"><b>Instagram key:</b> ✓ working · expires in <b>{days} days</b> ({date}). You’ll get a reminder here 14 days before.</div>;
+}
+
 /** Side-by-side social presence for tracked competitors vs us, ranked by social score. */
-function SocialView({ competitors, us, ready, busy, post, setNotice, onOpen }: { competitors: Competitor[]; us: Data['us']; ready: Data['statsReady']; busy: boolean; post: (b: Record<string, unknown>, l?: string) => Promise<any>; setNotice: (s: string) => void; onOpen: (c: Competitor) => void }) {
+function SocialView({ competitors, us, ready, igToken, busy, post, setNotice, onOpen }: { competitors: Competitor[]; us: Data['us']; ready: Data['statsReady']; igToken?: TokenStatus; busy: boolean; post: (b: Record<string, unknown>, l?: string) => Promise<any>; setNotice: (s: string) => void; onOpen: (c: Competitor) => void }) {
   type Line = { id: string; name: string; socials: Record<string, string>; social: Social; metrics: Metrics; at: string | null; c?: Competitor };
   const lines: Line[] = [{ id: 'us', name: 'Wont Stop Moving (you)', socials: us.socials, social: us.social, metrics: us.metrics, at: us.socialStatsAt }, ...competitors.map(c => ({ id: c.id, name: c.name, socials: c.socials, social: c.social, metrics: c.metrics, at: c.socialStatsAt, c }))]
     .sort((a, b) => (b.social?.score ?? -1) - (a.social?.score ?? -1) || (b.metrics.followers ?? -1) - (a.metrics.followers ?? -1));
@@ -323,6 +340,7 @@ function SocialView({ competitors, us, ready, busy, post, setNotice, onOpen }: {
       {ahead ? <p>Next to pass on followers: <b>{ahead.name}</b> with {(ahead.metrics.followers as number).toLocaleString()}: you need <b>{((ahead.metrics.followers as number) - (ours as number) + 1).toLocaleString()} more</b>.</p> : typeof ours === 'number' ? <p>You lead every tracked competitor with a follower count.</p> : <p>Add your Instagram/YouTube under Our numbers (or enter your followers) to see who’s next.</p>}
       <SocialLinks socials={us.socials} />
     </CardContent></Card>
+    <TokenTimer t={igToken} />
     <div className="flex flex-wrap gap-2">
       {on && <Button size="sm" disabled={busy} onClick={async () => { const r = await post({ action: 'social-stats-all' }, 'stats'); if (r) setNotice(`Updated numbers for ${r.refreshed} (anything checked in the last week is skipped).`); }}>Update Instagram & YouTube numbers</Button>}
       {missing.length > 0 && <Button size="sm" variant="outline" disabled={busy} onClick={async () => { let found = 0; for (const c of missing.slice(0, 10)) { const r = await post({ action: 'find-socials', id: c.id }); if (r?.found) found++; } setNotice(`Checked ${Math.min(10, missing.length)} websites; found profiles for ${found}.`); }}>Find social profiles for {Math.min(10, missing.length)} competitors from their websites</Button>}

@@ -78,3 +78,25 @@ export async function statsFor(socials: Record<string, string>): Promise<Record<
   await Promise.all(jobs);
   return out;
 }
+
+/**
+ * When our Instagram token expires, asked from Meta (debug_token), so it
+ * resets by itself when a new token is saved. Cached for an hour.
+ */
+export type TokenStatus = { connected: boolean; valid: boolean; expiresAt: string | null; neverExpires: boolean; error?: string };
+let tokenCache: { at: number; token: string; status: TokenStatus } | null = null;
+export async function instagramTokenStatus(): Promise<TokenStatus> {
+  const token = process.env.IG_ACCESS_TOKEN || '';
+  if (!instagramReady()) return { connected: false, valid: false, expiresAt: null, neverExpires: false };
+  if (tokenCache && tokenCache.token === token && Date.now() - tokenCache.at < 3600_000) return tokenCache.status;
+  let status: TokenStatus;
+  try {
+    const d = (await json(`${GRAPH}/debug_token?${new URLSearchParams({ input_token: token, access_token: token })}`)).data || {};
+    const exp = Number(d.expires_at || 0);
+    status = { connected: true, valid: d.is_valid !== false, expiresAt: exp ? new Date(exp * 1000).toISOString() : null, neverExpires: exp === 0 };
+  } catch (error) {
+    status = { connected: true, valid: false, expiresAt: null, neverExpires: false, error: String((error as Error).message).slice(0, 120) };
+  }
+  tokenCache = { at: Date.now(), token, status };
+  return status;
+}
