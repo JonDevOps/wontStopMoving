@@ -92,6 +92,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
         { label: "Agent Network", href: "/agents" },
         { label: "Check a Mover", href: "/check-a-mover" },
         { label: "Moving Market Reports", href: "/moving-reports" },
+        { label: "Moving Costs by City", href: "/moving-cost" },
         { label: "Moving Supplies Shop", href: "/shop" },
         { label: "Refer a Friend", href: "mailto:?subject=Moving%20soon%3F&body=Get%20a%20moving%20quote%20from%20Wont%20Stop%20Moving%3A%20https%3A%2F%2Fwontstopmoving.com%2Fquote" },
       ]

@@ -72,7 +72,9 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function QuoteForm({ providerId }: { providerId?: string }) {
+const QUOTE_SIZES = ['studio', '2br', '3br', '4br+', 'commercial'];
+
+export function QuoteForm({ providerId, initialSize }: { providerId?: string; initialSize?: string }) {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -88,7 +90,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
   const { register, handleSubmit, setValue, watch, trigger, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      moveSize: "studio",
+      moveSize: initialSize && QUOTE_SIZES.includes(initialSize) ? initialSize : "studio",
       packingService: false,
       cratingService: false,
       cleaningService: false,
