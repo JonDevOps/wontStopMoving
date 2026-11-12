@@ -13,6 +13,7 @@ import { ChatInterface } from "@/components/chat/chat-interface";
 import { ReviewForm } from "@/components/forms/review-form";
 import { MoveHelp } from "@/components/dashboard/move-help";
 import { MoveConcierge } from "@/components/dashboard/move-concierge";
+import { MoveDocuments } from "@/components/dashboard/move-documents";
 
 interface JobDetails {
   id: string;
@@ -174,6 +175,7 @@ export default function CustomerJobDetailsPage() {
               </Card>
             )}
 
+            <MoveDocuments jobId={job.id} jobStatus={job.status} />
             <MoveHelp jobId={job.id} jobStatus={job.status} />
             <MoveConcierge jobId={job.id} jobStatus={job.status} />
 

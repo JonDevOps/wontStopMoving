@@ -1773,3 +1773,26 @@ test('concierge: customers ask for partner services on their own moves; admins i
   assert.equal((await adminPost({ action: 'request', id, status: 'introduced', partnerId: partner.id })).status, 200);
   assert.equal((await db.collection('emailOutbox').get()).size, afterIntro); // Introduced once.
 });
+
+test('move documents: chosen per move (interstate adds federal booklets, storage adds an agreement); signatures need a full name', async () => {
+  const uid = auth.currentUser.uid;
+  await db.doc('quotes/docs-quote').set({ customerId: uid, pickupZip: '94103', dropoffZip: '98101', details: JSON.stringify({ addOns: { storage: true } }) });
+  await db.doc('jobs/docs-job').set({ customerId: uid, quoteId: 'docs-quote', status: 'confirmed' });
+  await db.doc('jobs/docs-local').set({ customerId: uid, status: 'confirmed', pickupAddress: '94103', dropoffAddress: '94110' });
+  const get = id => fetch(`${base}/api/move-documents?jobId=${id}`, { headers: { Authorization: `Bearer ${customerToken}` } }).then(r => r.json());
+  const interstate = await get('docs-job');
+  assert.equal(interstate.facts.interstate, true);
+  assert.ok(['rights-responsibilities', 'ready-to-move', 'storage'].every(id => interstate.outstanding.includes(id)));
+  const local = await get('docs-local');
+  assert.equal(local.facts.interstate, false);
+  assert.ok(!local.outstanding.includes('rights-responsibilities'));
+  const sign = body => fetch(`${base}/api/move-documents`, authorized(customerToken, { jobId: 'docs-job', agree: true, ...body }));
+  assert.equal((await sign({ docId: 'valuation', signedName: 'Test Customer' })).status, 400); // No choice made.
+  assert.equal((await sign({ docId: 'order-for-service', signedName: 'Test' })).status, 400); // Not a full name.
+  assert.equal((await sign({ docId: 'bill-of-lading', signedName: 'Test Customer' })).status, 400); // Signed on moving day.
+  assert.equal((await sign({ docId: 'valuation', signedName: 'Test Customer', choice: 'full' })).status, 200);
+  const after = await get('docs-job');
+  assert.ok(!after.outstanding.includes('valuation'));
+  assert.equal(after.signatures.find(s => s.docId === 'valuation').choice, 'full');
+  assert.equal((await fetch(`${base}/api/move-documents?jobId=concierge-other`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 404);
+});
