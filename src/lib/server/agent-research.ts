@@ -5,6 +5,7 @@ import { generateJson } from './gemini';
 import { fetchPublicPageText } from './safe-fetch';
 import { findMover } from './registry-query';
 import { enrichmentFor } from './registry-enrich';
+import { cachedWebPresence } from './web-presence';
 import { yearsInBusiness, type Mover } from '@/lib/registry';
 
 /**
@@ -60,7 +61,8 @@ export async function researchCompany(input: { dot?: string; state?: string; nam
   const ref = adminDb().doc(`agentResearch/${key}`);
   const prev = (await ref.get()).data();
   if (prev?.at && Date.now() - prev.at.toMillis() < 10 * 60_000) throw new Error('This company was just researched. Try again in a few minutes.');
-  const site = mover?.site || (input.website ? (/^https?:\/\//.test(input.website) ? input.website : `https://${input.website}`) : '');
+  const found = mover && !mover.site ? (await cachedWebPresence(mover.dot))?.site : null;
+  const site = mover?.site || found || (input.website ? (/^https?:\/\//.test(input.website) ? input.website : `https://${input.website}`) : '');
   const sources: string[] = [];
   let home: Awaited<ReturnType<typeof fetchPublicPageText>> | null = null, about = '', siteError = '';
   if (site) {

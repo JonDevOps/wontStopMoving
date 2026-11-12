@@ -28,6 +28,24 @@ export async function generateJson<T>(parts: Part[], schema: Schema): Promise<T>
   return JSON.parse(text) as T;
 }
 
+/**
+ * Asks Gemini with Google Search grounding (live web results). Free up to
+ * Google's monthly grounding allowance on the Gemini API. Returns the answer
+ * text and the web pages it was grounded on.
+ */
+export async function searchGrounded(prompt: string): Promise<{ text: string; sources: { uri: string; title: string }[] }> {
+  const response = await gemini().models.generateContent({
+    model: TEXT_MODEL,
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: { tools: [{ googleSearch: {} }], temperature: 0.1 },
+  });
+  const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  return {
+    text: response.text || "",
+    sources: chunks.map(c => ({ uri: c.web?.uri || "", title: c.web?.title || "" })).filter(s => s.uri),
+  };
+}
+
 /** Turns a `data:<mime>;base64,<data>` URI into an inline Gemini part. */
 export function dataUriPart(dataUri: string): Part | null {
   const match = /^data:([^;,]+);base64,(.+)$/.exec(dataUri || "");
