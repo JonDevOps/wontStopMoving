@@ -1722,3 +1722,25 @@ test('price watch: real changes are listed, AI wobbles and missing prices are no
   assert.equal(describeChange(changes[0]), '2 movers/hr $150 → $165 (+10%)');
   assert.equal(describeChange(changes[1]), 'Minimum hours 3 → 2');
 });
+
+test('outreach tracker: admin-only; built-in list with saved status; custom entries can be added and removed', async () => {
+  const get = token => fetch(`${base}/api/admin/outreach`, { headers: { Authorization: `Bearer ${token}` } });
+  const post = (token, body) => fetch(`${base}/api/admin/outreach`, authorized(token, body));
+  assert.equal((await get(customerToken)).status, 403);
+  const first = await (await get(adminToken)).json();
+  assert.ok(first.items.length >= 30);
+  assert.equal(first.items.find(i => i.id === 'yelp').status, 'todo');
+  assert.equal((await post(adminToken, { id: 'yelp', status: 'listed', listingUrl: 'https://www.yelp.com/biz/wont-stop-moving', notes: 'Owner: Jon' })).status, 200);
+  assert.equal((await post(adminToken, { id: 'yelp', status: 'done?' })).status, 400);
+  assert.equal((await post(adminToken, { id: 'not-a-thing', status: 'listed' })).status, 404);
+  assert.equal((await post(adminToken, { id: 'yelp', action: 'remove' })).status, 400); // Built-ins can't be removed.
+  const added = await (await post(adminToken, { action: 'add', name: 'Local Realtor Group', url: 'javascript:alert(1)', kind: 'other' })).json();
+  const after = await (await get(adminToken)).json();
+  const yelp = after.items.find(i => i.id === 'yelp');
+  assert.equal(yelp.status, 'listed');
+  assert.equal(yelp.listingUrl, 'https://www.yelp.com/biz/wont-stop-moving');
+  const custom = after.items.find(i => i.id === added.id);
+  assert.equal(custom.url, ''); // Only http(s) links are kept.
+  assert.equal((await post(adminToken, { id: added.id, action: 'remove' })).status, 200);
+  assert.ok(!(await (await get(adminToken)).json()).items.some(i => i.id === added.id));
+});
