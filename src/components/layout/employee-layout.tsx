@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { 
   Truck, 
   Megaphone,
+  ConciergeBell,
   LayoutDashboard, 
   Calendar, 
   Clock,
@@ -118,6 +119,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Market Radar", href: "/dashboard/admin/market", icon: Radar },
     { label: "Agent Network", href: "/dashboard/admin/agents", icon: Globe2 },
     { label: "Directories & Partners", href: "/dashboard/admin/outreach", icon: Megaphone },
+    { label: "Concierge", href: "/dashboard/admin/concierge", icon: ConciergeBell },
     { label: "Lead Inbox", href: "/dashboard/admin/leads", icon: Inbox },
     { label: "Sales Call Script", href: "/dashboard/admin/sales-script", icon: PhoneCall },
     { label: "Stripe & Banking", href: "/dashboard/admin/banking", icon: Landmark },

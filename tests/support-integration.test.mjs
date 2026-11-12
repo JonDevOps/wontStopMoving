@@ -1744,3 +1744,32 @@ test('outreach tracker: admin-only; built-in list with saved status; custom entr
   assert.equal((await post(adminToken, { id: added.id, action: 'remove' })).status, 200);
   assert.ok(!(await (await get(adminToken)).json()).items.some(i => i.id === added.id));
 });
+
+test('concierge: customers ask for partner services on their own moves; admins introduce a partner (customer emailed once)', async () => {
+  const uid = auth.currentUser.uid;
+  await db.doc('jobs/concierge-job').set({ customerId: uid, status: 'confirmed', moveDate: '2027-01-15', pickupAddress: '94103', dropoffAddress: '94110', state: 'California' });
+  await db.doc('jobs/concierge-other').set({ customerId: 'someone-else', status: 'confirmed' });
+  const ask = body => fetch(`${base}/api/concierge`, authorized(customerToken, body));
+  assert.equal((await ask({ jobId: 'concierge-job', service: 'spaceship' })).status, 400);
+  assert.equal((await ask({ jobId: 'concierge-other', service: 'cleaning' })).status, 404);
+  const created = await ask({ jobId: 'concierge-job', service: 'cleaning', note: 'Need it the day after' });
+  assert.equal(created.status, 200);
+  const { id } = await created.json();
+  assert.equal((await ask({ jobId: 'concierge-job', service: 'cleaning' })).status, 409);
+  const mine = await (await fetch(`${base}/api/concierge?jobId=concierge-job`, { headers: { Authorization: `Bearer ${customerToken}` } })).json();
+  assert.equal(mine.requests.length, 1);
+
+  const adminPost = body => fetch(`${base}/api/admin/concierge`, authorized(adminToken, body));
+  assert.equal((await fetch(`${base}/api/admin/concierge`, authorized(customerToken, { action: 'partner', name: 'X', services: ['cleaning'] }))).status, 403);
+  assert.equal((await adminPost({ action: 'partner', name: 'Sparkle Cleaners', services: [] })).status, 400);
+  const partner = await (await adminPost({ action: 'partner', name: 'Sparkle Cleaners', services: ['cleaning'], phone: '415-555-0100', area: 'Bay Area' })).json();
+  const before = (await db.collection('emailOutbox').get()).size;
+  assert.equal((await adminPost({ action: 'request', id, status: 'introduced', partnerId: partner.id, referralFee: 40 })).status, 200);
+  const req = (await db.doc(`conciergeRequests/${id}`).get()).data();
+  assert.equal(req.partnerName, 'Sparkle Cleaners');
+  assert.equal(req.referralFee, 40);
+  const afterIntro = (await db.collection('emailOutbox').get()).size;
+  assert.equal(afterIntro, before + 1);
+  assert.equal((await adminPost({ action: 'request', id, status: 'introduced', partnerId: partner.id })).status, 200);
+  assert.equal((await db.collection('emailOutbox').get()).size, afterIntro); // Introduced once.
+});
