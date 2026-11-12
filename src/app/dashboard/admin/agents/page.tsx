@@ -9,11 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/firebase';
 import { apiFetch } from '@/lib/api-client';
+import { ResearchPanel, researchKeyFor, type ResearchTarget } from '@/components/agents/research-panel';
 import { AGENT_ROLES, PROSPECT_STAGES, VETTING_CHECKS, type AgentRole, type ProspectStage, type VettingKey, COUNTRY_NAMES, REGION_BY_CODE, REGIONS, type Country } from '@/lib/agents';
 
 type Agent = Record<string, any> & { uid: string; companyName: string; status: string; vetting: Partial<Record<VettingKey, boolean>>; roles: string[]; serviceRegions: string[] };
 type Region = { code: string; name: string; country: Country; agents: number; trucks: number; warehouseSqft: number; origin: number; destination: number };
-type Prospect = { id: string; company: string; city: string; region: string; contact: string; phone: string; email: string; website: string; notes: string; stage: ProspectStage; nextFollowUp: string };
+type Prospect = { id: string; dot?: string; company: string; city: string; region: string; contact: string; phone: string; email: string; website: string; notes: string; stage: ProspectStage; nextFollowUp: string };
 type Shipment = { id: string; moveDate: string; pickupAddress: string; dropoffAddress: string; state: string; status: string; agentAssignments: Record<string, string>; agentResponses: Record<string, string> };
 type Alert = { id: string; kind: string; name: string; dot: string; issues: string[]; at: string | null };
 type Data = { agents: Agent[]; totals: Record<string, number>; coverage: Region[]; prospects: Prospect[]; shipments: Shipment[]; alerts: Alert[] };
@@ -183,6 +184,7 @@ function Recruiting({ prospects, busy, post, gaps }: { prospects: Prospect[]; bu
 
 function ProspectCard({ p, busy, post, overdue }: { p: Prospect; busy: boolean; post: (b: Record<string, unknown>, ok?: string) => Promise<boolean>; overdue: boolean }) {
   const [notes, setNotes] = useState(p.notes || '');
+  const [research, setResearch] = useState(false);
   return <Card className={`bg-white ${overdue ? 'ring-2 ring-amber-400' : ''}`}><CardContent className="p-3 space-y-2 text-sm">
     <p className="font-bold">{p.company}</p>
     <p className="text-xs text-muted-foreground">{[p.city, regionName(p.region)].filter(x => x && x !== '—').join(', ')}{p.contact ? ` · ${p.contact}` : ''}</p>
@@ -190,7 +192,9 @@ function ProspectCard({ p, busy, post, overdue }: { p: Prospect; busy: boolean; 
     <select className="border rounded p-1 w-full bg-white" value={p.stage} disabled={busy} onChange={e => void post({ action: 'prospect-update', id: p.id, stage: e.target.value })} aria-label="Stage">{PROSPECT_STAGES.map(s => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</select>
     <label className="text-xs flex items-center gap-2">Follow up <input type="date" className="border rounded p-1" defaultValue={p.nextFollowUp} onBlur={e => { if (e.target.value !== p.nextFollowUp) void post({ action: 'prospect-update', id: p.id, nextFollowUp: e.target.value }); }} /></label>
     <Textarea rows={2} value={notes} placeholder="Notes" onChange={e => setNotes(e.target.value)} onBlur={() => { if (notes !== p.notes) void post({ action: 'prospect-update', id: p.id, notes }); }} />
-    <button className="text-xs text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`Remove ${p.company}?`)) void post({ action: 'prospect-delete', id: p.id }); }}>Remove</button>
+    <div className="flex justify-between items-center"><Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setResearch(true)}>Research</Button>
+    <button className="text-xs text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`Remove ${p.company}?`)) void post({ action: 'prospect-delete', id: p.id }); }}>Remove</button></div>
+    {research && <ResearchPanel target={{ key: researchKeyFor({ dot: p.dot, website: p.website, name: p.company }), dot: p.dot, state: p.region, name: p.company, website: p.website, city: p.city }} onClose={() => setResearch(false)} />}
   </CardContent></Card>;
 }
 
@@ -229,6 +233,7 @@ function RecruitFinder({ gaps, post, busy }: { gaps: string[]; post: (b: Record<
   const [list, setList] = useState<Candidate[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [err, setErr] = useState('');
+  const [research, setResearch] = useState<ResearchTarget | null>(null);
   const find = useCallback(async () => {
     setErr(''); setList(null); setPicked(new Set());
     try { setList((await apiFetch<{ candidates: Candidate[] }>(auth, `/api/admin/agents/recruits?state=${state.replace(/^(US|CA)-/, '')}`)).candidates); }
@@ -249,11 +254,12 @@ function RecruitFinder({ gaps, post, busy }: { gaps: string[]; post: (b: Record<
       {list && list.length > 0 && <Button variant="outline" disabled={busy} onClick={() => void add(list.slice(0, 25).map(c => c.dot))}>Add top 25</Button>}
     </div>
     {err && <p role="alert" className="text-sm">{err}</p>}
-    {list && (list.length ? <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-muted-foreground border-b">{['', 'Company', 'Trucks', 'Years', 'Owner & contact'].map(h => <th key={h} className="p-2 font-medium">{h}</th>)}</tr></thead>
+    {list && (list.length ? <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-muted-foreground border-b">{['', 'Company', 'Trucks', 'Years', 'Owner & contact', ''].map(h => <th key={h} className="p-2 font-medium">{h}</th>)}</tr></thead>
       <tbody>{list.map(c => <tr key={c.dot} className="border-b last:border-0"><td className="p-2"><input type="checkbox" aria-label={`Select ${c.dba || c.name}`} checked={picked.has(c.dot)} onChange={e => setPicked(p => { const n = new Set(p); if (e.target.checked) n.add(c.dot); else n.delete(c.dot); return n; })} /></td>
         <td className="p-2"><p className="font-semibold">{niceName(c.dba || c.name)}</p><p className="text-xs text-muted-foreground">{niceName(c.city)}, {c.state} · USDOT {c.dot}{c.mc ? ` · ${c.mc}` : ''}{c.site ? ` · ${c.site.replace(/^https?:\/\//, '')}` : ''}</p></td>
-        <td className="p-2">{c.units}</td><td className="p-2">{c.years}</td><td className="p-2 text-xs">{niceName(c.officer)}{c.phone && <><br /><a className="underline" href={`tel:${c.phone}`}>{fmtPhone(c.phone)}</a></>}{c.email && <><br />{c.email}</>}</td></tr>)}</tbody></table></div>
+        <td className="p-2">{c.units}</td><td className="p-2">{c.years}</td><td className="p-2 text-xs">{niceName(c.officer)}{c.phone && <><br /><a className="underline" href={`tel:${c.phone}`}>{fmtPhone(c.phone)}</a></>}{c.email && <><br />{c.email}</>}</td><td className="p-2"><Button size="sm" variant="outline" onClick={() => setResearch({ key: researchKeyFor({ dot: c.dot }), dot: c.dot, state: c.state, name: niceName(c.dba || c.name), city: `${niceName(c.city)}, ${c.state}` })}>Research</Button></td></tr>)}</tbody></table></div>
       : <p className="text-sm text-muted-foreground">No new candidates in this state (or its data hasn’t loaded yet).</p>)}
+    {research && <ResearchPanel target={research} onClose={() => setResearch(null)} />}
   </CardContent></Card>;
 }
 

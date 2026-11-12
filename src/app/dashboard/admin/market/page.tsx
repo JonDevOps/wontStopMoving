@@ -182,6 +182,10 @@ function Changes({ scope }: { scope: string }) {
   const { data, error } = useView<{ events: Ev[] }>('changes', scope, `&days=${days}`);
   const [type, setType] = useState('new');
   const shown = (data?.events || []).filter(e => e.type === type);
+  const track = async (e: Ev) => {
+    try { const r = await apiFetch<{ added: number }>(auth, '/api/admin/market', { action: 'track', dot: e.dot, state: e.state }); toast({ title: r.added ? `${nice(e.dba || e.name)} added to competitors` : 'Already tracked' }); }
+    catch (err) { toast({ variant: 'destructive', title: 'That didn’t work', description: err instanceof Error ? err.message : '' }); }
+  };
   const recruit = async (list: Ev[]) => {
     try { const r = await apiFetch<{ added: number }>(auth, '/api/admin/agents', { action: 'prospect-add-many', movers: list.map(e => ({ dot: e.dot, state: e.state })), source: 'radar-new', note: 'New registration spotted by the market radar.' }); toast({ title: `Added ${r.added} to agent recruiting` }); }
     catch (e) { toast({ variant: 'destructive', title: 'That didn’t work', description: e instanceof Error ? e.message : '' }); }
@@ -199,7 +203,7 @@ function Changes({ scope }: { scope: string }) {
         <tbody>{shown.map(e => <tr key={e.id} className="border-b last:border-0"><td className="p-3"><p className="font-bold">{nice(e.dba || e.name)}</p><p className="text-xs text-muted-foreground">{nice(e.city)}, {e.state}{e.officer ? ` · ${nice(e.officer)}` : ''}</p></td>
           <td className="p-3">{e.type === 'new' ? e.units : `${e.from} → ${e.to}`}</td><td className="p-3">{e.day}</td>
           <td className="p-3 text-xs">{e.phone && <a className="underline" href={`tel:${e.phone}`}>{phone(e.phone)}</a>}{e.email && <><br />{e.email}</>}</td>
-          <td className="p-3">{e.type === 'new' && <Button size="sm" variant="outline" onClick={() => void recruit([e])}>Recruit</Button>}</td></tr>)}</tbody></table></CardContent></Card>}
+          <td className="p-3 flex gap-2">{e.type === 'new' && <Button size="sm" variant="outline" onClick={() => void recruit([e])}>Recruit</Button>}<Button size="sm" variant="outline" onClick={() => void track(e)}>Track</Button></td></tr>)}</tbody></table></CardContent></Card>}
   </div>;
 }
 

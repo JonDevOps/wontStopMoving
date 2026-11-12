@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiFetch } from '@/lib/api-client';
 import { REGION_PRESETS, REGISTRY_AREAS } from '@/lib/registry';
 import type { Bounds, MapPoint, StateStat } from '@/components/registry/mover-map';
+import { ResearchPanel } from '@/components/agents/research-panel';
 
 const MoverMap = dynamic(() => import('@/components/registry/mover-map').then(m => m.MoverMap), { ssr: false, loading: () => <div className="h-[420px] md:h-[520px] rounded-2xl bg-slate-100 animate-pulse" /> });
 
@@ -140,7 +141,7 @@ function Registry() {
         <Input placeholder="Min years in business" inputMode="numeric" value={f.minYears} onChange={set('minYears')} />
         <select aria-label="Sort" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.sort} onChange={set('sort')}>{Object.entries(SORTS).map(([k, l]) => <option key={k} value={k}>Sort: {l}</option>)}</select>
         <select aria-label="Interstate" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.interstate} onChange={set('interstate')}><option value="">Local & interstate</option><option value="yes">Interstate only</option><option value="no">In-state only</option></select>
-        <select aria-label="Company type" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.kind} onChange={set('kind')}><option value="">Any type (Jev)</option><option value="local_mover">Local movers</option><option value="van_line">Van lines</option><option value="local_mover,van_line">Local movers + van lines</option><option value="broker">Brokers</option></select>
+        <select aria-label="Company type" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.kind} onChange={set('kind')}><option value="">Any company type</option><option value="local_mover">Local movers</option><option value="van_line">Van lines</option><option value="local_mover,van_line">Local movers + van lines</option><option value="broker">Brokers</option></select>
         <select aria-label="Business registry" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.sos} onChange={set('sos')}><option value="">Any registry status</option><option value="active">Active with the state</option><option value="inactive">Not active with the state</option></select>
         <select aria-label="Website" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.site} onChange={set('site')}><option value="">With or without website</option><option value="1">Has a website</option><option value="0">No website</option></select>
         <select aria-label="New companies" className="h-10 border rounded-md px-2 bg-white text-sm" value={f.newDays} onChange={set('newDays')}><option value="">Any registration date</option><option value="30">Registered in the last 30 days</option><option value="90">Last 90 days</option><option value="180">Last 6 months</option><option value="365">Last year</option><option value="730">Last 2 years</option></select>
@@ -154,8 +155,8 @@ function Registry() {
         <p className="text-sm text-muted-foreground">{loading ? 'Searching…' : data ? <><b className="text-primary">{data.total.toLocaleString()}</b> companies · {data.totals.units.toLocaleString()} trucks · {data.totals.drivers.toLocaleString()} drivers{data.mode === 'national' ? (data.nationalComplete ? ' nationwide' : ' nationwide (some states still loading: their 300 biggest shown)') : ''}{data.updatedAt ? ` · data from ${new Date(data.updatedAt).toLocaleDateString()}` : ''}</> : ''}</p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" disabled={!!busy || !data?.total} onClick={async () => { if (!confirm(`Add the top ${Math.min(300, data?.total || 0)} of this list to your main competitor list?`)) return; const r = await post({ action: 'track', query: queryObject(), limit: 300, tier: 'challenger' }, 'track'); if (r) { toast({ title: `Added ${r.added} to your main list`, description: r.skipped ? `${r.skipped} were already tracked.` : undefined }); void load(); } }}>{busy === 'track' ? 'Adding…' : 'Track top 300 as main list'}</Button>
-          <Button size="sm" variant="outline" disabled={!!busy} onClick={async () => { if (!confirm('Add the 100 biggest movers in the country to your legends list? Brokers and non-movers are left out once Jev has sorted them.')) return; const r = await post({ action: 'legends' }, 'legends'); if (r) toast({ title: `Added ${r.added} legends`, description: r.skipped ? `${r.skipped} were already tracked.` : undefined }); }}>{busy === 'legends' ? 'Adding…' : 'Set national top 100 as legends'}</Button>
-          {data?.jev && <Button size="sm" variant="outline" disabled={!!busy || !data?.rows.length} onClick={async () => { const r = await post({ action: 'classify', dots: data!.rows.filter(x => !x.kind).slice(0, 40).map(x => ({ dot: x.dot, state: x.state })) }, 'classify'); if (r) { toast({ title: `Jev sorted ${r.classified} companies` }); void load(); } }}>{busy === 'classify' ? 'Sorting…' : 'Sort this page with Jev'}</Button>}
+          <Button size="sm" variant="outline" disabled={!!busy} onClick={async () => { if (!confirm('Add the 100 biggest movers in the country to your legends list? Brokers and non-movers are left out once AI has sorted them.')) return; const r = await post({ action: 'legends' }, 'legends'); if (r) toast({ title: `Added ${r.added} legends`, description: r.skipped ? `${r.skipped} were already tracked.` : undefined }); }}>{busy === 'legends' ? 'Adding…' : 'Set national top 100 as legends'}</Button>
+          {data?.jev && <Button size="sm" variant="outline" disabled={!!busy || !data?.rows.length} onClick={async () => { const r = await post({ action: 'classify', dots: data!.rows.filter(x => !x.kind).slice(0, 40).map(x => ({ dot: x.dot, state: x.state })) }, 'classify'); if (r) { toast({ title: `AI sorted ${r.classified} companies` }); void load(); } }}>{busy === 'classify' ? 'Sorting…' : 'Sort this page with AI'}</Button>}
           <Button size="sm" variant="outline" disabled={!!busy || !data?.total} onClick={exportCsv}>{busy === 'csv' ? 'Exporting…' : 'Export CSV'}</Button>
         </div>
       </div>
@@ -171,7 +172,7 @@ function Registry() {
             <td className="p-3 font-semibold">{r.units}</td><td className="p-3">{r.drivers}</td><td className="p-3">{r.miles ? r.miles.toLocaleString() : '—'}</td><td className="p-3">{r.years || '—'}</td>
             <td className="p-3 text-xs whitespace-nowrap">{r.interstate ? 'Interstate' : 'In-state'}{r.hhgAuth ? ' · HHG' : ''}{r.mc ? <><br />{r.mc}</> : ''}</td>
             <td className="p-3">{r.kind ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${KIND_STYLE[r.kind]}`}>{KIND_LABEL[r.kind]}</span> : <span className="text-xs text-muted-foreground">—</span>}{r.sosActive === true && <Badge variant="outline" className="ml-1 text-[10px]">State: active</Badge>}{r.sosActive === false && <Badge variant="outline" className="ml-1 text-[10px] text-red-700">State: inactive</Badge>}</td>
-            <td className="p-3">{r.competitorId && <Badge className="text-[10px]">Tracked</Badge>}</td>
+            <td className="p-3">{r.competitorId ? <Badge className="text-[10px]">Tracked</Badge> : <Button size="sm" variant="outline" className="h-7 text-xs" disabled={!!busy} onClick={async e => { e.stopPropagation(); setBusy(`track-${r.dot}`); try { await apiFetch(auth, `/api/admin/registry/${r.dot}?state=${r.state}`, { action: 'track', tier: 'challenger' }); toast({ title: `${nice(r.dba || r.name)} added to competitors` }); void load(); } catch (err) { toast({ variant: 'destructive', title: 'That didn’t work', description: err instanceof Error ? err.message : '' }); } finally { setBusy(''); } }}>{busy === `track-${r.dot}` ? '…' : 'Track'}</Button>}</td>
           </tr>)}
           {data && !data.rows.length && <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">No companies match. Try a wider area or fewer filters.</td></tr>}
         </tbody>
@@ -214,6 +215,7 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
   const { toast } = useToast();
   const [d, setD] = useState<Detail | null>(null);
   const [busy, setBusy] = useState('');
+  const [research, setResearch] = useState(false);
   const url = `/api/admin/registry/${dot}?state=${state}`;
   const load = useCallback(() => apiFetch<Detail>(auth, url).then(setD).catch(e => toast({ variant: 'destructive', title: 'Couldn’t load company', description: e instanceof Error ? e.message : '' })), [auth, url, toast]);
   useEffect(() => { setD(null); void load(); }, [load]);
@@ -239,6 +241,7 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
             <Button size="sm" disabled={!!busy} onClick={() => act('track', { tier: 'challenger' }, 'Added to your main list')}>Track (main list)</Button>
             <Button size="sm" variant="outline" disabled={!!busy} onClick={() => act('track', { tier: 'legend' }, 'Added to legends')}>Track as legend</Button>
           </>}
+          <Button size="sm" variant="outline" onClick={() => setResearch(true)}>Research for agent network</Button>
         </div>
 
         <section className="grid grid-cols-2 gap-4">
@@ -257,9 +260,9 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
         </section>
 
         <section className="space-y-2 bg-slate-50 rounded-xl p-4">
-          <div className="flex justify-between items-center"><p className="font-bold">Company type (Jev)</p>{d.jev && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => act('classify', {}, 'Jev sorted this company')}>{busy === 'classify' ? 'Asking Jev…' : d.kind ? 'Ask again' : 'Ask Jev'}</Button>}</div>
+          <div className="flex justify-between items-center"><p className="font-bold">Company type (AI)</p>{d.jev && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => act('classify', {}, 'AI sorted this company')}>{busy === 'classify' ? 'Asking AI…' : d.kind ? 'Ask again' : 'Ask AI'}</Button>}</div>
           {d.kind ? <p className="text-sm"><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${KIND_STYLE[d.kind]}`}>{KIND_LABEL[d.kind]}</span> {d.kindConfidence !== null && <span className="text-xs text-muted-foreground">({Math.round(d.kindConfidence * 100)}% confident)</span>}<br /><span className="text-muted-foreground">{d.kindLabel}</span></p>
-            : <p className="text-sm text-muted-foreground">{d.jev ? 'Not sorted yet. The hourly job sorts each state’s biggest movers automatically.' : 'Jev isn’t configured.'}</p>}
+            : <p className="text-sm text-muted-foreground">{d.jev ? 'Not sorted yet. The hourly job sorts each state’s biggest movers automatically.' : 'AI sorting isn’t set up.'}</p>}
           <p className="text-xs text-muted-foreground">Mover likelihood from federal data: {m.moverScore}/100</p>
         </section>
 
@@ -285,6 +288,7 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
         </section>
       </>}
     </div>
+    {research && m && <ResearchPanel target={{ key: m.dot, dot: m.dot, state: m.state, name: nice(m.dba || m.name), city: `${nice(m.city)}, ${m.state}` }} onClose={() => setResearch(false)} />}
   </div>;
 }
 

@@ -298,3 +298,10 @@ test('market radar data is server-only', async () => {
     await assertFails(setDoc(doc(as('boss'), path), { x: 1 }));
   }
 });
+
+test('feedback, research and shop orders are server-only', async () => {
+  for (const path of ['appFeedback/f1', 'agentResearch/123', 'shopOrders/o1']) {
+    await assertFails(getDoc(doc(as('boss'), path)));
+    await assertFails(setDoc(doc(as('boss'), path), { x: 1 }));
+  }
+});

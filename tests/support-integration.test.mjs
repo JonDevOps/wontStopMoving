@@ -1361,3 +1361,34 @@ test('distance API and city moving reports (aggregates from the registry; small 
   const index = await (await fetch(`${base}/moving-reports`)).text();
   assert.match(index, /\/moving-reports\/or\/portland/);
 });
+
+test('feedback: anyone signed in can send; admins and employees review and reply (emailed); research is admin-only', async () => {
+  const send = (token, body) => fetch(`${base}/api/app-feedback`, authorized(token, body));
+  assert.equal((await fetch(`${base}/api/app-feedback`, json({ type: 'idea', message: 'Hello there' }))).status, 401);
+  assert.equal((await send(customerToken, { type: 'idea', message: 'hi' })).status, 400);
+  const created = await send(customerToken, { type: 'problem', message: 'The move date picker is hard to use on my phone.', page: '/dashboard/customer' });
+  assert.equal(created.status, 201);
+  const { id } = await created.json();
+  const item = (await db.doc(`appFeedback/${id}`).get()).data();
+  assert.equal(item.role, 'customer'); assert.equal(item.type, 'problem'); assert.equal(item.status, 'new');
+  assert.equal((await fetch(`${base}/api/app-feedback`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 403);
+  const crew = await extraUser('feedback-crew@example.com', 'feedback-crew');
+  await db.doc(`users/${crew.user.uid}`).set({ role: 'employee', name: 'Fay Feedback', email: 'feedback-crew@example.com' });
+  const list = await (await fetch(`${base}/api/app-feedback`, { headers: { Authorization: `Bearer ${await crew.token()}` } })).json();
+  assert.ok(list.items.some(i => i.id === id));
+  const before = (await db.collection('emailOutbox').get()).size;
+  assert.equal((await send(await crew.token(), { action: 'update', id, status: 'planned', reply: 'Thanks! We are improving it this month.' })).status, 200);
+  const after = (await db.doc(`appFeedback/${id}`).get()).data();
+  assert.equal(after.status, 'planned'); assert.equal(after.repliedBy, 'Fay Feedback');
+  assert.ok((await db.collection('emailOutbox').get()).size > before);
+  assert.equal((await send(customerToken, { action: 'update', id, status: 'done' })).status, 403);
+  await deleteApp(crew.app);
+
+  const research = (token, body) => fetch(`${base}/api/admin/agents/research`, authorized(token, body));
+  assert.equal((await research(customerToken, { dot: '22', state: 'CA' })).status, 403);
+  assert.equal((await research(adminToken, {})).status, 400);
+  assert.equal((await research(adminToken, { dot: '22', state: 'CA' })).status, 502); // No AI key in tests.
+  assert.equal((await fetch(`${base}/api/admin/agents/research?key=bad%20key!`, { headers: { Authorization: `Bearer ${adminToken}` } })).status, 400);
+  const none = await (await fetch(`${base}/api/admin/agents/research?key=22`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.equal(none.result, null);
+});
