@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { errorResponse, HttpError, readJson, requireRole } from '@/lib/server/auth';
-import { jevGroup, legends, matchGroup } from '@/lib/server/legends';
+import { jevGroup, legends, matchGroup, safetyGroup } from '@/lib/server/legends';
 import { placesConfigured, placesUsage } from '@/lib/server/places';
 import { jevConfigured } from '@/lib/server/jev';
 import { GROUP_LABEL, type LegendGroup } from '@/lib/legends';
 
 /**
  * The Legends board. GET: every group with what we know.
- * POST { action: 'match-google' | 'jev', group }: works through 40 at a time.
+ * POST { action: 'match-google' | 'jev' | 'safety', group }: works through 40 at a time.
  */
 export async function GET(req: Request) {
   try {
@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       if (!placesConfigured()) throw new HttpError(503, 'Google Places isn’t set up yet (GOOGLE_CLOUD_API_KEY).');
       return NextResponse.json({ ...(await matchGroup(group)), usage: await placesUsage() });
     }
+    if (body.action === 'safety') return NextResponse.json(await safetyGroup(group));
     if (body.action === 'jev') {
       if (!jevConfigured()) throw new HttpError(503, 'Jev isn’t configured yet (TYPESAFE_API_KEY).');
       return NextResponse.json(await jevGroup(group));
