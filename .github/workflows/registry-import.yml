@@ -31,8 +31,7 @@ jobs:
     env:
       STORAGE_BUCKET: ${{ vars.REGISTRY_STORAGE_BUCKET }}
       FORCE_IMPORT: ${{ inputs.force || 'false' }}
-      CENSUS_URL: https://data.transportation.gov/api/views/az4n-8mr2/rows.csv?accessType=DOWNLOAD
-      AUTHORITY_URL: https://data.transportation.gov/api/views/6eyk-hxee/rows.csv?accessType=DOWNLOAD
+      PAGE: 50000
       META_URL: https://data.transportation.gov/api/views/az4n-8mr2.json
     steps:
       - name: Check out source
@@ -71,8 +70,23 @@ jobs:
             if (!a) { console.error("No data dictionary attachment found"); process.exit(0); }
             const fs = require("fs"); fs.appendFileSync(process.env.GITHUB_ENV, `DICTIONARY_ASSET=${a.assetId}\nDICTIONARY_NAME=${(a.filename || a.name).replace(/[^\w.() -]+/g, "_")}\nSOURCE_UPDATED=${m.rowsUpdatedAt || ""}\n`);
           ' "$RUNNER_TEMP/dot/meta.json"
-          curl -fsSL --retry 4 --retry-delay 60 "$CENSUS_URL" -o "$RUNNER_TEMP/dot/census.csv"
-          curl -fsSL --retry 4 --retry-delay 60 "$AUTHORITY_URL" -o "$RUNNER_TEMP/dot/authority.csv"
+          # The bulk CSV export streams at ~100 KB/s (about 6 hours for 2 GB), so page through the
+          # open-data API instead (~50k rows in a few seconds), asking only for the rows the importer keeps.
+          paged() { # paged <dataset> <where> <out.csv>
+            local offset=0 page="$RUNNER_TEMP/dot/page.csv" lines
+            while :; do
+              curl -fsSL --retry 6 --retry-delay 20 --retry-all-errors -G "https://data.transportation.gov/resource/$1.csv" \
+                --data-urlencode "\$where=$2" --data-urlencode '$order=:id' \
+                --data-urlencode "\$limit=$PAGE" --data-urlencode "\$offset=$offset" -o "$page"
+              if [ "$offset" = 0 ]; then cp "$page" "$3"; else tail -n +2 "$page" >> "$3"; fi
+              lines=$(($(wc -l < "$page") - 1))
+              echo "$1: $((offset + lines)) rows"
+              [ "$lines" -lt "$PAGE" ] && break
+              offset=$((offset + PAGE))
+            done
+          }
+          paged az4n-8mr2 "status_code='A'" "$RUNNER_TEMP/dot/census.csv"
+          paged 6eyk-hxee "hhg_chk='Y' OR common_stat='A' OR broker_stat='A'" "$RUNNER_TEMP/dot/authority.csv"
           ls -la "$RUNNER_TEMP/dot"
 
       - name: Download the data dictionary
