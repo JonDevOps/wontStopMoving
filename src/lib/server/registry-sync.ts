@@ -1,7 +1,7 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { politeFetch, RateLimited } from './soda-token';
 import { adminDb } from './firebase-admin';
-import { loadState, saveLite, saveState } from './registry-store';
+import { loadImportedMovers, loadManifest, loadState, saveLite, saveState, type ImportManifest } from './registry-store';
 import { ourMetrics } from './competitors';
 import { zipLookup } from './geo';
 import { backfillClosures, recordChanges } from './market-events';
@@ -33,7 +33,15 @@ async function socrata<T>(url: string, params: Record<string, string>): Promise<
   }
 }
 
-export async function syncState(state: string): Promise<{ state: string; count: number; likely: number; changes: number }> {
+/** Household-goods rows → movers, from the imported census file when there is one, otherwise the open-data API. */
+async function fetchMovers(state: string, manifest: ImportManifest | null): Promise<{ rows: Mover[]; source: 'file' | 'api' }> {
+  const imported = manifest ? await loadImportedMovers(state) : null;
+  if (imported) {
+    return {
+      source: 'file',
+      rows: imported.map(r => toMover(r, r.auth_mc !== undefined ? { mc: r.auth_mc || '', hhg: r.auth_hhg === 'Y', active: r.auth_active === 'Y', broker: r.auth_broker === 'Y' } : undefined, zipLookup)),
+    };
+  }
   const [census, authority] = await Promise.all([
     socrata<CensusRow>(CENSUS, { $where: `phy_state='${state}'${isProvince(state) ? " AND phy_country='CA'" : ''} AND crgo_household='X' AND status_code='A'`, $order: 'dot_number' }),
     socrata<Record<string, string>>(AUTHORITY, { $select: 'dot_number,docket_number,hhg_chk,common_stat,broker_stat', $where: `bus_state_code='${state}' AND (hhg_chk='Y' OR common_stat='A' OR broker_stat='A')`, $order: 'dot_number' }),
@@ -46,7 +54,12 @@ export async function syncState(state: string): Promise<{ state: string; count: 
     // Several dockets per carrier: keep the household-goods / active one.
     if (!prev || (row.hhg && !prev.hhg) || (row.active && !prev.active)) auth.set(dot, row);
   }
-  const rows = census.map(r => toMover(r, auth.get(String(Number(r.dot_number || 0))), zipLookup));
+  return { source: 'api', rows: census.map(r => toMover(r, auth.get(String(Number(r.dot_number || 0))), zipLookup)) };
+}
+
+export async function syncState(state: string): Promise<{ state: string; count: number; likely: number; changes: number; source: 'file' | 'api' }> {
+  const manifest = await loadManifest(true);
+  const { rows, source } = await fetchMovers(state, manifest);
   // Compare with the previous snapshot before replacing it (new, closed, grew, shrank).
   const previous = await loadState(state).catch(() => [] as Mover[]);
   await saveState(state, rows);
@@ -69,6 +82,9 @@ export async function syncState(state: string): Promise<{ state: string; count: 
   await adminDb().doc(`registryStates/${state}`).set({
     state, count: rows.length, likely: likely.length, units: likely.reduce((n, m) => n + m.units, 0), drivers: likely.reduce((n, m) => n + m.drivers, 0),
     top, bbox, center: bbox ? [(bbox.south + bbox.north) / 2, (bbox.west + bbox.east) / 2] : null, counties, updatedAt: FieldValue.serverTimestamp(),
+    // Other for-hire carriers in the state, by category (from the census file import).
+    source, importedAt: source === 'file' ? manifest!.generatedAt : null,
+    carriers: source === 'file' ? manifest!.counts[state]?.carriers ?? 0 : null, partners: source === 'file' ? manifest!.counts[state]?.partners ?? null : null, categories: source === 'file' ? manifest!.counts[state]?.categories ?? {} : null,
   }, { merge: true });
   // First time for a state: load the last ~18 months of closures so the radar starts with history.
   const summary = (await adminDb().doc(`registryStates/${state}`).get()).data();
@@ -77,7 +93,7 @@ export async function syncState(state: string): Promise<{ state: string; count: 
     catch (error) { console.error('Closure backfill failed', state, error); }
   }
   await updateTrackedCompetitors(rows);
-  return { state, count: rows.length, likely: likely.length, changes };
+  return { state, count: rows.length, likely: likely.length, changes, source };
 }
 
 /** Keeps tracked competitors' fleet numbers current and logs a daily snapshot. */
@@ -121,14 +137,19 @@ export async function snapshotUs() {
  * the 15-minute schedule spreads ~96 small requests across the day (each
  * state refreshed about every 13 hours). Stops early if rate-limited.
  */
-export async function runRegistrySync(budgetMs = 240_000, maxStates = 1) {
+export async function runRegistrySync(budgetMs = 240_000, maxStates?: number) {
   const started = Date.now();
   const db = adminDb();
-  const snap = await db.collection('registryStates').select('updatedAt').get();
+  const manifest = await loadManifest(true);
+  const snap = await db.collection('registryStates').select('updatedAt', 'importedAt').get();
   const age = new Map(snap.docs.map(d => [d.id, (d.data().updatedAt as Timestamp | undefined)?.toMillis() || 0]));
-  const due = REGISTRY_AREAS.filter(s => Date.now() - (age.get(s) || 0) > STALE_MS)
+  const imported = new Map(snap.docs.map(d => [d.id, d.data().importedAt as string | null | undefined]));
+  // With a census file import: every state not yet loaded from the latest file (no API calls, so a few per run).
+  // Without one: the stalest states from the open-data API, one per run.
+  const due = (manifest ? REGISTRY_AREAS.filter(s => imported.get(s) !== manifest.generatedAt) : REGISTRY_AREAS.filter(s => Date.now() - (age.get(s) || 0) > STALE_MS))
     .sort((a, b) => (PRIORITY.includes(b) ? 1 : 0) - (PRIORITY.includes(a) ? 1 : 0) || (age.get(a) || 0) - (age.get(b) || 0));
-  const done: { state: string; count: number; likely: number; changes: number }[] = [], failed: { state: string; error: string }[] = [];
+  maxStates ??= manifest ? 4 : 1;
+  const done: { state: string; count: number; likely: number; changes: number; source: 'file' | 'api' }[] = [], failed: { state: string; error: string }[] = [];
   for (const state of due) {
     if (Date.now() - started > budgetMs || done.length + failed.length >= maxStates) break;
     try { done.push(await syncState(state)); }

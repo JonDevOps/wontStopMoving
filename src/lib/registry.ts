@@ -15,6 +15,8 @@ export type Mover = {
   mc: string; hhgAuth: boolean; authActive: boolean; broker: boolean;
   lat: number | null; lng: number | null;
   moverScore: number; likelyMover: boolean;
+  cats?: number; otherCargo?: string; // Service categories (bitmask, src/lib/carriers.ts), on non-mover carriers.
+  partnerScore?: number; partnerReasons?: string[]; // Partner candidates only (src/lib/carriers.ts partnerScore).
 };
 
 const FREE_MAIL = /(^|\.)(gmail|yahoo|ymail|hotmail|outlook|live|msn|aol|icloud|me|mac|comcast|att|sbcglobal|verizon|cox|charter|earthlink|protonmail|proton|gmx|mail|zoho|yandex|bellsouth|frontier|optonline|q|qq|163)\.[a-z.]+$/i;
@@ -101,7 +103,7 @@ export const REGION_PRESETS: Record<string, { label: string; state: string; coun
   'socal': { label: 'Los Angeles / SoCal', state: 'CA', counties: ['037', '059', '065', '071', '111', '073'] },
 };
 
-export type SortKey = 'size' | 'units' | 'drivers' | 'miles' | 'years' | 'newest' | 'name' | 'distance';
+export type SortKey = 'size' | 'units' | 'drivers' | 'miles' | 'years' | 'newest' | 'name' | 'distance' | 'score';
 export type MoverFilters = {
   q?: string; states?: string[]; region?: string; city?: string; zip?: string;
   near?: { lat: number; lng: number; miles: number };
@@ -155,6 +157,7 @@ export function sortMovers(rows: Mover[], key: SortKey = 'size', near?: { lat: n
     name: (a, b) => (a.dba || a.name).localeCompare(b.dba || b.name),
     distance: (a, b) => near && a.lat !== null && b.lat !== null && a.lng !== null && b.lng !== null
       ? distanceMiles(near.lat, near.lng, a.lat, a.lng) - distanceMiles(near.lat, near.lng, b.lat, b.lng) : 0,
+    score: (a, b) => sizeScore(b) - sizeScore(a), // Partner fit applies to carriers only; movers fall back to size.
   };
   return [...rows].sort((a, b) => by[key](a, b) || a.dot.localeCompare(b.dot));
 }
@@ -173,13 +176,16 @@ export function ourRank(rows: Mover[], us: OurFleet, key: 'size' | 'units' | 'dr
 }
 
 /** Comma-safe CSV of registry rows. */
-export function moversCsv(rows: Mover[], now = Date.now()): string {
+export function moversCsv(rows: Mover[], now = Date.now(), services: (m: Mover) => string = () => 'Household goods'): string {
   const cols: [string, (m: Mover) => string | number][] = [
     ['DOT', m => m.dot], ['MC', m => m.mc], ['Legal name', m => m.name], ['DBA', m => m.dba], ['Street', m => m.street], ['City', m => m.city], ['State', m => m.state], ['ZIP', m => m.zip],
     ['Phone', m => m.phone], ['Email', m => m.email], ['Website (from email)', m => m.site], ['Officer', m => m.officer], ['Entity type', m => m.org],
     ['Power units', m => m.units], ['Trucks', m => m.trucks], ['Drivers', m => m.drivers], ['Miles/yr', m => m.miles], ['Years in business', m => yearsInBusiness(m, now)],
     ['Interstate', m => (m.interstate ? 'Yes' : 'No')], ['HHG authority', m => (m.hhgAuth ? 'Yes' : 'No')], ['Mover likelihood', m => m.moverScore],
+    ['Services', m => services(m)],
   ];
+  // The partner shortlist: its score and why.
+  if (rows.some(m => m.partnerScore !== undefined)) cols.push(['Partner fit (0-100)', m => m.partnerScore ?? ''], ['Why', m => (m.partnerReasons || []).join('; ')]);
   const esc = (v: string | number) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   return [cols.map(c => esc(c[0])).join(','), ...rows.map(m => cols.map(c => esc(c[1](m))).join(','))].join('\n');
 }

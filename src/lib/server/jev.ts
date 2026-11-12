@@ -45,3 +45,26 @@ export async function classifyMover(m: Mover): Promise<{ kind: MoverKind; confid
   const kind = (a?.choice in KINDS ? a.choice : 'other') as MoverKind;
   return { kind, confidence: Number(a?.confidence || 0), probabilities: a?.probabilities || {}, model: out.model };
 }
+
+/** How a non-mover carrier could work with a moving company (the partner shortlist). */
+export const PARTNER_FITS = {
+  moving_help: 'Could do moving work: furniture, appliance or white-glove delivery, office or household moves, or labor',
+  vehicle_transport: 'Car hauler or vehicle transport that could ship our customers’ cars',
+  linehaul: 'Freight or trucking carrier that could haul overflow or long-distance loads for a mover',
+  storage_container: 'Containers, intermodal, portable storage or warehousing',
+  broker: 'Broker, dispatcher or freight forwarder that arranges loads but doesn’t haul them',
+  not_fit: 'Not a fit: specialized hauling (fuel, waste, livestock, towing only), a single truck leased to another carrier, or not an operating business',
+} as const;
+export type PartnerFit = keyof typeof PARTNER_FITS;
+
+export async function classifyPartner(m: Mover & { services?: string }): Promise<{ fit: PartnerFit; confidence: number; probabilities: Record<string, number>; model: string }> {
+  const state = JSON.stringify({
+    legal_name: m.name, doing_business_as: m.dba || null, location: `${m.city}, ${m.state}`, website_from_email: m.site || null,
+    cargo_it_hauls: m.services || null, other_cargo_written_in: m.otherCargo || null, power_units: m.units, drivers: m.drivers, miles_per_year: m.miles,
+    interstate: m.interstate, active_federal_authority: m.authActive, household_goods_authority: m.hhgAuth, broker_authority: m.broker, registered: m.added || null,
+  });
+  const out = await ask(state, { fit: { type: 'choice', instructions: 'This U.S. motor carrier is not a household moving company. How could it work with a moving company as a partner or agent, based on its FMCSA registration?', criteria: { ...PARTNER_FITS } } });
+  const a = out.answers.fit;
+  const fit = (a?.choice in PARTNER_FITS ? a.choice : 'not_fit') as PartnerFit;
+  return { fit, confidence: Number(a?.confidence || 0), probabilities: a?.probabilities || {}, model: out.model };
+}
