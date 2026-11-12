@@ -31,6 +31,7 @@ import { METROS } from '../src/lib/metros.ts';
 import { usableCredit, giftCardAmount, normalizeGiftCode, formatGiftCode, isGiftCodeCore } from '../src/lib/rewards.ts';
 import { diffPrices, describeChange } from '../src/lib/price-watch.ts';
 import { parseFeed, matchDemand } from '../src/lib/demand.ts';
+import { profileIssues, EMPTY_PROFILE } from '../src/lib/mover-profile.ts';
 import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, columnChanges, filterCarriers, sortCarriers, tupleToMover, servicesLabel, KNOWN_COLUMNS, partnerScore, isPartnerCandidate, newPartnerCarriers, newCarrierAlerts, primaryCategory, CATEGORY_COLOR } from '../src/lib/carriers.ts';
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
@@ -1823,4 +1824,33 @@ test('demand monitor: parses RSS and Atom, keeps only people hiring movers, refu
   assert.equal((await post({ action: 'status', id: 'aaaaaaaaaaaaaaaaaaaaaaaa', status: 'spam' })).status, 400);
   const view = await (await fetch(`${base}/api/admin/demand`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
   assert.equal(view.signals.find(s => s.id === 'aaaaaaaaaaaaaaaaaaaaaaaa').status, 'contacted');
+});
+
+test('mover credentials: issues block new jobs until fixed; movers edit their own details, only admins record background results', async () => {
+  const now = Date.parse('2026-11-12T12:00:00Z');
+  const full = { ...EMPTY_PROFILE, usdot: '123', insuranceCarrier: 'Acme', policyNumber: 'P1', insuranceExpires: '2027-06-01', backgroundStatus: 'clear' };
+  assert.deepEqual(profileIssues(full, { needsDot: true }, now), []);
+  assert.ok(profileIssues({ ...full, usdot: '' }, { needsDot: true }, now).some(i => i.field === 'usdot' && i.blocking));
+  assert.deepEqual(profileIssues({ ...full, usdot: '' }, { needsDot: false }, now), []);
+  const soon = profileIssues({ ...full, insuranceExpires: '2026-12-01' }, { needsDot: true }, now);
+  assert.equal(soon[0].blocking, false);
+  assert.ok(profileIssues({ ...full, insuranceExpires: '2026-11-01' }, { needsDot: true }, now)[0].blocking);
+  assert.ok(profileIssues({ ...full, backgroundStatus: 'not-started' }, { needsDot: true }, now).some(i => i.field === 'background'));
+
+  const mover = await extraUser('credentials-mover@example.com', 'credentials-mover');
+  await db.doc(`users/${mover.user.uid}`).set({ role: 'provider', name: 'Cred Mover', email: 'credentials-mover@example.com' });
+  await db.doc(`providers/${mover.user.uid}`).set({ name: 'Cred Mover', status: 'approved', hasDotVehicle: false });
+  const token = await mover.token();
+  assert.equal((await fetch(`${base}/api/provider/credentials`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 403);
+  const saved = await (await fetch(`${base}/api/provider/credentials`, authorized(token, { insuranceCarrier: 'Acme Insurance', policyNumber: 'POL-9', insuranceExpires: '2030-01-31', cargoCoverage: '100000', backgroundConsent: true, backgroundStatus: 'clear' }))).json();
+  assert.equal(saved.profile.backgroundStatus, 'consented'); // Movers can't mark themselves clear.
+  assert.equal(saved.profile.cargoCoverage, 100000);
+  assert.deepEqual(saved.issues, []);
+  assert.equal((await fetch(`${base}/api/admin/credentials`, authorized(token, { uid: mover.user.uid, backgroundStatus: 'clear' }))).status, 403);
+  assert.equal((await fetch(`${base}/api/admin/credentials`, authorized(adminToken, { uid: mover.user.uid, backgroundStatus: 'clear' }))).status, 200);
+  const list = await (await fetch(`${base}/api/admin/credentials`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  const row = list.movers.find(m => m.uid === mover.user.uid);
+  assert.equal(row.profile.backgroundStatus, 'clear');
+  assert.equal(row.blocking, false);
+  await deleteApp(mover.app);
 });
