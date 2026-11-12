@@ -1392,3 +1392,13 @@ test('feedback: anyone signed in can send; admins and employees review and reply
   const none = await (await fetch(`${base}/api/admin/agents/research?key=22`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
   assert.equal(none.result, null);
 });
+
+test('where to expand uses Census moving-business counts (and covers states the registry has not loaded)', async () => {
+  const view = async scope => (await (await fetch(`${base}/api/admin/market?view=expansion&scope=${scope}`, { headers: { Authorization: `Bearer ${adminToken}` } })).json()).counties;
+  const santaClara = (await view('CA')).find(c => c.fips === '06085');
+  assert.equal(santaClara.censusBusinesses, 58); // Census 2023 County Business Patterns, NAICS 484210.
+  assert.ok(santaClara.movers >= 58);
+  const hennepin = (await view('MN')).find(c => c.fips === '27053'); // Minnesota isn't in the test registry, but the Census counts it.
+  assert.equal(hennepin?.censusBusinesses, 23);
+  assert.equal(hennepin?.registryMovers, 0);
+});

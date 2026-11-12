@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from './firebase-admin';
-import { COUNTY_POP, ZIPS, ZIP_COUNTY } from './geo';
+import { COUNTY_MOVING, COUNTY_POP, ZIPS, ZIP_COUNTY } from './geo';
 import { loadState } from './registry-store';
 import { stateSummaries } from './registry-query';
 import { acquisitionScore, countyKey, expansionScore, isRecruitCandidate, milesBetween, moversPer10k, STATE_FIPS, zipOf, type CountyRow } from '@/lib/market';
@@ -26,7 +26,7 @@ export const inWatch = (s: RadarSettings, m: { state: string; county: string }) 
 const FIPS_STATE = Object.fromEntries(Object.entries(STATE_FIPS).map(([s, f]) => [f, s]));
 
 /** Every county: people, likely movers, our quote requests and bookings (last 180 days), and an opportunity score. */
-export async function expansion(states?: string[]): Promise<(CountyRow & { per10k: number; score: number; trucksPer10k: number })[]> {
+export async function expansion(states?: string[]): Promise<(CountyRow & { per10k: number; score: number; trucksPer10k: number; registryMovers: number; censusBusinesses: number | null; censusEmployees: number | null })[]> {
   const [summaries, quotes, jobs] = await Promise.all([
     stateSummaries(),
     adminDb().collection('quotes').where('createdAt', '>=', Timestamp.fromMillis(Date.now() - 180 * 86400000)).select('pickupZip', 'pickupAddress').limit(20000).get(),
@@ -38,14 +38,17 @@ export async function expansion(states?: string[]): Promise<(CountyRow & { per10
   for (const d of jobs.docs) bump(zipOf(d.data().pickupAddress), 'bookings');
   const supply = new Map<string, { movers: number; trucks: number }>();
   for (const s of summaries) for (const [c3, v] of Object.entries((s as any).counties || {}) as [string, { movers: number; trucks: number }][]) supply.set(countyKey(s.state, c3), v);
-  // Skip states not loaded yet, or whose county codes don't match the Census (e.g. Connecticut's 2022 planning regions).
+  // A state is usable when the registry has loaded it (with matching county codes) or the Census counts its moving businesses.
   const matchedByState = new Map<string, number>();
   for (const [fips, v] of supply) if (COUNTY_POP[fips]) { const st = FIPS_STATE[fips.slice(0, 2)]; matchedByState.set(st, (matchedByState.get(st) || 0) + v.movers); }
+  for (const [fips, [est]] of Object.entries(COUNTY_MOVING)) { const st = FIPS_STATE[fips.slice(0, 2)]; if (st) matchedByState.set(st, (matchedByState.get(st) || 0) + est); }
   const rows = Object.entries(COUNTY_POP).map(([fips, [name, population]]) => {
     const state = FIPS_STATE[fips.slice(0, 2)] || '';
     const sup = supply.get(fips) || { movers: 0, trucks: 0 }, dem = demand.get(fips) || { quotes: 0, bookings: 0 };
-    const row: CountyRow = { fips, name, state, population, movers: sup.movers, trucks: sup.trucks, quotes: dem.quotes, bookings: dem.bookings };
-    return { ...row, per10k: moversPer10k(row), trucksPer10k: population ? Math.round((sup.trucks / population) * 100000) / 10 : 0, score: expansionScore(row) };
+    // Supply: the larger of the Census count (all moving businesses with employees) and DOT-registered movers.
+    const census = COUNTY_MOVING[fips];
+    const row: CountyRow = { fips, name, state, population, movers: Math.max(sup.movers, census?.[0] || 0), trucks: sup.trucks, quotes: dem.quotes, bookings: dem.bookings };
+    return { ...row, registryMovers: sup.movers, censusBusinesses: census ? census[0] : null, censusEmployees: census ? census[1] : null, per10k: moversPer10k(row), trucksPer10k: population ? Math.round((sup.trucks / population) * 100000) / 10 : 0, score: expansionScore(row) };
   }).filter(r => r.state && (matchedByState.get(r.state) || 0) > 0 && (!states?.length || states.includes(r.state)));
   return rows.sort((a, b) => b.score - a.score);
 }
