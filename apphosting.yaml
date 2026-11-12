@@ -82,3 +82,8 @@ env:
     secret: TYPESAFE_API_KEY
   - variable: SODA_APP_TOKEN
     secret: SODA_APP_TOKEN
+  # Google Places (New) and YouTube Data API v3: company lookups on click and YouTube numbers.
+  - variable: GOOGLE_CLOUD_API_KEY
+    secret: GOOGLE_CLOUD_API_KEY
+    availability:
+      - RUNTIME
