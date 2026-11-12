@@ -25,6 +25,7 @@ import { toMover, siteFromEmail, saneUnits, filterMovers, sortMovers, ourRank, m
 import { diffMovers, closureReason, mdy, zipOf, zipsWithin, expansionScore, acquisitionScore, isRecruitCandidate, moverVerdict, countyKey } from '../src/lib/market.ts';
 import { priceCart, SALES_TAX_RATE } from '../src/lib/shop.ts';
 import { platformOf, cleanSocials, passGaps } from '../src/lib/competitors.ts';
+import { guessDomains, isDirectory, matchPage, nameTokens, urlsIn } from '../src/lib/web-presence.ts';
 import { explainRank, sizeParts } from '../src/lib/registry.ts';
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
@@ -1164,6 +1165,12 @@ test('mover registry API: admin-only search, area ranking, tracking competitors 
   const sos = await (await fetch(`${base}/api/admin/registry/1234567?state=CA`, authorized(adminToken, { action: 'sos' }))).json();
   assert.equal(sos.free, false); // California has no free registry data: link out instead.
   assert.equal((await fetch(`${base}/api/admin/registry/999?state=CA`, { headers: { Authorization: `Bearer ${adminToken}` } })).status, 404);
+  // Website & socials: a recent lookup is served from cache (no web requests), even when asked to search again.
+  assert.equal(detail.web, null); assert.equal(typeof detail.searchReady, 'boolean');
+  await db.doc('registryEnrichment/1234567').set({ web: { site: 'https://acmemoving.com', source: 'email', matchedBy: ['phone'], socials: { facebook: 'https://facebook.com/acme' }, possibleSocials: {}, tried: [], searched: [], checkedAt: new Date() } }, { merge: true });
+  const web = await (await fetch(`${base}/api/admin/registry/1234567?state=CA`, authorized(adminToken, { action: 'web', refresh: true }))).json();
+  assert.equal(web.site, 'https://acmemoving.com'); assert.equal(web.socials.facebook, 'https://facebook.com/acme');
+  assert.equal((await (await fetch(`${base}/api/admin/registry/1234567?state=CA`, { headers: { Authorization: `Bearer ${adminToken}` } })).json()).web.source, 'email');
 
   for (const path of ['/api/cron/registry-sync', '/api/cron/registry-enrich']) assert.equal((await fetch(`${base}${path}`, { method: 'POST' })).status, 401);
 });
@@ -1451,4 +1458,19 @@ test('our numbers merge (authority and socials survive saving metrics); competit
   assert.match(reg.explain.formula, /trucks × 10/);
   assert.equal(reg.explain.ours.total, 15 * 10 + 10 * 4);
   assert.ok(!reg.explain.steps.some(st => /USDOT/.test(st))); // We said we have authority.
+});
+
+test('website finder: likely domains, directory sites skipped, a page only counts with phone, USDOT, or name plus city', () => {
+  assert.deepEqual(guessDomains(['GENTLE GIANT MOVING COMPANY INC']), ['https://gentlegiantmoving.com', 'https://gentlegiant.com', 'https://gentlegiantmovers.com', 'https://gentlegiantmoving.com'].filter((v, i, a) => a.indexOf(v) === i));
+  assert.deepEqual(guessDomains(['A B LLC']), []); // Too short to guess.
+  assert.deepEqual(nameTokens('Two Guys Moving & Storage, LLC'), ['two', 'guys']);
+  for (const u of ['https://www.yelp.com/biz/x', 'https://m.facebook.com/x', 'https://www.dmv.ca.gov', 'https://moving.com/x']) assert.ok(isDirectory(u), u);
+  assert.ok(!isDirectory('https://acmemoving.com'));
+  const m = { name: 'ACME MOVING LLC', city: 'SAN JOSE', phone: '4085551234', dot: '373544' };
+  assert.deepEqual(matchPage(m, { text: 'Call us (408) 555-1234 today' }).matchedBy, ['phone']);
+  assert.ok(matchPage(m, { text: 'Licensing: DOT #373544, MC 218' }).ok);
+  assert.ok(!matchPage(m, { text: 'DOT #3735441' }).ok);
+  assert.ok(matchPage(m, { text: 'Acme Moving serves San Jose and the South Bay' }).ok);
+  assert.ok(!matchPage(m, { text: 'Acme Moving serves Boston' }).ok); // Same name, different company.
+  assert.deepEqual(urlsIn('WEBSITE: https://acme.com.\nSOCIAL: https://facebook.com/acme)'), ['https://acme.com', 'https://facebook.com/acme']);
 });

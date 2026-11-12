@@ -219,7 +219,11 @@ type Detail = {
   kind: string | null; kindLabel: string | null; kindConfidence: number | null; jev: boolean;
   sos: { best: { name: string; status: string; active: boolean | null; entityType: string; formed: string; agent: string; agentAddress: string; id: string; source: string; url: string | null } | null; matches: unknown[]; free: boolean; checkedAt: string | null } | null;
   sosSearchUrl: string; insurance: { type: string; insurer: string; policy: string; coverage: number; effective: string }[]; competitorId: string | null; links: Record<string, string>;
+  web: Web | null; searchReady: boolean; braveReady: boolean;
 };
+type Web = { site: string | null; source: 'email' | 'guess' | 'google' | 'brave' | null; matchedBy: string[]; socials: Record<string, string>; possibleSocials: Record<string, string>; tried: { url: string; source: string; ok: boolean; matchedBy: string[]; error?: string }[]; searched: string[]; checkedAt: string | null };
+const WEB_SOURCE: Record<string, string> = { email: 'their email domain on the federal filing', guess: 'a likely web address from their name', google: 'a Google search', brave: 'a Brave search' };
+const SOCIAL_NAME: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn', x: 'X', yelp: 'Yelp', google: 'Google', nextdoor: 'Nextdoor', bbb: 'BBB', thumbtack: 'Thumbtack', angi: 'Angi' };
 
 function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: string; onClose: () => void; onChanged: () => void }) {
   const auth = useAuth();
@@ -230,6 +234,16 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
   const url = `/api/admin/registry/${dot}?state=${state}`;
   const load = useCallback(() => apiFetch<Detail>(auth, url).then(setD).catch(e => toast({ variant: 'destructive', title: 'Couldn’t load company', description: e instanceof Error ? e.message : '' })), [auth, url, toast]);
   useEffect(() => { setD(null); void load(); }, [load]);
+  // First open: look up their website and social profiles automatically (cached for 30 days after).
+  const [webBusy, setWebBusy] = useState(false);
+  const findWeb = useCallback(async (refresh: boolean) => {
+    setWebBusy(true);
+    try { const web = await apiFetch<Web>(auth, url, { action: 'web', refresh }); setD(prev => prev ? { ...prev, web } : prev); }
+    catch (e) { toast({ variant: 'destructive', title: 'Website search didn’t finish', description: e instanceof Error ? e.message : '' }); }
+    finally { setWebBusy(false); }
+  }, [auth, url, toast]);
+  const autoRan = useRef('');
+  useEffect(() => { if (d && !d.web && autoRan.current !== url) { autoRan.current = url; void findWeb(false); } }, [d, url, findWeb]);
   const act = async (action: string, extra: Record<string, unknown> = {}, ok?: string) => {
     setBusy(action);
     try { await apiFetch(auth, url, { action, ...extra }); if (ok) toast({ title: ok }); await load(); onChanged(); }
@@ -260,7 +274,7 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
           <Field label="Entity type">{nice(m.org)}</Field><Field label="Company officer">{nice(m.officer)}</Field>
           <Field label="Address">{nice(m.street)}<br />{nice(m.city)}, {m.state} {m.zip}</Field>
           <Field label="Contact">{m.phone && <a className="underline" href={`tel:${m.phone}`}>{phone(m.phone)}</a>}{m.cell && m.cell !== m.phone && <><br />Cell: {phone(m.cell)}</>}{m.email && <><br /><a className="underline break-all" href={`mailto:${m.email}`}>{m.email}</a></>}</Field>
-          <Field label="Website">{m.site ? <a className="underline break-all" href={m.site} target="_blank" rel="noreferrer noopener">{m.site.replace(/^https?:\/\//, '')}</a> : 'Not on file (no company email domain)'}</Field>
+          <Field label="Website">{(m.site || d.web?.site) ? <a className="underline break-all" href={m.site || d.web!.site!} target="_blank" rel="noreferrer noopener">{(m.site || d.web!.site!).replace(/^https?:\/\//, '')}</a> : webBusy ? 'Searching…' : 'None found'}</Field>
           <Field label="In business">{m.years ? `${m.years} years (DOT since ${m.added})` : m.added}</Field>
           <Field label="Fleet">{m.units} power units{m.unitsReported !== m.units ? ` (filed ${m.unitsReported}, likely a typo)` : ''} · {m.trucks} trucks</Field>
           <Field label="Drivers">{m.drivers} ({m.cdl} with CDL)</Field>
@@ -269,6 +283,8 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
           <Field label="Safety rating">{({ S: 'Satisfactory', C: 'Conditional', U: 'Unsatisfactory' } as Record<string, string>)[m.safety] || 'Not rated'}</Field>
           <Field label="Last federal update">{m.updated}</Field>
         </section>
+
+        <WebSection web={d.web} busy={webBusy} searchReady={d.searchReady} braveReady={d.braveReady} onRefresh={() => findWeb(true)} />
 
         <section className="space-y-2 bg-slate-50 rounded-xl p-4">
           <div className="flex justify-between items-center"><p className="font-bold">Company type (AI)</p>{d.jev && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => act('classify', {}, 'AI sorted this company')}>{busy === 'classify' ? 'Asking AI…' : d.kind ? 'Ask again' : 'Ask AI'}</Button>}</div>
@@ -301,6 +317,22 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
     </div>
     {research && m && <ResearchPanel target={{ key: m.dot, dot: m.dot, state: m.state, name: nice(m.dba || m.name), city: `${nice(m.city)}, ${m.state}` }} onClose={() => setResearch(false)} />}
   </div>;
+}
+
+function WebSection({ web, busy, searchReady, braveReady, onRefresh }: { web: Web | null; busy: boolean; searchReady: boolean; braveReady: boolean; onRefresh: () => void }) {
+  const chips = (socials: Record<string, string>) => <div className="flex flex-wrap gap-2">{Object.entries(socials).map(([k, u]) => <a key={k} href={u} target="_blank" rel="noreferrer noopener" className="text-xs px-2 py-1 rounded-full border bg-white hover:bg-slate-100">{SOCIAL_NAME[k] || k}</a>)}</div>;
+  return <section className="space-y-2 bg-slate-50 rounded-xl p-4">
+    <div className="flex justify-between items-center"><p className="font-bold">Website & social media</p><Button size="sm" variant="outline" disabled={busy} onClick={onRefresh}>{busy ? 'Searching…' : web ? 'Search again' : 'Search now'}</Button></div>
+    {busy && !web ? <p className="text-sm text-muted-foreground">Looking for their website and social profiles…</p> : !web ? null : <>
+      {web.site ? <p className="text-sm"><a className="underline font-semibold break-all" href={web.site} target="_blank" rel="noreferrer noopener">{web.site.replace(/^https?:\/\//, '')}</a> <span className="text-muted-foreground">· found from {WEB_SOURCE[web.source || ''] || 'search'}{web.matchedBy.length ? `; the page shows their ${web.matchedBy.join(', ')}` : ''}</span></p>
+        : <p className="text-sm text-muted-foreground">No website found. Tried {web.tried.length} address{web.tried.length === 1 ? '' : 'es'}{web.searched.length ? ` and searched ${web.searched.join(' and ')}` : ''}; none showed their phone, USDOT number, or name and city.</p>}
+      {Object.keys(web.socials).length ? <div className="space-y-1"><p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Linked from their website</p>{chips(web.socials)}</div>
+        : web.site ? <p className="text-sm text-muted-foreground">Their website doesn’t link to any social profiles.</p> : null}
+      {Object.keys(web.possibleSocials).length > 0 && <div className="space-y-1"><p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Possible profiles (from search; check it’s them)</p>{chips(web.possibleSocials)}</div>}
+      {web.tried.length > 0 && <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">What was checked</summary><ul className="mt-1 space-y-0.5">{web.tried.map((t, i) => <li key={i}>{t.ok ? '✓' : '✗'} {t.url.replace(/^https?:\/\//, '')} ({t.source}){t.ok ? `: ${t.matchedBy.join(', ')}` : t.error ? `: ${t.error}` : t.matchedBy.length ? `: only ${t.matchedBy.join(', ')}` : ': not them'}</li>)}</ul></details>}
+      <p className="text-xs text-muted-foreground">Checked {web.checkedAt ? new Date(web.checkedAt).toLocaleDateString() : ''}. Sources: email domain, likely addresses{searchReady ? ', Google search' : ''}{braveReady ? ', Brave search' : ''}.</p>
+    </>}
+  </section>;
 }
 
 export default function MoverRegistryPage() { return <EmployeeLayout isAdmin><Registry /></EmployeeLayout>; }

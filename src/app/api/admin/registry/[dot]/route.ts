@@ -5,12 +5,14 @@ import { classifyAndSave, enrichmentFor, sosFor } from '@/lib/server/registry-en
 import { trackedByDot, trackMovers } from '@/lib/server/registry-track';
 import { jevConfigured, KINDS } from '@/lib/server/jev';
 import { sosSearchUrl } from '@/lib/server/sos';
+import { cachedWebPresence, findWebPresence } from '@/lib/server/web-presence';
 import { REGISTRY_AREAS, yearsInBusiness } from '@/lib/registry';
 
 /**
  * One registry company: everything on file, live FMCSA insurance filings,
  * the state business record (free states), Jev's classification, and links.
- * POST { action: 'classify' | 'sos' | 'track', tier? }.
+ * POST { action: 'classify' | 'sos' | 'track' | 'web', tier?, refresh? }.
+ * 'web' finds their website and social profiles (see web-presence.ts).
  */
 const INSURANCE = 'https://data.transportation.gov/resource/ypjt-5ydn.json';
 const INS_TYPES: Record<string, string> = { '1': 'Bodily injury & property damage (liability)', '2': 'Cargo', '3': 'Bond', '4': 'Trust fund' };
@@ -40,11 +42,11 @@ async function insurance(mc: string) {
 export async function GET(req: Request, { params }: { params: Promise<{ dot: string }> }) {
   try {
     const { m } = await target(req, params);
-    const [enr, tracked, ins] = await Promise.all([enrichmentFor([m.dot]), trackedByDot(), insurance(m.mc)]);
+    const [enr, tracked, ins, web] = await Promise.all([enrichmentFor([m.dot]), trackedByDot(), insurance(m.mc), cachedWebPresence(m.dot)]);
     const e = enr.get(m.dot);
     return NextResponse.json({
       mover: { ...m, years: yearsInBusiness(m) }, kind: e?.kind || null, kindLabel: e?.kind ? KINDS[e.kind] : null, kindConfidence: e?.kindConfidence ?? null,
-      sos: e?.sos || null, sosSearchUrl: sosSearchUrl(m.state), insurance: ins, competitorId: tracked.get(m.dot) || null, jev: jevConfigured(),
+      sos: e?.sos || null, sosSearchUrl: sosSearchUrl(m.state), insurance: ins, web, searchReady: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY), braveReady: !!process.env.BRAVE_SEARCH_API_KEY, competitorId: tracked.get(m.dot) || null, jev: jevConfigured(),
       links: {
         safer: `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=USDOT&query_string=${m.dot}`,
         sms: `https://ai.fmcsa.dot.gov/SMS/Carrier/${m.dot}/CarrierRegistration.aspx`,
@@ -70,7 +72,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ dot: st
       try { return NextResponse.json(await sosFor(m, true)); }
       catch (error) { console.error('Registry lookup failed', m.dot, error); throw new HttpError(502, 'The state registry didn’t answer. Try again later.'); }
     }
-    if (body.action === 'track') return NextResponse.json(await trackMovers([m], body.tier === 'legend' ? 'legend' : 'challenger', user.uid));
+    if (body.action === 'web') {
+      try { return NextResponse.json(await findWebPresence(m, body.refresh === true)); }
+      catch (error) { console.error('Website lookup failed', m.dot, error); throw new HttpError(502, 'The website search didn’t finish. Try again in a minute.'); }
+    }
+    if (body.action === 'track') {
+      // Use a website we found for them when the federal record has none.
+      const web = m.site ? null : await cachedWebPresence(m.dot);
+      return NextResponse.json(await trackMovers([web?.site ? { ...m, site: web.site } : m], body.tier === 'legend' ? 'legend' : 'challenger', user.uid));
+    }
     throw new HttpError(400, 'Unknown action.');
   } catch (error) { return errorResponse(error); }
 }
