@@ -26,7 +26,7 @@ import { diffMovers, closureReason, mdy, zipOf, zipsWithin, expansionScore, acqu
 import { priceCart, SALES_TAX_RATE } from '../src/lib/shop.ts';
 import { platformOf, cleanSocials, passGaps } from '../src/lib/competitors.ts';
 import { explainRank, sizeParts } from '../src/lib/registry.ts';
-import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, columnChanges, filterCarriers, sortCarriers, tupleToMover, servicesLabel, KNOWN_COLUMNS } from '../src/lib/carriers.ts';
+import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, columnChanges, filterCarriers, sortCarriers, tupleToMover, servicesLabel, KNOWN_COLUMNS, partnerScore, isPartnerCandidate, newPartnerCarriers, newCarrierAlerts, primaryCategory, CATEGORY_COLOR } from '../src/lib/carriers.ts';
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
 import { gzipSync } from 'node:zlib';
@@ -1479,6 +1479,35 @@ test('carrier categories: for-hire carriers sorted by what they haul; private fl
   assert.deepEqual(sortCarriers(filterCarriers([t, small], {}, ll), 'name').map(m => m.t[0]), ['123', '7']);
 });
 
+test('partner shortlist: scored on fleet, years, insured authority, interstate and website; new ones spotted between imports', () => {
+  const now = Date.parse('2026-11-20T12:00:00Z');
+  const base = { status_code: 'A', classdef: 'AUTHORIZED FOR HIRE', carrier_operation: 'A', phy_city: 'OAKLAND', phy_zip: '94607', phy_cnty: '001', phone: '5105551212', total_drivers: '10' };
+  const strong = toCarrierTuple({ ...base, dot_number: '1', legal_name: 'BAY AUTO TRANSPORT', power_units: '20', add_date: '20100101', email_address: 'ops@bayauto.com', crgo_motoveh: 'X' }, { mc: 'MC1', hhg: false, active: true, broker: false });
+  const weak = toCarrierTuple({ ...base, dot_number: '2', legal_name: 'NEW TRUCK LLC', power_units: '1', add_date: '20260901', email_address: 'newtruck@gmail.com', carrier_operation: 'C', crgo_genfreight: 'X' });
+  const broker = toCarrierTuple({ ...base, dot_number: '3', legal_name: 'LOAD FINDERS', power_units: '1', add_date: '20200101', crgo_genfreight: 'X' }, { mc: 'MC3', hhg: false, active: false, broker: true });
+  const mover = toCarrierTuple({ ...base, dot_number: '4', legal_name: 'BAY MOVERS', power_units: '8', crgo_household: 'X', crgo_genfreight: 'X' });
+  const food = toCarrierTuple({ ...base, dot_number: '5', legal_name: 'COLD CHAIN', power_units: '8', crgo_coldfood: 'X' });
+  const a = partnerScore(strong, now), b = partnerScore(weak, now), c = partnerScore(broker, now);
+  assert.ok(a.score >= 85 && a.score <= 100, `strong ${a.score}`);
+  assert.ok(b.score < 30, `weak ${b.score}`); assert.ok(c.score < b.score + 20);
+  assert.ok(a.reasons.includes('active federal authority (insured)') && a.reasons.includes('ships vehicles') && a.reasons.includes('has a website'));
+  assert.ok(c.reasons.some(r => r.startsWith('broker only')));
+  assert.deepEqual([strong, weak, broker, mover, food].map(isPartnerCandidate), [true, true, true, false, false]); // Movers are in the mover list; food isn't a partner category.
+  assert.equal(primaryCategory(strong[13]), 'auto'); assert.equal(CATEGORY_COLOR[primaryCategory(weak[13])], CATEGORY_COLOR.freight);
+  const ll = () => [37.8, -122.27];
+  assert.deepEqual(sortCarriers(filterCarriers([weak, broker, strong], {}, ll), 'score').map(m => m.t[0]), ['1', '2', '3']);
+  assert.equal(tupleToMover(strong, 'CA', null).partnerScore, a.score);
+  assert.equal(tupleToMover(food, 'CA', null).partnerScore, undefined);
+  // New since the last import: nothing on the first one (no list to compare), then only unseen partner candidates.
+  assert.deepEqual(newPartnerCarriers(null, [strong, weak]), []);
+  assert.deepEqual(newPartnerCarriers(new Set(['1']), [strong, weak, mover, food]).map(t => t[0]), ['2']);
+  const file = { generatedAt: new Date(now - 3 * 3600_000).toISOString(), baseline: false, rows: [['CA', ...weak], ['CA', ...strong], ['NV', ...broker]] };
+  const watched = st => st === 'CA';
+  assert.deepEqual(newCarrierAlerts(file, now, watched).map(x => x.t[0]), ['1', '2']); // Watched areas only, best first.
+  assert.deepEqual(newCarrierAlerts({ ...file, generatedAt: new Date(now - 30 * 3600_000).toISOString() }, now, watched), []); // Reported once, the day of the import.
+  assert.deepEqual(newCarrierAlerts({ ...file, baseline: true }, now, watched), []);
+});
+
 test('census import schedule: daily for the first three imports, then weekly; column changes flagged', () => {
   const now = Date.parse('2026-11-20T12:00:00Z'), ago = h => new Date(now - h * 3600_000).toISOString();
   assert.equal(importDue(null, now).due, true);
@@ -1547,4 +1576,30 @@ test('census file import: script splits the DOT file, the app loads movers from 
   assert.equal(pdf.status, 200); assert.equal(pdf.headers.get('content-type'), 'application/pdf');
   assert.match(pdf.headers.get('content-disposition'), /Dictionary Rev09\.pdf/);
   assert.equal((await fetch(`${base}/api/admin/registry/dictionary`)).status, 401);
+
+  // The partner shortlist: freight and car carriers (not movers), scored, with pins colored by category.
+  const partners = await (await get('states=NV&type=partners&map=1&stats=1')).json();
+  assert.deepEqual(partners.rows.map(r => r.dot), ['9100002', '9100003']);
+  assert.ok(partners.rows[0].partnerScore > partners.rows[1].partnerScore);
+  assert.ok(partners.rows[0].partnerReasons.includes('ships vehicles'));
+  assert.equal(partners.points.find(p => p[0] === '9100002')[6], CATEGORY_COLOR.auto);
+  assert.equal(partners.stateStats.find(s => s.state === 'NV').likely, 2);
+  assert.equal(partners.import.totals.partners, manifest.totals.partners);
+  assert.match(await (await get('states=NV&type=partners&format=csv')).text(), /Partner fit \(0-100\),Why/);
+  const recruit = await (await post({ action: 'recruit', dots: [{ dot: '9100002', state: 'NV' }, { dot: '9100001', state: 'NV' }] })).json();
+  assert.deepEqual([recruit.added, recruit.skipped], [1, 1]); // The mover isn't on the shortlist.
+  const prospect = (await db.collection('agentProspects').where('dot', '==', '9100002').get()).docs[0].data();
+  assert.equal(prospect.source, 'partner-shortlist'); assert.match(prospect.notes, /Car carriers & towing/);
+  assert.equal((await (await post({ action: 'recruit', dots: [{ dot: '9100002', state: 'NV' }] })).json()).added, 0);
+
+  // Next import: a new car carrier shows up in the new-carriers list (the first import had nothing to compare with).
+  const { gunzipSync } = await import('node:zlib');
+  const newList = () => JSON.parse(gunzipSync(readFileSync(join(process.env.REGISTRY_LOCAL_DIR, 'import/new-carriers.json.gz'))).toString('utf8'));
+  assert.equal(newList().baseline, true);
+  rows.push({ ...nvBase, dot_number: '9100007', legal_name: 'VEGAS CAR SHIPPERS', phy_city: 'LAS VEGAS', phy_zip: '89101', phy_cnty: '003', power_units: '4', crgo_motoveh: 'X' });
+  writeFileSync(join(dir, 'census.csv'), [cols.map(c => c.toUpperCase()).join(','), ...rows.map(line)].join('\r\n') + '\r\n');
+  execFileSync(process.execPath, ['scripts/registry-import.mjs', 'run', '--census', join(dir, 'census.csv'), '--authority', join(dir, 'authority.csv'), '--out', process.env.REGISTRY_LOCAL_DIR], { stdio: 'pipe' });
+  const second = newList();
+  assert.equal(second.baseline, false); assert.deepEqual(second.rows.map(r => r.slice(0, 2)), [['NV', '9100007']]);
+  assert.equal(JSON.parse(readFileSync(join(process.env.REGISTRY_LOCAL_DIR, 'import/manifest.json'), 'utf8')).totals.newPartners, 1);
 });

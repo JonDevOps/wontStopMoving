@@ -84,7 +84,7 @@ export async function syncState(state: string): Promise<{ state: string; count: 
     top, bbox, center: bbox ? [(bbox.south + bbox.north) / 2, (bbox.west + bbox.east) / 2] : null, counties, updatedAt: FieldValue.serverTimestamp(),
     // Other for-hire carriers in the state, by category (from the census file import).
     source, importedAt: source === 'file' ? manifest!.generatedAt : null,
-    carriers: source === 'file' ? manifest!.counts[state]?.carriers ?? 0 : null, categories: source === 'file' ? manifest!.counts[state]?.categories ?? {} : null,
+    carriers: source === 'file' ? manifest!.counts[state]?.carriers ?? 0 : null, partners: source === 'file' ? manifest!.counts[state]?.partners ?? null : null, categories: source === 'file' ? manifest!.counts[state]?.categories ?? {} : null,
   }, { merge: true });
   // First time for a state: load the last ~18 months of closures so the radar starts with history.
   const summary = (await adminDb().doc(`registryStates/${state}`).get()).data();

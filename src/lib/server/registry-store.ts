@@ -81,8 +81,8 @@ export async function loadNational(states: string[]): Promise<{ rows: Mover[]; s
 export type ImportManifest = {
   generatedAt: string; firstImportAt: string; runs: number; sourceUpdatedAt: string | null; seconds: number;
   columns: { added: string[]; removed: string[]; missingRequired: string[]; count: number };
-  totals: { rows: number; active: number; movers: number; carriers: number; categories: Record<string, number> };
-  counts: Record<string, { movers: number; carriers: number; categories: Record<string, number> }>;
+  totals: { rows: number; active: number; movers: number; carriers: number; partners?: number; newPartners?: number; categories: Record<string, number> };
+  counts: Record<string, { movers: number; carriers: number; partners?: number; categories: Record<string, number> }>;
   dictionary: { name: string; sha256: string; bytes: number; changedAt: string; checkedAt: string; previousName: string | null } | null;
 };
 
@@ -118,4 +118,23 @@ export async function loadCarriers(state: string, type: string): Promise<Carrier
   for (const v of carrierCache.values()) cached += v.rows.length;
   while (cached > 250_000 && carrierCache.size > 1) { const [k, v] = carrierCache.entries().next().value!; carrierCache.delete(k); cached -= v.rows.length; }
   return rows;
+}
+
+/** A state's best partner candidates (top ~3,000 by partner score; small, so cached separately). */
+const partnerCache = new Map<string, { at: number; rows: CarrierTuple[] }>();
+export async function loadPartners(state: string): Promise<CarrierTuple[]> {
+  const hit = partnerCache.get(state);
+  if (hit && Date.now() - hit.at < TTL) return hit.rows;
+  const bytes = await readFileBytes(`carriers/${state}/partners.json.gz`).catch(() => null);
+  const rows: CarrierTuple[] = bytes ? JSON.parse(gunzipSync(bytes).toString('utf8')) : [];
+  partnerCache.set(state, { at: Date.now(), rows });
+  while (partnerCache.size > 16) partnerCache.delete(partnerCache.keys().next().value!);
+  return rows;
+}
+
+/** Partner candidates new since the previous import: [state, ...tuple] rows, best first. */
+export type NewCarriers = { generatedAt: string; baseline: boolean; skipped: boolean; rows: [string, ...CarrierTuple][] };
+export async function loadNewCarriers(): Promise<NewCarriers | null> {
+  const bytes = await readFileBytes('import/new-carriers.json.gz').catch(() => null);
+  return bytes ? JSON.parse(gunzipSync(bytes).toString('utf8')) : null;
 }

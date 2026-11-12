@@ -14,15 +14,18 @@
  *   import/movers/{ST}.json.gz      household-goods carriers per state (raw census rows + authority), which the app's
  *                                   registry sync turns into the mover registry, a few states every 15 minutes
  *   carriers/{ST}/{category}.json.gz every active for-hire carrier, by category (see src/lib/carriers.ts)
+ *   carriers/{ST}/partners.json.gz  the state's best partner candidates (freight, car carriers... not movers), by partner score
+ *   import/partner-dots.json.gz     every partner candidate's DOT number, to spot new ones next time
+ *   import/new-carriers.json.gz     partner candidates that weren't in the previous import (for the daily market radar)
  *   import/data-dictionary.pdf      the DOT's data dictionary, when it changes
  *   import/manifest.json            when, how many, what changed
  */
 import { createReadStream } from 'node:fs';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { gzipSync } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import path from 'node:path';
-import { CATEGORY_KEYS, categoriesOf, columnChanges, hasCategory, importDue, keepCarrier, preferAuthority, REQUIRED_COLUMNS, toCarrierTuple } from '../src/lib/carriers.ts';
+import { CATEGORY_KEYS, categoriesOf, columnChanges, hasCategory, importDue, isPartnerCandidate, keepCarrier, newPartnerCarriers, partnerScore, preferAuthority, REQUIRED_COLUMNS, toCarrierTuple } from '../src/lib/carriers.ts';
 import { isProvince, REGISTRY_AREAS } from '../src/lib/registry.ts';
 
 const args = process.argv.slice(2);
@@ -146,6 +149,29 @@ async function run() {
     for (const k of CATEGORY_KEYS) await writeObject(`carriers/${st}/${k}.json.gz`, gzipSync(Buffer.from(JSON.stringify(c.filter(t => hasCategory(t[13], k))))), 'application/gzip');
   }
 
+  // 3b. Partner shortlist per state (the best candidates, so the app never loads whole freight files for it),
+  //     and partner candidates that are new since the previous import.
+  const SHORTLIST = 3000;
+  const prevDotsBytes = await readObject('import/partner-dots.json.gz');
+  const prevDots = prevDotsBytes ? new Set(JSON.parse(gunzipSync(prevDotsBytes).toString('utf8'))) : null;
+  const partnerDots = [], fresh = [];
+  for (const st of REGISTRY_AREAS) {
+    const c = carriers.get(st) || [];
+    const partners = c.filter(isPartnerCandidate);
+    for (const t of partners) partnerDots.push(t[0]);
+    for (const t of newPartnerCarriers(prevDots, partners)) fresh.push([st, ...t]);
+    const ranked = partners.map(t => [partnerScore(t).score, t]).sort((a, b) => b[0] - a[0] || b[1][8] - a[1][8]).slice(0, SHORTLIST).map(x => x[1]);
+    counts[st].partners = partners.length;
+    await writeObject(`carriers/${st}/partners.json.gz`, gzipSync(Buffer.from(JSON.stringify(ranked))), 'application/gzip');
+  }
+  // A huge jump means the previous list was incomplete (or the DOT changed something), not 100k new companies in a week.
+  const plausible = prevDots && fresh.length <= Math.max(5000, prevDots.size * 0.05);
+  if (prevDots && !plausible) console.warn(`Skipping new-carrier alerts: ${fresh.length} "new" partner carriers is implausible`);
+  fresh.sort((a, b) => partnerScore(b.slice(1)).score - partnerScore(a.slice(1)).score);
+  await writeObject('import/new-carriers.json.gz', gzipSync(Buffer.from(JSON.stringify({ generatedAt: new Date().toISOString(), baseline: !prevDots, skipped: !!prevDots && !plausible, rows: plausible ? fresh.slice(0, 20000) : [] }))), 'application/gzip');
+  await writeObject('import/partner-dots.json.gz', gzipSync(Buffer.from(JSON.stringify(partnerDots))), 'application/gzip');
+  console.log(`Partners: ${partnerDots.length.toLocaleString()} candidates, ${prevDots ? `${fresh.length.toLocaleString()} new since the last import` : 'first list (nothing to compare with yet)'}`);
+
   // 4. The data dictionary PDF: store it when it changes.
   let dictionary = prev?.dictionary || null;
   if (dictionaryFile) {
@@ -157,7 +183,7 @@ async function run() {
     dictionary = { name, sha256, bytes: pdf.length, changedAt: changed ? new Date().toISOString() : dictionary.changedAt, checkedAt: new Date().toISOString(), previousName: changed ? dictionary?.name || null : dictionary?.previousName || null };
   }
 
-  const totals = { rows: total, active, movers: 0, carriers: 0, categories: {} };
+  const totals = { rows: total, active, movers: 0, carriers: 0, partners: partnerDots.length, newPartners: plausible ? fresh.length : 0, categories: {} };
   for (const v of Object.values(counts)) { totals.movers += v.movers; totals.carriers += v.carriers; for (const [k, n] of Object.entries(v.categories)) totals.categories[k] = (totals.categories[k] || 0) + n; }
   const manifest = {
     generatedAt: new Date().toISOString(), firstImportAt: prev?.firstImportAt || new Date().toISOString(), runs: (prev?.runs || 0) + 1,
