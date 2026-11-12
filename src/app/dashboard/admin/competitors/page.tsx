@@ -9,16 +9,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/firebase';
 import { apiFetch } from '@/lib/api-client';
+import { SOCIAL_SCORE_HELP, type PlatformStats, type SocialSummary } from '@/lib/social-stats';
 import { compareToUs, METRICS, passGaps, SOCIAL_LABEL, sortActions, type ActionItem, type Metrics, type Scoreboard, type Tier } from '@/lib/competitors';
 
 type Competitor = {
   id: string; name: string; website: string; location: string; tier: Tier; status: 'tracking' | 'passed';
-  metrics: Metrics; socials: Record<string, string>; notes: Record<string, string>; actions: ActionItem[]; score: Scoreboard;
+  metrics: Metrics; socials: Record<string, string>; social: Social; socialStatsAt: string | null; notes: Record<string, string>; actions: ActionItem[]; score: Scoreboard;
   intel: { summary: string; services: string[]; pricing: string; promotions: string; sellingPoints: string[]; sourceUrl: string | null; websiteError: string | null } | null;
   analysis: { strengths: string[]; weaknesses: string[]; threat: 'high' | 'medium' | 'low' } | null;
   passedAt: string | null; passedHow: string | null; analyzedAt: string | null;
 };
-type Data = { us: { metrics: Metrics; auto: Metrics; manual: Metrics; socials: Record<string, string>; hasAuthority: boolean }; competitors: Competitor[]; progress?: Progress };
+type Social = { stats: Record<string, PlatformStats>; summary: SocialSummary; score: number | null; activity: 'active' | 'slowing' | 'inactive' | 'unknown' };
+type Data = { us: { metrics: Metrics; auto: Metrics; manual: Metrics; socials: Record<string, string>; hasAuthority: boolean; social: Social; socialStatsAt: string | null }; competitors: Competitor[]; progress?: Progress; statsReady: { instagram: boolean; youtube: boolean } };
 type View = 'challenger' | 'legend' | 'actions' | 'social' | 'us' | 'progress';
 type Progress = { history: { day: string; metrics: Metrics; passed: number; actionsDone: number }[]; passes: { id: string; name: string; tier: Tier; at: string; how: string | null }[]; actions: { competitor: string; text: string; area: string; impact: string; at: string }[] };
 
@@ -101,7 +103,7 @@ function Competitors() {
     {notice && <p role="status" className="text-sm font-medium bg-white border rounded-lg p-3">{notice}</p>}
 
     {!data ? <p>Loading…</p> : view === 'progress' ? <ProgressView progress={data.progress} us={data.us.metrics} />
-      : view === 'social' ? <SocialView competitors={all.filter(c => c.status === 'tracking')} us={data.us} busy={!!busy} post={post} setNotice={setNotice} onOpen={c => { setView(c.tier); setOpenId(c.id); }} />
+      : view === 'social' ? <SocialView competitors={all.filter(c => c.status === 'tracking')} us={data.us} ready={data.statsReady} busy={!!busy} post={post} setNotice={setNotice} onOpen={c => { setView(c.tier); setOpenId(c.id); }} />
       : view === 'us' ? <OurNumbers us={data.us} busy={!!busy} onSave={(m, extra) => post({ action: 'us', metrics: m, ...extra }).then(r => r && setNotice('Our numbers saved.'))} />
       : view === 'actions' ? <ActionBoard items={openActions} onToggle={(cid, aid) => post({ action: 'toggle-action', id: cid, actionId: aid, done: true })} onOpen={c => { setView(c.tier); setOpenId(c.id); }} />
       : <>
@@ -301,28 +303,47 @@ function SocialLinks({ socials }: { socials: Record<string, string> }) {
 }
 
 /** Side-by-side social presence for tracked competitors vs us, with the gap to the next one ahead. */
-function SocialView({ competitors, us, busy, post, setNotice, onOpen }: { competitors: Competitor[]; us: Data['us']; busy: boolean; post: (b: Record<string, unknown>, l?: string) => Promise<any>; setNotice: (s: string) => void; onOpen: (c: Competitor) => void }) {
-  const rows = [...competitors].sort((a, b) => (b.metrics.followers ?? -1) - (a.metrics.followers ?? -1));
+const ACTIVITY: Record<string, { label: string; style: string }> = { active: { label: 'Active', style: 'bg-green-100 text-green-800' }, slowing: { label: 'Slowing', style: 'bg-amber-100 text-amber-800' }, inactive: { label: 'Inactive', style: 'bg-red-100 text-red-800' }, unknown: { label: 'No data', style: 'bg-slate-100 text-slate-600' } };
+const ago = (iso: string | null) => { if (!iso) return '—'; const d = Math.floor((Date.now() - Date.parse(iso)) / 86400_000); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`; };
+
+/** Side-by-side social presence for tracked competitors vs us, ranked by social score. */
+function SocialView({ competitors, us, ready, busy, post, setNotice, onOpen }: { competitors: Competitor[]; us: Data['us']; ready: Data['statsReady']; busy: boolean; post: (b: Record<string, unknown>, l?: string) => Promise<any>; setNotice: (s: string) => void; onOpen: (c: Competitor) => void }) {
+  type Line = { id: string; name: string; socials: Record<string, string>; social: Social; metrics: Metrics; at: string | null; c?: Competitor };
+  const lines: Line[] = [{ id: 'us', name: 'Wont Stop Moving (you)', socials: us.socials, social: us.social, metrics: us.metrics, at: us.socialStatsAt }, ...competitors.map(c => ({ id: c.id, name: c.name, socials: c.socials, social: c.social, metrics: c.metrics, at: c.socialStatsAt, c }))]
+    .sort((a, b) => (b.social?.score ?? -1) - (a.social?.score ?? -1) || (b.metrics.followers ?? -1) - (a.metrics.followers ?? -1));
   const ours = us.metrics.followers;
-  const ahead = typeof ours === 'number' ? rows.filter(c => typeof c.metrics.followers === 'number' && c.metrics.followers > ours).sort((a, b) => (a.metrics.followers as number) - (b.metrics.followers as number))[0] : undefined;
+  const ahead = typeof ours === 'number' ? competitors.filter(c => typeof c.metrics.followers === 'number' && c.metrics.followers > ours).sort((a, b) => (a.metrics.followers as number) - (b.metrics.followers as number))[0] : undefined;
   const missing = competitors.filter(c => c.website && !Object.keys(c.socials || {}).length);
+  const on = ready.instagram || ready.youtube;
+  const usRank = lines.findIndex(l => l.id === 'us') + 1;
   return <div className="space-y-4">
     <Card className="bg-slate-900 text-white"><CardContent className="p-5 space-y-2 text-sm">
       <p className="font-black text-lg">Social media: you vs them</p>
-      <p className="text-slate-300">Your followers: <b className="text-white">{typeof ours === 'number' ? ours.toLocaleString() : 'not entered'}</b> · posts/month: <b className="text-white">{us.metrics.postsPerMonth ?? '—'}</b> · likes/post: <b className="text-white">{us.metrics.avgPostLikes ?? '—'}</b></p>
-      {ahead ? <p>Next to pass on followers: <b>{ahead.name}</b> with {(ahead.metrics.followers as number).toLocaleString()}: you need <b>{((ahead.metrics.followers as number) - (ours as number) + 1).toLocaleString()} more</b>.</p> : typeof ours === 'number' ? <p>You lead every tracked competitor with a follower count.</p> : <p>Enter your followers under Our numbers to see who’s next.</p>}
+      <p className="text-slate-300">Your social score: <b className="text-white">{us.social?.score ?? '—'}</b>{us.social?.score !== null && us.social?.score !== undefined ? ` (#${usRank} of ${lines.length})` : ''} · followers: <b className="text-white">{typeof ours === 'number' ? ours.toLocaleString() : 'not entered'}</b> · posts/month: <b className="text-white">{us.metrics.postsPerMonth ?? '—'}</b> · likes/post: <b className="text-white">{us.metrics.avgPostLikes ?? '—'}</b> · last post: <b className="text-white">{ago(us.social?.summary.lastPostAt || null)}</b></p>
+      {ahead ? <p>Next to pass on followers: <b>{ahead.name}</b> with {(ahead.metrics.followers as number).toLocaleString()}: you need <b>{((ahead.metrics.followers as number) - (ours as number) + 1).toLocaleString()} more</b>.</p> : typeof ours === 'number' ? <p>You lead every tracked competitor with a follower count.</p> : <p>Add your Instagram/YouTube under Our numbers (or enter your followers) to see who’s next.</p>}
       <SocialLinks socials={us.socials} />
     </CardContent></Card>
-    {missing.length > 0 && <Button size="sm" variant="outline" disabled={busy} onClick={async () => { let found = 0; for (const c of missing.slice(0, 10)) { const r = await post({ action: 'find-socials', id: c.id }); if (r?.found) found++; } setNotice(`Checked ${Math.min(10, missing.length)} websites; found profiles for ${found}.`); }}>Find social profiles for {Math.min(10, missing.length)} competitors from their websites</Button>}
-    <p className="text-xs text-muted-foreground">Profiles come from links on each company’s own website (or you paste them). Follower counts are entered by hand on each competitor: Facebook, Instagram, TikTok and X restrict automatic access to these numbers.</p>
+    <div className="flex flex-wrap gap-2">
+      {on && <Button size="sm" disabled={busy} onClick={async () => { const r = await post({ action: 'social-stats-all' }, 'stats'); if (r) setNotice(`Updated numbers for ${r.refreshed} (anything checked in the last week is skipped).`); }}>Update Instagram & YouTube numbers</Button>}
+      {missing.length > 0 && <Button size="sm" variant="outline" disabled={busy} onClick={async () => { let found = 0; for (const c of missing.slice(0, 10)) { const r = await post({ action: 'find-socials', id: c.id }); if (r?.found) found++; } setNotice(`Checked ${Math.min(10, missing.length)} websites; found profiles for ${found}.`); }}>Find social profiles for {Math.min(10, missing.length)} competitors from their websites</Button>}
+    </div>
+    <details className="text-xs text-muted-foreground"><summary className="cursor-pointer font-semibold">How the social score works</summary><p className="mt-1">{SOCIAL_SCORE_HELP} Active = posted in the last 2 weeks, slowing = within 2 months, inactive = longer.</p>
+      <p className="mt-1">{on ? `Numbers come from the official ${[ready.instagram && 'Instagram', ready.youtube && 'YouTube'].filter(Boolean).join(' and ')} API${ready.instagram && ready.youtube ? 's' : ''}, refreshed weekly for tracked competitors.` : 'Instagram and YouTube numbers aren’t set up yet, so followers are entered by hand.'} Instagram only shares numbers for business and creator accounts. Facebook, TikTok and X don’t offer this for free, so enter those by hand.</p></details>
     <Card className="bg-white"><CardContent className="p-0 overflow-x-auto"><table className="w-full text-sm">
-      <thead><tr className="text-left text-muted-foreground border-b">{['Company', 'Profiles', 'Followers', 'Posts/month', 'Likes/post', ''].map(h => <th key={h} className="p-3 font-medium">{h}</th>)}</tr></thead>
-      <tbody>{rows.map(c => <tr key={c.id} className="border-b last:border-0">
-        <td className="p-3 font-semibold">{c.name}</td><td className="p-3"><SocialLinks socials={c.socials} /></td>
-        <td className={`p-3 ${typeof ours === 'number' && typeof c.metrics.followers === 'number' ? (c.metrics.followers > ours ? 'text-red-700' : 'text-green-700') : ''}`}>{c.metrics.followers?.toLocaleString() ?? '—'}</td>
-        <td className="p-3">{c.metrics.postsPerMonth ?? '—'}</td><td className="p-3">{c.metrics.avgPostLikes ?? '—'}</td>
-        <td className="p-3"><Button size="sm" variant="ghost" onClick={() => onOpen(c)}>Open</Button></td></tr>)}
-        {!rows.length && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Track competitors first (Main list, or from the Mover Registry).</td></tr>}</tbody>
+      <thead><tr className="text-left text-muted-foreground border-b">{['#', 'Company', 'Score', 'Activity', 'Last post', 'Instagram', 'YouTube', 'Followers', 'Posts/30d', 'Likes/post', 'Profiles', ''].map(h => <th key={h} className="p-3 font-medium whitespace-nowrap">{h}</th>)}</tr></thead>
+      <tbody>{lines.map((l, i) => { const st = l.social?.stats || {}; const plat = (k: string) => { const p = st[k]; return !p ? '—' : p.error ? <span title={p.error} className="text-amber-700">!</span> : <span title={`${p.posts ?? '?'} posts · ${p.avgLikes ?? '?'} likes/post`}>{p.followers?.toLocaleString() ?? 'hidden'}</span>; };
+        return <tr key={l.id} className={`border-b last:border-0 ${l.id === 'us' ? 'bg-blue-50' : ''}`}>
+        <td className="p-3 text-muted-foreground">{i + 1}</td>
+        <td className="p-3 font-semibold">{l.name}</td>
+        <td className="p-3 font-bold">{l.social?.score ?? '—'}</td>
+        <td className="p-3"><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${ACTIVITY[l.social?.activity || 'unknown'].style}`}>{ACTIVITY[l.social?.activity || 'unknown'].label}</span></td>
+        <td className="p-3 whitespace-nowrap">{ago(l.social?.summary.lastPostAt || null)}</td>
+        <td className="p-3">{plat('instagram')}</td><td className="p-3">{plat('youtube')}</td>
+        <td className={`p-3 ${l.id !== 'us' && typeof ours === 'number' && typeof l.metrics.followers === 'number' ? (l.metrics.followers > ours ? 'text-red-700' : 'text-green-700') : ''}`}>{l.metrics.followers?.toLocaleString() ?? '—'}</td>
+        <td className="p-3">{l.metrics.postsPerMonth ?? '—'}</td><td className="p-3">{l.metrics.avgPostLikes ?? '—'}</td>
+        <td className="p-3"><SocialLinks socials={l.socials} /></td>
+        <td className="p-3 whitespace-nowrap">{on && <Button size="sm" variant="ghost" disabled={busy} title={l.at ? `Updated ${ago(l.at)}` : 'Never updated'} onClick={async () => { const r = await post({ action: 'social-stats', id: l.id }, 'stats'); if (r) setNotice(Object.keys(r.stats).length ? `Updated ${l.name}.` : `${l.name} has no Instagram or YouTube profile on file.`); }}>Update</Button>}{l.c && <Button size="sm" variant="ghost" onClick={() => onOpen(l.c!)}>Open</Button>}</td></tr>; })}
+        {!competitors.length && <tr><td colSpan={12} className="p-6 text-center text-muted-foreground">Track competitors first (Main list, Legends, or from the Mover Registry).</td></tr>}</tbody>
     </table></CardContent></Card>
   </div>;
 }

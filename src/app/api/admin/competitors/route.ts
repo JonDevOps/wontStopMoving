@@ -3,7 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/server/firebase-admin';
 import { errorResponse, HttpError, isId, readJson, requireRole } from '@/lib/server/auth';
-import { ourMetrics, refreshStandings } from '@/lib/server/competitors';
+import { ourMetrics, refreshSocialStats, refreshStaleSocialStats, refreshStandings } from '@/lib/server/competitors';
+import { statsReady } from '@/lib/server/social-stats';
+import { activityOf, combineStats, socialScore, type PlatformStats } from '@/lib/social-stats';
 import { cleanMetrics, cleanSocials, normalizeWebsite, parseCompetitorList, scoreboard, type Tier } from '@/lib/competitors';
 import { fetchPublicPageText } from '@/lib/server/safe-fetch';
 
@@ -18,12 +20,13 @@ export async function GET(req: Request) {
     await requireRole(req, ['admin']);
     const db = adminDb();
     const [usMetrics, snap, usSettings] = await Promise.all([ourMetrics(), db.collection('competitors').limit(2000).get(), db.doc('competitorSettings/us').get()]);
-    const us = { ...usMetrics, socials: usSettings.data()?.socials || {}, hasAuthority: usSettings.data()?.hasAuthority === true };
+    const social = (stats: unknown) => { const sum = combineStats((stats || {}) as Record<string, PlatformStats>); return { stats: stats || {}, summary: sum, score: socialScore(sum), activity: activityOf(sum) }; };
+    const us = { ...usMetrics, socials: usSettings.data()?.socials || {}, hasAuthority: usSettings.data()?.hasAuthority === true, social: social(usSettings.data()?.socialStats), socialStatsAt: iso(usSettings.data()?.socialStatsAt) };
     const competitors = snap.docs.map(d => {
       const c = d.data();
       return {
         id: d.id, name: c.name, website: c.website || '', location: c.location || '', dot: c.dot || null, state: c.state || null, registry: c.registry || null, phone: c.phone || '', tier: tierOf(c.tier), status: c.status === 'passed' ? 'passed' : 'tracking',
-        metrics: c.metrics || {}, socials: c.socials || {}, notes: c.notes || {}, intel: c.intel || null, analysis: c.analysis || null, actions: Array.isArray(c.actions) ? c.actions : [],
+        metrics: c.metrics || {}, socials: c.socials || {}, social: social(c.socialStats), socialStatsAt: iso(c.socialStatsAt), notes: c.notes || {}, intel: c.intel || null, analysis: c.analysis || null, actions: Array.isArray(c.actions) ? c.actions : [],
         score: scoreboard(usMetrics.metrics, c.metrics || {}), passedAt: iso(c.passedAt), passedHow: c.passedHow || null, analyzedAt: iso(c.analyzedAt), createdAt: iso(c.createdAt),
       };
     });
@@ -36,7 +39,7 @@ export async function GET(req: Request) {
         actions: competitors.flatMap(c => c.actions.filter((a: any) => a.done && a.doneAt).map((a: any) => ({ competitor: c.name, text: a.text, area: a.area, impact: a.impact, at: a.doneAt }))),
       };
     }
-    return NextResponse.json({ us, competitors, progress }, { headers: { 'Cache-Control': 'private, no-store' } });
+    return NextResponse.json({ us, competitors, progress, statsReady: statsReady() }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) { return errorResponse(error); }
 }
 
@@ -121,6 +124,20 @@ export async function POST(req: Request) {
           updatedBy: user.uid, updatedAt: now,
         }, { merge: true });
         return NextResponse.json({ ok: true });
+      }
+      case 'social-stats': {
+        // One competitor ('us' = our own profiles): Instagram/YouTube numbers now.
+        const id = body.id === 'us' ? 'us' : str(body.id, 80);
+        if (id !== 'us' && !isId(id)) throw new HttpError(400, 'Choose a competitor.');
+        const ready = statsReady();
+        if (!ready.instagram && !ready.youtube) throw new HttpError(503, 'Instagram and YouTube numbers aren’t set up yet.');
+        const stats = await refreshSocialStats(id).catch(e => { throw new HttpError(404, e instanceof Error ? e.message : 'Not found.'); });
+        return NextResponse.json({ stats });
+      }
+      case 'social-stats-all': {
+        const ready = statsReady();
+        if (!ready.instagram && !ready.youtube) throw new HttpError(503, 'Instagram and YouTube numbers aren’t set up yet.');
+        return NextResponse.json({ refreshed: await refreshStaleSocialStats(15, Date.now() + 45_000) });
       }
       case 'find-socials': {
         const { ref, data } = await doc(body.id);

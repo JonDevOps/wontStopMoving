@@ -16,6 +16,7 @@ import { REGION_PRESETS } from '@/lib/regions';
 import { CATEGORIES, CATEGORY_COLOR, CATEGORY_LABEL, PARTNER_KEYS, categoriesOf } from '@/lib/carriers';
 import type { Bounds, MapPoint, StateStat } from '@/components/registry/mover-map';
 import { ResearchPanel } from '@/components/agents/research-panel';
+import { SOCIAL_SCORE_HELP, type PlatformStats, type SocialSummary } from '@/lib/social-stats';
 
 const MoverMap = dynamic(() => import('@/components/registry/mover-map').then(m => m.MoverMap), { ssr: false, loading: () => <div className="h-[420px] md:h-[520px] rounded-2xl bg-slate-100 animate-pulse" /> });
 
@@ -54,6 +55,8 @@ function Registry() {
   const [data, setData] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<{ dot: string; state: string } | null>(null);
+  // Links from other pages (e.g. Legends) open a company: ?dot=123&state=CA.
+  useEffect(() => { const q = new URLSearchParams(window.location.search); const dot = q.get('dot'), st = q.get('state'); if (dot && st) setSelected({ dot, state: st.toUpperCase() }); }, []);
   const [busy, setBusy] = useState('');
   const [stateTotals, setStateTotals] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -275,10 +278,20 @@ type Detail = {
   kind: string | null; kindLabel: string | null; kindConfidence: number | null; jev: boolean;
   sos: { best: { name: string; status: string; active: boolean | null; entityType: string; formed: string; agent: string; agentAddress: string; id: string; source: string; url: string | null } | null; matches: unknown[]; free: boolean; checkedAt: string | null } | null;
   sosSearchUrl: string; insurance: { type: string; insurer: string; policy: string; coverage: number; effective: string }[]; competitorId: string | null; links: Record<string, string>;
-  web: Web | null; searchReady: boolean; braveReady: boolean;
+  web: Web | null; searchReady: boolean; braveReady: boolean; places: { ready: boolean; usage: PlacesUsage | null };
+  statsReady: { instagram: boolean; youtube: boolean }; socialStats: Record<string, PlatformStats> | null; social: { summary: SocialSummary; score: number | null; activity: string } | null; strategy: string | null;
 };
+const STRATEGY: Record<string, { label: string; style: string; hint: string }> = {
+  partner: { label: 'Partner', style: 'bg-green-100 text-green-800', hint: 'Agent or partner candidate for our network' },
+  study: { label: 'Study', style: 'bg-blue-100 text-blue-800', hint: 'A legend to learn from' },
+  compete: { label: 'Compete', style: 'bg-red-100 text-red-800', hint: 'Direct rival in the Bay Area' },
+  acquire: { label: 'Acquire?', style: 'bg-purple-100 text-purple-800', hint: 'Possible buy-out target' },
+  ignore: { label: 'Ignore', style: 'bg-slate-100 text-slate-600', hint: 'Not relevant to us' },
+};
+type PlacesUsage = { month: string; details: number; match: number; detailsCap: number; matchCap: number };
+type GoogleInfo = { placeId: string; name: string; address: string; rating: number | null; reviews: number | null; website: string | null; phone: string | null; status: string | null; mapsUrl: string | null; hours: string[]; type: string | null };
 type Web = { site: string | null; source: 'email' | 'guess' | 'google' | 'brave' | null; matchedBy: string[]; socials: Record<string, string>; possibleSocials: Record<string, string>; tried: { url: string; source: string; ok: boolean; matchedBy: string[]; error?: string }[]; searched: string[]; checkedAt: string | null };
-const WEB_SOURCE: Record<string, string> = { email: 'their email domain on the federal filing', guess: 'a likely web address from their name', google: 'a Google search', brave: 'a Brave search' };
+const WEB_SOURCE: Record<string, string> = { email: 'their email domain on the federal filing', guess: 'a likely web address from their name', google: 'a Google search', brave: 'a Brave search', places: 'their Google Business listing' };
 const SOCIAL_NAME: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn', x: 'X', yelp: 'Yelp', google: 'Google', nextdoor: 'Nextdoor', bbb: 'BBB', thumbtack: 'Thumbtack', angi: 'Angi' };
 
 function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: string; onClose: () => void; onChanged: () => void }) {
@@ -341,11 +354,19 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
         </section>
 
         <WebSection web={d.web} busy={webBusy} searchReady={d.searchReady} braveReady={d.braveReady} onRefresh={() => findWeb(true)} />
+        {(d.statsReady.instagram || d.statsReady.youtube) && (d.web?.socials?.instagram || d.web?.socials?.youtube || d.socialStats) && <section className="space-y-2 bg-slate-50 rounded-xl p-4">
+          <div className="flex justify-between items-center"><p className="font-bold">Social numbers</p><Button size="sm" variant="outline" disabled={!!busy} onClick={() => act('social-stats', {}, 'Social numbers updated')}>{busy === 'social-stats' ? 'Checking…' : d.socialStats ? 'Update' : 'Get Instagram & YouTube numbers'}</Button></div>
+          {d.social && <p className="text-sm">Social score <b>{d.social.score ?? '—'}</b> · {d.social.summary.followers?.toLocaleString() ?? '—'} followers · {d.social.summary.postsLast30 ?? '—'} posts in 30 days · last post {d.social.summary.daysSinceLastPost === null ? '—' : `${d.social.summary.daysSinceLastPost} days ago`}</p>}
+          {d.socialStats && <ul className="text-xs space-y-0.5">{Object.values(d.socialStats).map(p => <li key={p.platform}><b className="capitalize">{p.platform}</b>: {p.error ? <span className="text-amber-700">{p.error}</span> : `${p.followers?.toLocaleString() ?? 'hidden'} followers · ${p.posts ?? '?'} posts · ${p.avgLikes ?? '?'} likes and ${p.avgComments ?? '?'} comments per post (last ${p.sampled})`}</li>)}</ul>}
+          <p className="text-[11px] text-muted-foreground">{SOCIAL_SCORE_HELP}</p>
+        </section>}
+        <GoogleSection url={url} places={d.places} onWeb={web => setD(prev => prev ? { ...prev, web } : prev)} />
 
         <section className="space-y-2 bg-slate-50 rounded-xl p-4">
           <div className="flex justify-between items-center"><p className="font-bold">Company type (AI)</p>{d.jev && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => act('classify', {}, 'AI sorted this company')}>{busy === 'classify' ? 'Asking AI…' : d.kind ? 'Ask again' : 'Ask AI'}</Button>}</div>
           {d.kind ? <p className="text-sm"><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${KIND_STYLE[d.kind]}`}>{KIND_LABEL[d.kind]}</span> {d.kindConfidence !== null && <span className="text-xs text-muted-foreground">({Math.round(d.kindConfidence * 100)}% confident)</span>}<br /><span className="text-muted-foreground">{d.kindLabel}</span></p>
             : <p className="text-sm text-muted-foreground">{d.jev ? 'Not sorted yet. The hourly job sorts each state’s biggest movers automatically.' : 'AI sorting isn’t set up.'}</p>}
+          {d.jev && <div className="flex flex-wrap items-center gap-2 text-sm pt-1"><span className="font-semibold">Jev’s call:</span>{d.strategy ? <span title={STRATEGY[d.strategy]?.hint} className={`text-xs px-2 py-0.5 rounded-full font-semibold ${STRATEGY[d.strategy]?.style}`}>{STRATEGY[d.strategy]?.label}</span> : <span className="text-muted-foreground">not asked yet</span>}{d.strategy && <span className="text-xs text-muted-foreground">{STRATEGY[d.strategy]?.hint}</span>}<Button size="sm" variant="ghost" className="h-7" disabled={!!busy} onClick={() => act('strategy', {}, 'Jev reviewed this company')}>{busy === 'strategy' ? 'Asking Jev…' : d.strategy ? 'Ask again' : 'Ask Jev how to treat them'}</Button></div>}
           <p className="text-xs text-muted-foreground">Mover likelihood from federal data: {m.moverScore}/100</p>
         </section>
 
@@ -373,6 +394,44 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
     </div>
     {research && m && <ResearchPanel target={{ key: m.dot, dot: m.dot, state: m.state, name: nice(m.dba || m.name), city: `${nice(m.city)}, ${m.state}` }} onClose={() => setResearch(false)} />}
   </div>;
+}
+
+/**
+ * Their Google Business listing, fetched live only when you click. Google's
+ * terms don't allow keeping ratings, reviews or contact details, so this
+ * disappears when the panel closes (only the place ID is saved).
+ */
+function GoogleSection({ url, places, onWeb }: { url: string; places: Detail['places']; onWeb: (w: Web) => void }) {
+  const auth = useAuth();
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ info: GoogleInfo | null } | null>(null);
+  const [usage, setUsage] = useState(places.usage);
+  const left = usage ? usage.detailsCap - usage.details : 0;
+  const get = async () => {
+    setBusy(true);
+    try { const r = await apiFetch<{ info: GoogleInfo | null; usage: PlacesUsage; web: Web | null }>(auth, url, { action: 'google' }); setResult({ info: r.info }); setUsage(r.usage); if (r.web) onWeb(r.web); }
+    catch (e) { toast({ variant: 'destructive', title: 'Google lookup didn’t work', description: e instanceof Error ? e.message : '' }); }
+    finally { setBusy(false); }
+  };
+  if (!places.ready) return <section className="rounded-xl border p-4 text-sm text-muted-foreground"><p className="font-bold text-foreground">Google Business info</p>Not set up yet: it needs a Google Cloud API key with Places API (New) turned on (GOOGLE_CLOUD_API_KEY).</section>;
+  const i = result?.info;
+  return <section className="rounded-xl border-2 border-slate-200 p-4 space-y-2">
+    <div className="flex justify-between items-center gap-2"><p className="font-bold">Google Business info</p><Button size="sm" variant="outline" disabled={busy || left <= 0} onClick={get}>{busy ? 'Asking Google…' : result ? 'Refresh' : 'Get Google info'}</Button></div>
+    {!result ? <p className="text-xs text-muted-foreground">Live from Google when you click (1 lookup). {usage ? `${usage.details} of ${usage.detailsCap} used this month.` : ''}</p>
+      : !i ? <p className="text-sm text-muted-foreground">No Google listing matched this company’s name and city (or phone).</p>
+      : <div className="text-sm space-y-1">
+        <p className="font-semibold">{i.name} <span className="font-normal text-muted-foreground">· {i.address}</span></p>
+        {i.status && i.status !== 'OPERATIONAL' && <p className="text-red-700 font-semibold">{i.status === 'CLOSED_PERMANENTLY' ? 'Permanently closed' : i.status === 'CLOSED_TEMPORARILY' ? 'Temporarily closed' : i.status}</p>}
+        <p>{i.rating !== null ? <><b>{i.rating.toFixed(1)} ★</b> from {(i.reviews || 0).toLocaleString()} reviews</> : 'No rating yet'}{i.type ? ` · ${i.type}` : ''}</p>
+        {i.phone && <p>Phone: {i.phone}</p>}
+        {i.website && <p>Website: <a className="underline break-all" href={i.website} target="_blank" rel="noreferrer noopener">{i.website.replace(/^https?:\/\//, '')}</a></p>}
+        {i.hours.length > 0 && <details className="text-xs"><summary className="cursor-pointer">Hours</summary><ul>{i.hours.map(h => <li key={h}>{h}</li>)}</ul></details>}
+        {i.mapsUrl && <a className="underline text-xs" href={i.mapsUrl} target="_blank" rel="noreferrer noopener">See reviews on Google Maps</a>}
+        <p className="text-[11px] text-muted-foreground">Google doesn’t verify reviews, but removes fake content when it’s found.</p>
+      </div>}
+    <p className="text-[11px] text-muted-foreground">Data: <b>Google Maps</b>{usage ? ` · ${usage.details}/${usage.detailsCap} lookups this month` : ''}</p>
+  </section>;
 }
 
 function WebSection({ web, busy, searchReady, braveReady, onRefresh }: { web: Web | null; busy: boolean; searchReady: boolean; braveReady: boolean; onRefresh: () => void }) {

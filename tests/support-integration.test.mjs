@@ -25,7 +25,9 @@ import { toMover, siteFromEmail, saneUnits, filterMovers, sortMovers, ourRank, m
 import { diffMovers, closureReason, mdy, zipOf, zipsWithin, expansionScore, acquisitionScore, isRecruitCandidate, moverVerdict, countyKey } from '../src/lib/market.ts';
 import { priceCart, SALES_TAX_RATE } from '../src/lib/shop.ts';
 import { platformOf, cleanSocials, passGaps } from '../src/lib/competitors.ts';
-import { guessDomains, isDirectory, matchPage, nameTokens, urlsIn } from '../src/lib/web-presence.ts';
+import { guessDomains, isDirectory, matchPage, nameTokens, urlsIn, placeMatches } from '../src/lib/web-presence.ts';
+import { buildLegends, STATE_ZONE, brandOf, revenueRange } from '../src/lib/legends.ts';
+import { igUsername, ytRef, summarizePosts, combineStats, socialScore, activityOf, metricsFromStats } from '../src/lib/social-stats.ts';
 import { explainRank, sizeParts } from '../src/lib/registry.ts';
 import { METROS } from '../src/lib/metros.ts';
 import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, columnChanges, filterCarriers, sortCarriers, tupleToMover, servicesLabel, KNOWN_COLUMNS, partnerScore, isPartnerCandidate, newPartnerCarriers, newCarrierAlerts, primaryCategory, CATEGORY_COLOR } from '../src/lib/carriers.ts';
@@ -1650,4 +1652,93 @@ test('census file import: script splits the DOT file, the app loads movers from 
   const second = newList();
   assert.equal(second.baseline, false); assert.deepEqual(second.rows.map(r => r.slice(0, 2)), [['NV', '9100007']]);
   assert.equal(JSON.parse(readFileSync(join(process.env.REGISTRY_LOCAL_DIR, 'import/manifest.json'), 'utf8')).totals.newPartners, 1);
+});
+
+test('legends: top 500 in the lower 48, next 100 per time zone, top 10 in Alaska and Hawaii; brands and revenue', () => {
+  assert.ok(REGISTRY_AREAS.filter(a => !isProvince(a) && a !== 'PR').every(st => STATE_ZONE[st]), 'every state and DC has a time zone');
+  assert.equal(STATE_ZONE.PR, undefined); // Puerto Rico (Atlantic time) isn't in any legends list.
+  const rows = [];
+  let n = 0;
+  for (const [st, count] of [['CA', 300], ['NY', 300], ['TX', 150], ['CO', 120], ['AK', 15], ['HI', 12]]) for (let i = 0; i < count; i++) rows.push({ dot: String(++n), state: st, units: (n * 7919) % 997 });
+  const g = buildLegends(rows, m => m.units);
+  assert.equal(g.national.length, 500);
+  assert.ok(g.national.every(m => !['AK', 'HI'].includes(m.state)));
+  const top = [...rows].filter(m => !['AK', 'HI'].includes(m.state)).sort((a, b) => b.units - a.units)[0];
+  assert.equal(g.national[0].dot, top.dot);
+  const inNational = new Set(g.national.map(m => m.dot));
+  for (const z of ['eastern', 'central', 'mountain', 'pacific']) { assert.ok(g[z].length <= 100); assert.ok(g[z].every(m => !inNational.has(m.dot) && STATE_ZONE[m.state] === z), z); }
+  assert.equal(g.alaska.length, 10); assert.equal(g.hawaii.length, 10);
+  assert.ok(g.alaska.every(m => m.state === 'AK'));
+  assert.ok(g.alaska[0].units >= g.alaska[9].units);
+
+  assert.equal(brandOf({ name: 'TWO MEN AND A TRUCK OF SAN JOSE', dba: '', site: '' })?.key, 'two-men');
+  assert.equal(brandOf({ name: 'ACME MOVING LLC', dba: 'ACME, AGENT FOR ALLIED', site: '' })?.key, 'allied');
+  assert.equal(brandOf({ name: 'ALLIED TRANSPORT LLC', dba: '', site: '' }), null); // Not the van line.
+  assert.equal(brandOf({ name: 'SMITH MOVING', dba: '', site: '', foundSite: 'https://www.collegehunkshaulingjunk.com' })?.key, 'college-hunks');
+  assert.deepEqual(revenueRange({ units: 10 }), { low: 1_500_000, high: 2_500_000 });
+});
+
+test('Google listing match, social numbers, social score and the new platforms', () => {
+  const m = { name: 'ACME MOVING LLC', city: 'SAN JOSE', phone: '4085551234' };
+  assert.ok(placeMatches(m, { displayName: { text: 'Acme Moving & Storage' }, formattedAddress: '1 Main St, San Jose, CA 95112, USA' }));
+  assert.ok(placeMatches(m, { displayName: { text: 'Totally Different' }, nationalPhoneNumber: '(408) 555-1234' }));
+  assert.ok(!placeMatches(m, { displayName: { text: 'Acme Moving' }, formattedAddress: 'Boston, MA' }));
+
+  assert.equal(igUsername('https://www.instagram.com/acme.movers/'), 'acme.movers');
+  assert.equal(igUsername('https://instagram.com/p/Cxyz123/'), null);
+  assert.deepEqual(ytRef('https://www.youtube.com/@AcmeMoving'), { handle: 'AcmeMoving' });
+  assert.deepEqual(ytRef('https://youtube.com/channel/UC1234567890123456789012'), { id: 'UC1234567890123456789012' });
+  assert.deepEqual(ytRef('https://www.youtube.com/user/acmemoving'), { username: 'acmemoving' });
+  assert.equal(ytRef('https://www.youtube.com/watch?v=abc'), null);
+
+  const now = Date.parse('2026-11-12T00:00:00Z');
+  const day = d => new Date(now - d * 86400_000).toISOString();
+  const sum = summarizePosts([{ at: day(2), likes: 50, comments: 5 }, { at: day(10), likes: 30, comments: 3 }, { at: day(45), likes: 10, comments: null }], now);
+  assert.deepEqual(sum, { sampled: 3, avgLikes: 30, avgComments: 4, avgViews: null, lastPostAt: day(2), postsLast30: 2 });
+  const ig = { platform: 'instagram', handle: 'a', url: '', followers: 2000, posts: 300, ...sum, checkedAt: '' };
+  const yt = { platform: 'youtube', handle: 'a', url: '', followers: 500, posts: 20, sampled: 2, avgLikes: 10, avgComments: 1, avgViews: 400, lastPostAt: day(20), postsLast30: 1, checkedAt: '' };
+  const both = combineStats({ instagram: ig, youtube: yt, x: undefined }, now);
+  assert.equal(both.followers, 2500); assert.equal(both.postsLast30, 3); assert.equal(both.daysSinceLastPost, 2); assert.equal(both.platforms, 2);
+  assert.equal(both.engagementRate, Math.round(((30 + 4 + 10 + 1) / 2500) * 10000) / 10000);
+  const score = socialScore(both);
+  assert.ok(score > 40 && score < 90, String(score));
+  assert.equal(activityOf(both), 'active');
+  assert.equal(activityOf({ ...both, daysSinceLastPost: 120 }), 'inactive');
+  assert.equal(socialScore(combineStats({})), null);
+  assert.deepEqual(metricsFromStats(both), { followers: 2500, postsPerMonth: 3, avgPostLikes: 20 });
+  // Errors (e.g. a personal Instagram account) don't count.
+  assert.equal(combineStats({ instagram: { ...ig, error: 'Personal account' } }).platforms, 0);
+
+  for (const [u, k] of [['https://bsky.app/profile/acme.bsky.social', 'bluesky'], ['https://discord.gg/abc', 'discord'], ['https://mastodon.social/@acme', 'mastodon'], ['https://medium.com/acme', 'medium'], ['https://github.com/acme', 'github'], ['https://www.reddit.com/r/acme/', 'reddit'], ['https://www.threads.net/@acme', 'threads'], ['https://www.pinterest.com/acme', 'pinterest']]) assert.equal(platformOf(u), k, u);
+});
+
+test('Legends board, Google lookups and social numbers: safe when not set up; our numbers fill from Instagram/YouTube', async () => {
+  const get = path => fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${adminToken}` } });
+  const board = await (await get('/api/admin/legends')).json();
+  assert.ok(Array.isArray(board.groups.national)); assert.ok(board.groups.national.length > 0);
+  assert.ok(board.groups.alaska.every(r => r.state === 'AK'));
+  const row = board.groups.national[0];
+  for (const k of ['rank', 'dot', 'revenue', 'strategy', 'google', 'site', 'socials']) assert.ok(k in row, k);
+  assert.equal(board.places.ready, false);
+  assert.equal((await fetch(`${base}/api/admin/legends`, authorized(adminToken, { action: 'match-google', group: 'national' }))).status, 503);
+  assert.equal((await fetch(`${base}/api/admin/legends`, authorized(adminToken, { action: 'jev', group: 'national' }))).status, 503);
+  assert.equal((await fetch(`${base}/api/admin/legends`, authorized(adminToken, { action: 'jev', group: 'nope' }))).status, 400);
+  assert.equal((await fetch(`${base}/api/admin/legends`, authorized(adminToken, { action: 'jev', group: 'national' }))).status, 503);
+  assert.equal((await fetch(`${base}/api/admin/legends`, authorized(customerToken, { action: 'jev', group: 'national' }))).status, 403);
+
+  const company = `/api/admin/registry/1234567?state=CA`;
+  const detail = await (await get(company)).json();
+  assert.equal(detail.places.ready, false); assert.equal(detail.statsReady.instagram, false); assert.equal(detail.strategy, null);
+  assert.equal((await fetch(`${base}${company}`, authorized(adminToken, { action: 'google' }))).status, 503);
+  assert.equal((await fetch(`${base}${company}`, authorized(adminToken, { action: 'social-stats' }))).status, 503);
+  assert.equal((await fetch(`${base}${company}`, authorized(adminToken, { action: 'strategy' }))).status, 503);
+  assert.equal((await fetch(`${base}/api/admin/competitors`, authorized(adminToken, { action: 'social-stats', id: 'us' }))).status, 503);
+
+  // Stored Instagram/YouTube numbers feed our followers, posts and likes (typed-in numbers still win).
+  const recent = new Date(Date.now() - 3 * 86400_000).toISOString();
+  await db.doc('competitorSettings/us').update({ metrics: { trucks: 15, drivers: 10 }, socialStats: { instagram: { platform: 'instagram', handle: 'wsm', url: '', followers: 800, posts: 40, sampled: 12, avgLikes: 25, avgComments: 2, avgViews: null, lastPostAt: recent, postsLast30: 6, checkedAt: recent } } });
+  const list = await (await get('/api/admin/competitors')).json();
+  assert.equal(list.us.metrics.followers, 800); assert.equal(list.us.metrics.postsPerMonth, 6); assert.equal(list.us.metrics.avgPostLikes, 25);
+  assert.equal(list.us.social.activity, 'active'); assert.equal(typeof list.us.social.score, 'number');
+  assert.equal(list.statsReady.youtube, false);
 });

@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { ProfileMenu } from "@/components/layout/profile-menu";
 import { usePathname, useRouter } from "next/navigation";
-import { 
+import { Crown, 
   Truck, 
   LayoutDashboard, 
   Calendar, 
@@ -114,6 +114,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Insights", href: "/dashboard/admin/insights", icon: BarChart3 },
     { label: "Competitors", href: "/dashboard/admin/competitors", icon: Target },
     { label: "Mover Registry", href: "/dashboard/admin/movers", icon: MapIcon },
+    { label: "Legends", href: "/dashboard/admin/legends", icon: Crown },
     { label: "Market Radar", href: "/dashboard/admin/market", icon: Radar },
     { label: "Agent Network", href: "/dashboard/admin/agents", icon: Globe2 },
     { label: "Lead Inbox", href: "/dashboard/admin/leads", icon: Inbox },
