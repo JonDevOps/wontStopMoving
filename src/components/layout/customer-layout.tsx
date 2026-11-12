@@ -14,7 +14,8 @@ import {
   LogOut, 
   Menu,
   X,
-  MessageSquare
+  MessageSquare,
+  Gift
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,7 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
     { label: "Overview", href: "/dashboard/customer", icon: LayoutDashboard },
     { label: "My Moves", href: "/dashboard/customer/moves", icon: Truck },
     { label: "My Quotes", href: "/dashboard/customer/quotes", icon: FileText },
+    { label: "Rewards", href: "/dashboard/customer/rewards", icon: Gift },
     { label: "Support", href: "/contact", icon: MessageSquare },
     { label: "Profile", href: "/dashboard/customer/profile", icon: User },
   ];

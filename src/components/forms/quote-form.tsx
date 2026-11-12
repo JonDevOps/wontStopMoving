@@ -29,13 +29,13 @@ import {
   Shield,
   Lock,
   Loader2,
-  Music
-} from "lucide-react";
+  Music, HeartHandshake } from "lucide-react";
 import { useFirestore, useUser, useAuth } from "@/firebase";
 import { collection, serverTimestamp, doc, setDoc, addDoc, getDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { sendSignupVerification } from '@/lib/email-verification';
 import { useToast } from "@/hooks/use-toast";
+import { FinancingNote } from '@/components/dashboard/financing-note';
 import { calculateMoveTotal, MILEAGE } from "@/lib/pricing";
 import Link from "next/link";
 import { TermsAcceptance } from '@/components/legal/terms-acceptance';
@@ -63,6 +63,7 @@ const formSchema = z.object({
   // Discounts
   isStudent: z.boolean().default(false),
   isMilitary: z.boolean().default(false),
+  isSenior: z.boolean().default(false),
   // Contact
   name: z.string().min(2, "Name required"),
   email: z.string().email("Invalid email"),
@@ -72,7 +73,9 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function QuoteForm({ providerId }: { providerId?: string }) {
+const QUOTE_SIZES = ['studio', '2br', '3br', '4br+', 'commercial'];
+
+export function QuoteForm({ providerId, initialSize }: { providerId?: string; initialSize?: string }) {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -88,7 +91,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
   const { register, handleSubmit, setValue, watch, trigger, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      moveSize: "studio",
+      moveSize: initialSize && QUOTE_SIZES.includes(initialSize) ? initialSize : "studio",
       packingService: false,
       cratingService: false,
       cleaningService: false,
@@ -99,6 +102,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
       pianoMoving: false,
       isStudent: false,
       isMilitary: false,
+      isSenior: false,
     }
   });
 
@@ -125,6 +129,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
   const estimatedTotal = calculateMoveTotal(watch("moveSize") || "studio", selectedAddOnKeys, {
     isStudent: !!watch("isStudent"),
     isMilitary: !!watch("isMilitary"),
+    isSenior: !!watch("isSenior"),
     isExpress: !!watch("expressMoving"),
     miles: distance?.miles ?? null,
   });
@@ -225,6 +230,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
           specialItems: data.specialItems,
           isStudent: data.isStudent,
           isMilitary: data.isMilitary,
+          isSenior: data.isSenior,
           estimatedTotal,
           addOns: {
             packing: data.packingService,
@@ -293,7 +299,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
     if (!savedQuoteId) return;
     setStartingCheckout(true);
     try {
-      const { url } = await apiFetch<{ url: string }>(auth, "/api/stripe/quote-checkout", { quoteId: savedQuoteId, termsAccepted: true, termsVersion: TERMS_VERSION });
+      const { url } = await apiFetch<{ url: string }>(auth, "/api/stripe/quote-checkout", { quoteId: savedQuoteId, termsAccepted: true, termsVersion: TERMS_VERSION, useCredit: true });
       window.location.assign(url);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Couldn't start payment", description: `${error?.message || "Please try again."} You can also book from your dashboard.` });
@@ -312,6 +318,7 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
         <div className="my-6 inline-block bg-primary/5 border border-primary/10 rounded-2xl px-8 py-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Instant Estimated Total</p>
           <p className="text-4xl font-black text-accent mt-1">${estimatedTotal.toLocaleString()}</p>
+          <FinancingNote total={estimatedTotal} className="mt-2 justify-center" />
         </div>
         <p className="text-muted-foreground mb-8 text-balance">
           Thank you, {watch("name")}! {user ? "Your quote has been added to your account." : "We've created your secure account and saved your quote."} 
@@ -488,8 +495,8 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
               )}
 
               <div className="pt-4 space-y-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Apply Discounts (5%)</p>
-                <div className="grid grid-cols-2 gap-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Apply a Discount (5%)</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <div className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${watch("isStudent") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}>
                     <Checkbox id="isStudent" checked={watch("isStudent")} onCheckedChange={(val) => setValue("isStudent", val === true)} />
                     <Label htmlFor="isStudent" className="text-xs font-bold flex items-center gap-2 cursor-pointer">
@@ -500,6 +507,12 @@ export function QuoteForm({ providerId }: { providerId?: string }) {
                     <Checkbox id="isMilitary" checked={watch("isMilitary")} onCheckedChange={(val) => setValue("isMilitary", val === true)} />
                     <Label htmlFor="isMilitary" className="text-xs font-bold flex items-center gap-2 cursor-pointer">
                       <Shield className="h-4 w-4" /> Military
+                    </Label>
+                  </div>
+                  <div className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${watch("isSenior") ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100'}`}>
+                    <Checkbox id="isSenior" checked={watch("isSenior")} onCheckedChange={(val) => setValue("isSenior", val === true)} />
+                    <Label htmlFor="isSenior" className="text-xs font-bold flex items-center gap-2 cursor-pointer">
+                      <HeartHandshake className="h-4 w-4" /> Senior (62+)
                     </Label>
                   </div>
                 </div>

@@ -3,6 +3,7 @@ import { allPublicPosts } from '@/lib/server/blog';
 import { ALL_LOCATIONS, CITIES_BY_STATE, slugify } from '@/lib/location-data';
 import { SERVICES, SITE_URL } from '@/lib/seo';
 import { cityIndex } from '@/lib/server/city-reports';
+import { COST_CITIES } from '@/lib/city-costs';
 
 /**
  * Public pages, including every state and city service-area page.
@@ -30,6 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry('/faq', 0.7),
     entry('/about', 0.6),
     entry('/contact', 0.6),
+    entry('/cancel', 0.3),
     entry('/blog', 0.6, 'weekly'),
     entry('/careers', 0.5),
     entry('/provider-signup', 0.5),
@@ -37,7 +39,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry('/check-a-mover', 0.7),
     entry('/mover-closed', 0.6),
     entry('/shop', 0.6),
+    entry('/gift-cards', 0.5),
     entry('/moving-reports', 0.6, 'weekly'),
+    entry('/moving-cost', 0.7),
+    ...COST_CITIES.map(c => entry(`/moving-cost/${c.slug}`, 0.6)),
     entry('/privacy', 0.2, 'yearly'),
     entry('/terms', 0.2, 'yearly'),
     entry('/accessibility', 0.2, 'yearly'),

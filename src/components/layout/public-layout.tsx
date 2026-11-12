@@ -3,7 +3,9 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Truck, Menu, X, ArrowRight, ChevronDown, LogOut } from 'lucide-react';
+import { Truck, Menu, X, ArrowRight, ChevronDown, LogOut, Phone } from 'lucide-react';
+import { QuickContact } from '@/components/layout/quick-contact';
+import { SITE_PHONE } from '@/lib/seo';
 import React, { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
@@ -82,6 +84,8 @@ export function PublicLayout({ children }: PublicLayoutProps) {
         { label: "Customer Reviews", href: "/reviews" },
         { label: "FAQs", href: "/faq" },
         { label: "Customer Support", href: "/contact" },
+        { label: "Cancel or Reschedule", href: "/cancel" },
+        { label: "Save Our Contact (.vcf)", href: "/contact.vcf" },
       ]
     },
     {
@@ -92,7 +96,9 @@ export function PublicLayout({ children }: PublicLayoutProps) {
         { label: "Agent Network", href: "/agents" },
         { label: "Check a Mover", href: "/check-a-mover" },
         { label: "Moving Market Reports", href: "/moving-reports" },
+        { label: "Moving Costs by City", href: "/moving-cost" },
         { label: "Moving Supplies Shop", href: "/shop" },
+        { label: "Gift Cards", href: "/gift-cards" },
         { label: "Refer a Friend", href: "mailto:?subject=Moving%20soon%3F&body=Get%20a%20moving%20quote%20from%20Wont%20Stop%20Moving%3A%20https%3A%2F%2Fwontstopmoving.com%2Fquote" },
       ]
     },
@@ -180,6 +186,9 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           <div className="flex items-center gap-4">
             {/* Desktop Actions */}
             <div className="hidden sm:flex items-center gap-4">
+              <a href={`tel:${SITE_PHONE}`} className="hidden xl:inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-primary hover:text-accent transition-colors">
+                <Phone className="h-4 w-4" /> (415) 214-5474
+              </a>
               {!mounted || isUserLoading ? (
                 <div className="w-24 h-10 bg-gray-100 animate-pulse rounded-full" />
               ) : user ? (
@@ -333,6 +342,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       <main className="flex-1">
         {children}
       </main>
+      <QuickContact />
 
       {/* Footer */}
       <footer className="bg-primary pt-20 pb-10 text-white/60 border-t border-white/10">
@@ -357,9 +367,13 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 <ul className="space-y-4 text-sm">
                   {section.links.map((link, lIdx) => (
                     <li key={lIdx}>
-                      <Link href={link.href} className="hover:text-accent transition-colors font-bold text-white/90">
-                        {link.label}
-                      </Link>
+                      {link.href.endsWith('.vcf') ? (
+                        <a href={link.href} download className="hover:text-accent transition-colors font-bold text-white/90">{link.label}</a>
+                      ) : (
+                        <Link href={link.href} className="hover:text-accent transition-colors font-bold text-white/90">
+                          {link.label}
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -379,9 +393,13 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                         <ul className="space-y-4 pt-2 pb-4">
                           {section.links.map((link, lIdx) => (
                             <li key={lIdx}>
-                              <Link href={link.href} className="text-white/70 hover:text-accent transition-colors block text-sm">
-                                {link.label}
-                              </Link>
+                              {link.href.endsWith('.vcf') ? (
+                                <a href={link.href} download className="text-white/70 hover:text-accent transition-colors block text-sm">{link.label}</a>
+                              ) : (
+                                <Link href={link.href} className="text-white/70 hover:text-accent transition-colors block text-sm">
+                                  {link.label}
+                                </Link>
+                              )}
                             </li>
                           ))}
                         </ul>

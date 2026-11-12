@@ -1,7 +1,7 @@
 import { QuoteForm } from "@/components/forms/quote-form";
 import { PublicLayout } from "@/components/layout/public-layout";
 
-export default async function QuotePage({ searchParams }: { searchParams: Promise<{ providerId?: string }> }) {
+export default async function QuotePage({ searchParams }: { searchParams: Promise<{ providerId?: string; size?: string }> }) {
   const params = await searchParams;
   const providerId = params.providerId;
   
@@ -15,7 +15,7 @@ export default async function QuotePage({ searchParams }: { searchParams: Promis
               <p className="text-lg text-muted-foreground">Just a few details and we'll have a tailored moving plan ready for you in minutes.</p>
             </div>
             <div className="animate-fade-in" style={{ animationDelay: '200ms' }}>
-              <QuoteForm providerId={providerId} />
+              <QuoteForm providerId={providerId} initialSize={params.size} />
             </div>
           </div>
         </div>
