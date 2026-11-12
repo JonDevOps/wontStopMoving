@@ -30,6 +30,7 @@ import { explainRank, sizeParts } from '../src/lib/registry.ts';
 import { METROS } from '../src/lib/metros.ts';
 import { usableCredit, giftCardAmount, normalizeGiftCode, formatGiftCode, isGiftCodeCore } from '../src/lib/rewards.ts';
 import { diffPrices, describeChange } from '../src/lib/price-watch.ts';
+import { parseFeed, matchDemand } from '../src/lib/demand.ts';
 import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, columnChanges, filterCarriers, sortCarriers, tupleToMover, servicesLabel, KNOWN_COLUMNS, partnerScore, isPartnerCandidate, newPartnerCarriers, newCarrierAlerts, primaryCategory, CATEGORY_COLOR } from '../src/lib/carriers.ts';
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
@@ -1795,4 +1796,31 @@ test('move documents: chosen per move (interstate adds federal booklets, storage
   assert.ok(!after.outstanding.includes('valuation'));
   assert.equal(after.signatures.find(s => s.docId === 'valuation').choice, 'full');
   assert.equal((await fetch(`${base}/api/move-documents?jobId=concierge-other`, { headers: { Authorization: `Bearer ${customerToken}` } })).status, 404);
+});
+
+test('demand monitor: parses RSS and Atom, keeps only people hiring movers, refuses Craigslist feeds', async () => {
+  const rss = `<rss><channel><item><title><![CDATA[Need movers in Oakland next week]]></title><link>https://example.com/p/1</link><description>&lt;b&gt;Any good movers?&lt;/b&gt; 2 bedroom</description><pubDate>Tue, 10 Nov 2026 10:00:00 GMT</pubDate></item>
+    <item><title>Now hiring movers in Oakland</title><link>https://example.com/p/2</link><description>Apply now</description></item></channel></rss>`;
+  const items = parseFeed(rss);
+  assert.equal(items.length, 2);
+  assert.equal(items[0].text, 'Any good movers? 2 bedroom');
+  assert.equal(items[0].published, '2026-11-10T10:00:00.000Z');
+  const hit = matchDemand(items[0], ['Oakland', 'Seattle']);
+  assert.deepEqual(hit.places, ['Oakland']);
+  assert.ok(hit.score > matchDemand(items[0], []).score);
+  assert.equal(matchDemand(items[1], ['Oakland']), null); // Job ad.
+  assert.equal(matchDemand({ title: 'Moving our office hours', text: '' }), null);
+  const atom = parseFeed('<feed><entry><title>Looking for a mover</title><link href="https://example.org/e/1"/><summary>Seattle to Portland</summary><updated>2026-11-11T00:00:00Z</updated></entry></feed>');
+  assert.equal(atom[0].link, 'https://example.org/e/1');
+
+  const post = body => fetch(`${base}/api/admin/demand`, authorized(adminToken, body));
+  assert.equal((await fetch(`${base}/api/admin/demand`, authorized(customerToken, { action: 'run' }))).status, 403);
+  const saved = await (await post({ action: 'settings', feeds: ['https://sfbay.craigslist.org/search/lbg?format=rss', 'javascript:alert(1)', 'https://www.google.com/alerts/feeds/1/2'], places: 'Oakland, San Jose' })).json();
+  assert.deepEqual(saved.feeds, ['https://www.google.com/alerts/feeds/1/2']);
+  assert.deepEqual(saved.places, ['Oakland', 'San Jose']);
+  await db.doc('demandSignals/aaaaaaaaaaaaaaaaaaaaaaaa').set({ title: 'Need movers', link: 'https://example.com/x', text: '', phrases: ['need movers'], places: [], score: 50, status: 'new', foundAt: Timestamp.now() });
+  assert.equal((await post({ action: 'status', id: 'aaaaaaaaaaaaaaaaaaaaaaaa', status: 'contacted' })).status, 200);
+  assert.equal((await post({ action: 'status', id: 'aaaaaaaaaaaaaaaaaaaaaaaa', status: 'spam' })).status, 400);
+  const view = await (await fetch(`${base}/api/admin/demand`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.equal(view.signals.find(s => s.id === 'aaaaaaaaaaaaaaaaaaaaaaaa').status, 'contacted');
 });
