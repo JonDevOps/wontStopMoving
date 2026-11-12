@@ -12,6 +12,7 @@ import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { apiFetch } from '@/lib/api-client';
 import { REGION_PRESETS, REGISTRY_AREAS } from '@/lib/registry';
+import { CATEGORIES, CATEGORY_LABEL, categoriesOf } from '@/lib/carriers';
 import type { Bounds, MapPoint, StateStat } from '@/components/registry/mover-map';
 import { ResearchPanel } from '@/components/agents/research-panel';
 
@@ -20,11 +21,12 @@ const MoverMap = dynamic(() => import('@/components/registry/mover-map').then(m 
 type Row = {
   dot: string; mc: string; name: string; dba: string; street: string; city: string; state: string; zip: string; phone: string; email: string; site: string; officer: string; org: string;
   units: number; drivers: number; miles: number; years: number; interstate: boolean; hhgAuth: boolean; broker: boolean; moverScore: number;
-  kind: string | null; sosActive: boolean | null; competitorId: string | null;
+  kind: string | null; sosActive: boolean | null; competitorId: string | null; cats?: number; otherCargo?: string;
 };
+type ImportStatus = { generatedAt: string; runs: number; sourceUpdatedAt: string | null; schedule: string; nextCheck: string; totals: { rows: number; active: number; movers: number; carriers: number; categories: Record<string, number> }; columns: { added: string[]; removed: string[]; count: number }; dictionary: { name: string; changedAt: string; checkedAt: string; previousName: string | null } | null };
 type Rank = { rank: number; of: number; nextUp: { dot: string; name: string; city: string; state: string; units: number; drivers: number; years: number; gap: { units: number; drivers: number; years: number } }[] };
 type Explain = { formula: string; ours: { trucks: number; drivers: number; miles: number; total: number }; rank: number; of: number; nextUp: { dot: string; name: string; city: string; state: string; units: number; drivers: number; years: number; score: { total: number }; need: { points: number; trucks: number; drivers: number } }[]; measures: { label: string; ours: number; rank: number; of: number; leader: number; median: number; unit: string }[]; shares: { authority: number; website: number }; steps: string[] };
-type Result = { mode: 'national' | 'detailed'; nationalComplete?: boolean | null; explain?: Explain | null; total: number; rows: Row[]; rank: Rank | null; points?: MapPoint[]; totals: { units: number; drivers: number }; updatedAt: string | null; synced: number; jev: boolean; stateStats?: (StateStat & { count: number; updatedAt: string | null })[] };
+type Result = { needsArea?: boolean; import?: ImportStatus | null; mode: 'national' | 'detailed'; nationalComplete?: boolean | null; explain?: Explain | null; total: number; rows: Row[]; rank: Rank | null; points?: MapPoint[]; totals: { units: number; drivers: number }; updatedAt: string | null; synced: number; jev: boolean; stateStats?: (StateStat & { count: number; updatedAt: string | null })[] };
 
 const KIND_LABEL: Record<string, string> = { local_mover: 'Local mover', van_line: 'Van line', broker: 'Broker', freight: 'Freight', other: 'Not a mover' };
 const KIND_STYLE: Record<string, string> = { local_mover: 'bg-green-100 text-green-800', van_line: 'bg-blue-100 text-blue-800', broker: 'bg-amber-100 text-amber-800', freight: 'bg-slate-200 text-slate-700', other: 'bg-red-100 text-red-800' };
@@ -39,7 +41,7 @@ function Registry() {
   const auth = useAuth();
   const { toast } = useToast();
   const [area, setArea] = useState<string>('bay-area'); // region preset, a state code, 'national' or 'map'
-  const [f, setF] = useState({ q: '', city: '', minUnits: '', minDrivers: '', minYears: '', newDays: '', interstate: '', hhg: false, likely: true, site: '', kind: '', sos: '', tracked: '', sort: 'size', rankBy: 'size' });
+  const [f, setF] = useState({ type: '', q: '', city: '', minUnits: '', minDrivers: '', minYears: '', newDays: '', interstate: '', hhg: false, likely: true, site: '', kind: '', sos: '', tracked: '', sort: 'size', rankBy: 'size' });
   const [bounds, setBounds] = useState<Bounds | null>(null);
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom: number } | null>(FOCUS['bay-area']);
   const [page, setPage] = useState(1);
@@ -58,6 +60,7 @@ function Registry() {
     else if (REGISTRY_AREAS.includes(area)) p.set('states', area);
     // Map pins always cover the visible map, whatever area the list uses.
     if (bounds) { p.set('vbSouth', bounds.south.toFixed(3)); p.set('vbWest', bounds.west.toFixed(3)); p.set('vbNorth', bounds.north.toFixed(3)); p.set('vbEast', bounds.east.toFixed(3)); }
+    if (f.type) p.set('type', f.type);
     for (const [k, v] of Object.entries({ q: f.q, city: f.city, minUnits: f.minUnits, minDrivers: f.minDrivers, minYears: f.minYears, newDays: f.newDays, interstate: f.interstate, kind: f.kind, sos: f.sos, tracked: f.tracked, site: f.site })) if (v) p.set(k, v);
     if (f.hhg) p.set('hhg', '1');
     if (!f.likely) p.set('likely', '0');
@@ -86,6 +89,17 @@ function Registry() {
     finally { setBusy(''); }
   };
   const queryObject = () => Object.fromEntries([...params.entries()].filter(([k]) => !['page', 'pageSize', 'map', 'stats'].includes(k)));
+  const downloadDictionary = async () => {
+    setBusy('pdf');
+    try {
+      const user = auth.currentUser; if (!user) return;
+      const res = await fetch('/api/admin/registry/dictionary', { headers: { Authorization: `Bearer ${await user.getIdToken()}` } });
+      if (!res.ok) throw new Error('The data dictionary isn’t available yet.');
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a'); a.href = url; a.download = data?.import?.dictionary?.name || 'MCMIS_Company_Census_Data_Dictionary.pdf'; a.click(); URL.revokeObjectURL(url);
+    } catch (e) { toast({ variant: 'destructive', title: 'Download failed', description: e instanceof Error ? e.message : '' }); }
+    finally { setBusy(''); }
+  };
   const exportCsv = async () => {
     setBusy('csv');
     try {
@@ -106,8 +120,20 @@ function Registry() {
   return <div className="space-y-6 max-w-7xl mx-auto">
     <div className="space-y-2">
       <h1 className="text-3xl font-bold">Mover registry</h1>
-      <p className="text-muted-foreground">Every active U.S. moving company registered with the Department of Transportation (free FMCSA data, refreshed daily). Search any area, see where you rank, and add companies to your competitor lists.</p>
+      <p className="text-muted-foreground">Every active U.S. moving company registered with the Department of Transportation (the free FMCSA Company Census), plus every other for-hire carrier sorted by what they haul: freight, car carriers and more are future partners and agents. Search any area, see where you rank, and add companies to your competitor lists.</p>
     </div>
+
+    <div className="flex flex-wrap gap-2 items-center">
+      <span className="text-sm font-semibold">Show:</span>
+      <select aria-label="Kind of carrier" className="h-9 border rounded-md px-2 bg-white text-sm font-semibold" value={f.type} onChange={e => { setF({ ...f, type: e.target.value }); setPage(1); }}>
+        <option value="">Moving companies</option>
+        <optgroup label="Possible partners and agents">{CATEGORIES.filter(c => c.partner && c.key !== 'household').map(c => <option key={c.key} value={c.key}>{c.label}{data?.import?.totals.categories[c.key] ? ` (${data.import.totals.categories[c.key].toLocaleString()})` : ''}</option>)}</optgroup>
+        <optgroup label="Other industries">{CATEGORIES.filter(c => !c.partner).map(c => <option key={c.key} value={c.key}>{c.label}{data?.import?.totals.categories[c.key] ? ` (${data.import.totals.categories[c.key].toLocaleString()})` : ''}</option>)}</optgroup>
+      </select>
+      {f.type && <p className="text-xs text-muted-foreground">Categories come from the cargo each company lists on its federal filing; many haul several kinds. Private fleets and bus/limo companies are left out.</p>}
+    </div>
+    {f.type && data?.needsArea && <Card className="bg-blue-50 border-blue-200"><CardContent className="p-4 text-sm">There are too many {CATEGORY_LABEL[f.type as keyof typeof CATEGORY_LABEL]?.toLowerCase()} carriers to list nationwide. Pick a state or region, or zoom the map in to a few states. The map’s state totals show the counts everywhere.</CardContent></Card>}
+    {f.type && !data?.import && data && <Card className="bg-amber-50 border-amber-200"><CardContent className="p-4 text-sm">Other carriers appear after the first import of the full DOT census file (it runs every day for the first three days, then weekly).</CardContent></Card>}
 
     {notSynced && <Card className="bg-amber-50 border-amber-200"><CardContent className="p-4 text-sm space-y-2">
       <p className="font-bold">The registry is loading for the first time.</p>
@@ -130,8 +156,9 @@ function Registry() {
           onBounds={b => { setBounds(b); if (area === 'map') setPage(1); }} onSelect={(dot, state) => setSelected({ dot, state })} onState={s => { setStateTotals(false); chooseArea(s); }} highlight={selected?.dot} stateTotals={stateTotals} />
         <div className="flex flex-wrap justify-between gap-2 items-center"><p className="text-xs text-muted-foreground">Red: 20+ trucks · Orange: 5–19 · Gray: under 5. The map shows every company in view, anywhere you pan (with your filters); numbers are clusters, zoom in to split them. Pins sit at each company’s ZIP code. {area !== 'map' && `The list below is ${areaLabel}; choose “Whatever the map shows” to list what’s on screen.`}</p><label className="text-xs flex items-center gap-1"><input type="checkbox" checked={stateTotals} onChange={e => setStateTotals(e.target.checked)} />Show state totals instead</label></div>
       </div>
-      <RankCard data={data} areaLabel={areaLabel} rankBy={f.rankBy} setRankBy={v => setF({ ...f, rankBy: v })} onOpen={(dot, state) => setSelected({ dot, state })} />
+      {f.type ? <ImportCard status={data?.import || null} busy={busy === 'pdf'} onDictionary={downloadDictionary} /> : <RankCard data={data} areaLabel={areaLabel} rankBy={f.rankBy} setRankBy={v => setF({ ...f, rankBy: v })} onOpen={(dot, state) => setSelected({ dot, state })} />}
     </div>
+    {!f.type && <ImportCard status={data?.import || null} busy={busy === 'pdf'} onDictionary={downloadDictionary} compact />}
 
     <Card className="bg-white"><CardContent className="p-4 space-y-3">
       <div className="grid sm:grid-cols-2 lg:grid-cols-6 gap-2">
@@ -172,7 +199,7 @@ function Registry() {
             <td className="p-3"><p className="font-bold text-primary">{nice(r.dba || r.name)}</p><p className="text-xs text-muted-foreground">{nice(r.city)}, {r.state}{r.site ? ` · ${r.site.replace(/^https?:\/\//, '')}` : ''}</p></td>
             <td className="p-3 font-semibold">{r.units}</td><td className="p-3">{r.drivers}</td><td className="p-3">{r.miles ? r.miles.toLocaleString() : '—'}</td><td className="p-3">{r.years || '—'}</td>
             <td className="p-3 text-xs whitespace-nowrap">{r.interstate ? 'Interstate' : 'In-state'}{r.hhgAuth ? ' · HHG' : ''}{r.mc ? <><br />{r.mc}</> : ''}</td>
-            <td className="p-3">{r.kind ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${KIND_STYLE[r.kind]}`}>{KIND_LABEL[r.kind]}</span> : <span className="text-xs text-muted-foreground">—</span>}{r.sosActive === true && <Badge variant="outline" className="ml-1 text-[10px]">State: active</Badge>}{r.sosActive === false && <Badge variant="outline" className="ml-1 text-[10px] text-red-700">State: inactive</Badge>}</td>
+            <td className="p-3">{r.kind ? <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${KIND_STYLE[r.kind]}`}>{KIND_LABEL[r.kind]}</span> : <span className="text-xs text-muted-foreground">—</span>}{r.cats ? <span className="flex flex-wrap gap-1 mt-1">{categoriesOf(r.cats).map(k => <span key={k} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">{CATEGORY_LABEL[k]}</span>)}{r.otherCargo && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">{r.otherCargo.toLowerCase()}</span>}</span> : null}{r.sosActive === true && <Badge variant="outline" className="ml-1 text-[10px]">State: active</Badge>}{r.sosActive === false && <Badge variant="outline" className="ml-1 text-[10px] text-red-700">State: inactive</Badge>}</td>
             <td className="p-3">{r.competitorId ? <Badge className="text-[10px]">Tracked</Badge> : <Button size="sm" variant="outline" className="h-7 text-xs" disabled={!!busy} onClick={async e => { e.stopPropagation(); setBusy(`track-${r.dot}`); try { await apiFetch(auth, `/api/admin/registry/${r.dot}?state=${r.state}`, { action: 'track', tier: 'challenger' }); toast({ title: `${nice(r.dba || r.name)} added to competitors` }); void load(); } catch (err) { toast({ variant: 'destructive', title: 'That didn’t work', description: err instanceof Error ? err.message : '' }); } finally { setBusy(''); } }}>{busy === `track-${r.dot}` ? '…' : 'Track'}</Button>}</td>
           </tr>)}
           {data && !data.rows.length && <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">No companies match. Try a wider area or fewer filters.</td></tr>}
@@ -183,6 +210,19 @@ function Registry() {
 
     {selected && <CompanyPanel dot={selected.dot} state={selected.state} onClose={() => setSelected(null)} onChanged={() => void load()} />}
   </div>;
+}
+
+/** When the DOT census file was last imported, the refresh schedule, and the data dictionary PDF. */
+function ImportCard({ status, busy, onDictionary, compact }: { status: ImportStatus | null; busy: boolean; onDictionary: () => void; compact?: boolean }) {
+  if (!status) return compact ? null : <Card className="bg-white"><CardContent className="p-5 text-sm text-muted-foreground">The full DOT census file hasn’t been imported yet.</CardContent></Card>;
+  const d = status.dictionary, fresh = d && Date.now() - Date.parse(d.changedAt) < 8 * 86400000 && d.previousName;
+  const changed = status.columns.added.length + status.columns.removed.length > 0;
+  return <Card className="bg-white"><CardContent className={`${compact ? 'p-4' : 'p-5'} text-sm space-y-2`}>
+    <p className="font-bold">DOT census file</p>
+    <p className="text-muted-foreground">Imported {new Date(status.generatedAt).toLocaleString()} ({status.totals.rows.toLocaleString()} records, {status.totals.active.toLocaleString()} active, {status.totals.movers.toLocaleString()} household-goods carriers, {status.totals.carriers.toLocaleString()} for-hire carriers). Refresh: {status.schedule}; {status.nextCheck}.</p>
+    {changed && <p className="text-amber-800">The DOT changed the file’s columns: {status.columns.added.length ? `added ${status.columns.added.join(', ')}` : ''}{status.columns.added.length && status.columns.removed.length ? '; ' : ''}{status.columns.removed.length ? `removed ${status.columns.removed.join(', ')}` : ''}. Check the data dictionary.</p>}
+    {d && <div className="flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" disabled={busy} onClick={onDictionary}>{busy ? 'Downloading…' : 'Download the data dictionary (PDF)'}</Button><span className="text-xs text-muted-foreground">{d.name} · checked {new Date(d.checkedAt).toLocaleDateString()}</span>{fresh && <Badge className="text-[10px]">New version</Badge>}</div>}
+  </CardContent></Card>;
 }
 
 function RankCard({ data, areaLabel, rankBy, setRankBy, onOpen }: { data: Result | null; areaLabel: string; rankBy: string; setRankBy: (v: string) => void; onOpen: (dot: string, state: string) => void }) {
