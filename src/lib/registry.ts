@@ -97,15 +97,12 @@ export function distanceMiles(aLat: number, aLng: number, bLat: number, bLng: nu
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-export const REGION_PRESETS: Record<string, { label: string; state: string; counties: string[] }> = {
-  'bay-area': { label: 'SF Bay Area', state: 'CA', counties: ['001', '013', '041', '055', '075', '081', '085', '095', '097'] },
-  'puget-sound': { label: 'Seattle / Puget Sound', state: 'WA', counties: ['033', '053', '061', '035', '067', '029', '045', '057', '031', '055', '073'] },
-  'socal': { label: 'Los Angeles / SoCal', state: 'CA', counties: ['037', '059', '065', '071', '111', '073'] },
-};
+// Region presets (hand-picked regions and every big metro) live in src/lib/regions.ts; filters take the resolved area.
 
 export type SortKey = 'size' | 'units' | 'drivers' | 'miles' | 'years' | 'newest' | 'name' | 'distance' | 'score';
 export type MoverFilters = {
   q?: string; states?: string[]; region?: string; city?: string; zip?: string;
+  area?: { states: string[]; counties: string[] }; // The region preset, resolved (src/lib/regions.ts): counties as "ST-ccc".
   near?: { lat: number; lng: number; miles: number };
   bbox?: { south: number; west: number; north: number; east: number };
   minUnits?: number; maxUnits?: number; minDrivers?: number; minYears?: number; maxYears?: number; addedSince?: string;
@@ -117,10 +114,9 @@ export type MoverFilters = {
 export function filterMovers(rows: Mover[], f: MoverFilters, now = Date.now()): Mover[] {
   const q = (f.q || '').trim().toUpperCase();
   const city = (f.city || '').trim().toUpperCase();
-  const preset = f.region ? REGION_PRESETS[f.region] : undefined;
   return rows.filter(m => {
     if (f.likelyOnly !== false && !m.likelyMover) return false;
-    if (preset && (m.state !== preset.state || !preset.counties.includes(m.county))) return false;
+    if (f.area && !f.area.counties.includes(`${m.state}-${m.county}`)) return false;
     if (f.states?.length && !f.states.includes(m.state)) return false;
     if (q && !`${m.name} ${m.dba} ${m.dot} ${m.mc} ${m.officer}`.toUpperCase().includes(q)) return false;
     if (city && m.city.toUpperCase() !== city) return false;

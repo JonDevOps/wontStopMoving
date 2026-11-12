@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { apiFetch } from '@/lib/api-client';
-import { REGION_PRESETS, REGISTRY_AREAS } from '@/lib/registry';
+import { REGISTRY_AREAS } from '@/lib/registry';
+import { REGION_PRESETS } from '@/lib/regions';
 import { CATEGORIES, CATEGORY_COLOR, CATEGORY_LABEL, PARTNER_KEYS, categoriesOf } from '@/lib/carriers';
 import type { Bounds, MapPoint, StateStat } from '@/components/registry/mover-map';
 import { ResearchPanel } from '@/components/agents/research-panel';
@@ -34,6 +35,8 @@ const KIND_LABEL: Record<string, string> = { local_mover: 'Local mover', van_lin
 const FIT_LABEL: Record<string, string> = { moving_help: 'Could do moving work', vehicle_transport: 'Ships cars', linehaul: 'Overflow / long-distance hauling', storage_container: 'Containers & storage', broker: 'Broker (doesn’t haul)', not_fit: 'Not a fit' };
 const FIT_STYLE: Record<string, string> = { moving_help: 'bg-green-100 text-green-800', vehicle_transport: 'bg-green-100 text-green-800', linehaul: 'bg-blue-100 text-blue-800', storage_container: 'bg-blue-100 text-blue-800', broker: 'bg-amber-100 text-amber-800', not_fit: 'bg-red-100 text-red-800' };
 const KIND_STYLE: Record<string, string> = { local_mover: 'bg-green-100 text-green-800', van_line: 'bg-blue-100 text-blue-800', broker: 'bg-amber-100 text-amber-800', freight: 'bg-slate-200 text-slate-700', other: 'bg-red-100 text-red-800' };
+// Every metro, A–Z, for the city picker.
+const METRO_OPTIONS = Object.entries(REGION_PRESETS).filter(([, r]) => r.kind === 'metro').sort((a, b) => a[1].label.localeCompare(b[1].label));
 const FOCUS: Record<string, { lat: number; lng: number; zoom: number }> = {
   'bay-area': { lat: 37.65, lng: -122.1, zoom: 9 }, 'puget-sound': { lat: 47.5, lng: -122.3, zoom: 9 }, socal: { lat: 34.0, lng: -118.1, zoom: 9 }, national: { lat: 39.5, lng: -98.5, zoom: 4 },
 };
@@ -83,7 +86,9 @@ function Registry() {
 
   const chooseArea = (a: string) => {
     setArea(a); setPage(1);
+    const preset = REGION_PRESETS[a];
     if (FOCUS[a]) setFocus(FOCUS[a]);
+    else if (preset?.center) setFocus({ lat: preset.center[0], lng: preset.center[1], zoom: preset.states.length > 1 ? 8 : 9 });
     else { const c = data?.stateStats?.find(s => s.state === a)?.center; if (c) setFocus({ lat: c[0], lng: c[1], zoom: 6 }); }
   };
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => { setF({ ...f, [k]: e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value }); setPage(1); };
@@ -151,7 +156,10 @@ function Registry() {
 
     <div className="flex flex-wrap gap-2 items-center">
       <Button size="sm" variant={area === 'national' ? 'default' : 'outline'} onClick={() => chooseArea('national')}>Whole country</Button>
-      {Object.entries(REGION_PRESETS).map(([k, r]) => <Button key={k} size="sm" variant={area === k ? 'default' : 'outline'} onClick={() => chooseArea(k)}>{r.label}</Button>)}
+      {Object.entries(REGION_PRESETS).filter(([, r]) => r.kind === 'region').map(([k, r]) => <Button key={k} size="sm" variant={area === k ? 'default' : 'outline'} onClick={() => chooseArea(k)}>{r.label}</Button>)}
+      <select aria-label="City" className="h-9 border rounded-md px-2 bg-white text-sm max-w-[16rem]" value={REGION_PRESETS[area]?.kind === 'metro' ? area : ''} onChange={e => e.target.value && chooseArea(e.target.value)}>
+        <option value="">A city…</option>{METRO_OPTIONS.map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}
+      </select>
       <Button size="sm" variant={area === 'map' ? 'default' : 'outline'} onClick={() => { setArea('map'); setPage(1); }}>Whatever the map shows</Button>
       <select aria-label="State" className="h-9 border rounded-md px-2 bg-white text-sm" value={REGISTRY_AREAS.includes(area) ? area : ''} onChange={e => e.target.value && chooseArea(e.target.value)}>
         <option value="">A state…</option>{REGISTRY_AREAS.map(s => <option key={s} value={s}>{s}</option>)}

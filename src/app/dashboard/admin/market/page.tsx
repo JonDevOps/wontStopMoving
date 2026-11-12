@@ -11,6 +11,7 @@ import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { apiFetch } from '@/lib/api-client';
 import { REGISTRY_AREAS } from '@/lib/registry';
+import { REGION_PRESETS } from '@/lib/regions';
 
 type Tab = 'closures' | 'changes' | 'expansion' | 'buy' | 'prices' | 'settings';
 type Ev = { id: string; type: string; dot: string; state: string; county: string; zip: string; name: string; dba: string; city: string; phone: string; email: string; site: string; officer: string; mc: string; units: number; drivers: number; years: number; hhgAuth: boolean; from?: number; to?: number; reason?: string; effectiveDate?: string; confidence?: string; day: string; stage?: string };
@@ -19,6 +20,9 @@ const nice = (s: string) => (s || '').toLowerCase().replace(/\b([a-z])/g, c => c
 const phone = (p: string) => (p?.length === 10 ? `(${p.slice(0, 3)}) ${p.slice(3, 6)}-${p.slice(6)}` : p);
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const money = (n: number | null | undefined) => (typeof n === 'number' ? `$${Math.round(n).toLocaleString()}` : '—');
+
+// The hand-picked regions, then every metro A–Z.
+const METRO_OPTIONS = Object.entries(REGION_PRESETS).sort((a, b) => (a[1].kind === b[1].kind ? a[1].label.localeCompare(b[1].label) : a[1].kind === 'region' ? -1 : 1));
 
 function Market() {
   const [tab, setTab] = useState<Tab>('closures');
@@ -31,7 +35,9 @@ function Market() {
     <div className="flex flex-wrap gap-2 items-center">
       {([['closures', 'Closed companies'], ['changes', 'New & changing'], ['expansion', 'Where to expand'], ['buy', 'Companies to buy'], ['prices', 'Price index'], ['settings', 'Settings']] as [Tab, string][]).map(([t, l]) => <Button key={t} variant={tab === t ? 'default' : 'outline'} onClick={() => setTab(t)}>{l}</Button>)}
       {tab !== 'settings' && <select aria-label="Area" className="h-10 border rounded-md px-2 bg-white text-sm" value={scope} onChange={e => setScope(e.target.value)}>
-        <option value="watched">My watched areas</option>{tab === 'expansion' && <option value="national">Whole country</option>}{REGISTRY_AREAS.map(s => <option key={s} value={s}>{s}</option>)}
+        <option value="watched">My watched areas</option>{tab === 'expansion' && <option value="national">Whole country</option>}
+        <optgroup label="One city">{METRO_OPTIONS.map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}</optgroup>
+        <optgroup label="One state">{REGISTRY_AREAS.map(s => <option key={s} value={s}>{s}</option>)}</optgroup>
       </select>}
     </div>
     {tab === 'closures' && <Closures scope={scope} />}
@@ -295,8 +301,9 @@ function Prices({ scope }: { scope: string }) {
 function Settings() {
   const auth = useAuth();
   const { toast } = useToast();
-  const [d, setD] = useState<{ settings: { regions: string[]; states: string[]; email: string }; routing: { autoAssign: boolean; maxMiles: number }; regions: Record<string, string> } | null>(null);
+  const [d, setD] = useState<{ settings: { regions: string[]; states: string[]; email: string }; routing: { autoAssign: boolean; maxMiles: number }; regions: { key: string; label: string; kind: 'region' | 'metro'; pop: number | null; states: string[] }[] } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [find, setFind] = useState('');
   useEffect(() => { apiFetch(auth, '/api/admin/market?view=settings').then(setD).catch(() => {}); }, [auth]);
   if (!d) return <p>Loading…</p>;
   const save = async (body: Record<string, unknown>, ok: string) => {
@@ -309,7 +316,15 @@ function Settings() {
     <Card className="bg-white"><CardContent className="p-5 space-y-3">
       <p className="font-bold">Watched areas</p>
       <p className="text-sm text-muted-foreground">The radar, closures, buy list and price index focus here.</p>
-      {Object.entries(d.regions).map(([k, l]) => <label key={k} className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={busy} checked={d.settings.regions.includes(k)} onChange={e => void save({ regions: e.target.checked ? [...d.settings.regions, k] : d.settings.regions.filter(r => r !== k) }, 'Areas saved')} />{l}</label>)}
+      <div className="flex flex-wrap gap-1">{d.settings.regions.map(k => <Badge key={k} variant="outline" className="cursor-pointer" title="Remove" onClick={() => void save({ regions: d.settings.regions.filter(r => r !== k) }, 'Removed')}>{d.regions.find(r => r.key === k)?.label || k} ✕</Badge>)}{!d.settings.regions.length && <span className="text-sm text-muted-foreground">No cities yet.</span>}</div>
+      <Input placeholder={`Find a city or state (${d.regions.filter(r => r.kind === 'metro').length} metro areas)`} value={find} onChange={e => setFind(e.target.value)} aria-label="Find a city" />
+      <div className="max-h-64 overflow-y-auto border rounded-md divide-y">
+        {d.regions.filter(r => !d.settings.regions.includes(r.key) && (!find.trim() || r.label.toLowerCase().includes(find.trim().toLowerCase()) || r.states.includes(find.trim().toUpperCase()))).map(r =>
+          <button key={r.key} type="button" disabled={busy} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex justify-between gap-2" onClick={() => void save({ regions: [...d.settings.regions, r.key] }, `${r.label} added`)}>
+            <span>{r.label}</span><span className="text-xs text-muted-foreground whitespace-nowrap">{r.pop ? `${(r.pop / 1e6).toFixed(r.pop >= 1e7 ? 0 : 1)}M people` : 'region'} · Add</span>
+          </button>)}
+      </div>
+      <p className="text-xs text-muted-foreground">Every U.S. metro area of 250,000+ people (Census Bureau), largest first. A metro covers its whole set of counties, across state lines where it spans them.</p>
       <div className="flex flex-wrap gap-1">{d.settings.states.map(s => <Badge key={s} variant="outline" className="cursor-pointer" onClick={() => void save({ states: d.settings.states.filter(x => x !== s) }, `${s} removed`)}>{s} ✕</Badge>)}</div>
       <select aria-label="Add a whole state" className="h-9 border rounded-md px-2 bg-white text-sm" value="" onChange={e => e.target.value && void save({ states: [...d.settings.states, e.target.value] }, `${e.target.value} added`)}><option value="">Add a whole state…</option>{REGISTRY_AREAS.filter(s => !d.settings.states.includes(s)).map(s => <option key={s} value={s}>{s}</option>)}</select>
     </CardContent></Card>

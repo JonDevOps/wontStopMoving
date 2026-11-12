@@ -10,7 +10,8 @@ let env;
 before(async () => {
   env = await initializeTestEnvironment({
     projectId: 'demo-wsm',
-    firestore: { rules: readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8080 },
+    // The emulator this project starts (firebase.json: 8180, not Firebase's default 8080, so other projects' emulators never collide).
+    firestore: { rules: readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: Number((process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8180').split(':').pop()) },
   });
 });
 after(async () => env?.cleanup());
