@@ -92,7 +92,7 @@ export async function GET(req: Request) {
     }
     const summaries = await stateSummaries();
     return NextResponse.json({
-      mode: result.mode, nationalComplete: result.nationalComplete ?? null, total, rows: await decorate(rows), rank: result.rank, points: result.points, totals: result.totals, updatedAt: result.updatedAt,
+      mode: result.mode, nationalComplete: result.nationalComplete ?? null, total, rows: await decorate(rows), rank: result.rank, explain: result.explain, points: result.points, totals: result.totals, updatedAt: result.updatedAt,
       synced: summaries.length, jev: jevConfigured(),
       stateStats: params.get('stats') === '1' ? summaries.map(s => ({ state: s.state, count: s.count, likely: s.likely, units: s.units, center: s.center, updatedAt: s.updatedAt })) : undefined,
     }, { headers: { 'Cache-Control': 'private, no-store' } });

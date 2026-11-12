@@ -116,3 +116,49 @@ export type ActionItem = { id: string; text: string; impact: 'high' | 'medium' |
 const IMPACT_ORDER = { high: 0, medium: 1, low: 2 } as const;
 export const sortActions = <T extends Pick<ActionItem, 'impact' | 'done'>>(items: T[]) =>
   [...items].sort((a, b) => Number(a.done) - Number(b.done) || IMPACT_ORDER[a.impact] - IMPACT_ORDER[b.impact]);
+
+// ---- Social profiles ---------------------------------------------------------------
+
+export const SOCIAL_PLATFORMS: { key: string; label: string; host: RegExp }[] = [
+  { key: 'facebook', label: 'Facebook', host: /(^|\.)(facebook|fb)\.com$/ },
+  { key: 'instagram', label: 'Instagram', host: /(^|\.)instagram\.com$/ },
+  { key: 'tiktok', label: 'TikTok', host: /(^|\.)tiktok\.com$/ },
+  { key: 'youtube', label: 'YouTube', host: /(^|\.)(youtube\.com|youtu\.be)$/ },
+  { key: 'linkedin', label: 'LinkedIn', host: /(^|\.)linkedin\.com$/ },
+  { key: 'x', label: 'X (Twitter)', host: /(^|\.)(x|twitter)\.com$/ },
+  { key: 'yelp', label: 'Yelp', host: /(^|\.)yelp\.com$/ },
+  { key: 'google', label: 'Google', host: /(^|\.)(google\.com|g\.page|goo\.gl)$/ },
+  { key: 'nextdoor', label: 'Nextdoor', host: /(^|\.)nextdoor\.com$/ },
+  { key: 'bbb', label: 'BBB', host: /(^|\.)bbb\.org$/ },
+  { key: 'thumbtack', label: 'Thumbtack', host: /(^|\.)thumbtack\.com$/ },
+  { key: 'angi', label: 'Angi', host: /(^|\.)(angi|angieslist|homeadvisor)\.com$/ },
+];
+export const SOCIAL_LABEL = Object.fromEntries(SOCIAL_PLATFORMS.map(p => [p.key, p.label])) as Record<string, string>;
+
+/** Which platform a profile URL belongs to, or null (share/intent links are ignored). */
+export function platformOf(raw: string): string | null {
+  try {
+    const u = new URL(/^https?:\/\//i.test(raw.trim()) ? raw.trim() : `https://${raw.trim()}`);
+    if (/\/(sharer|share|intent|dialog|plugins)\b/i.test(u.pathname)) return null;
+    const host = u.hostname.toLowerCase().replace(/^www\.|^m\./, '');
+    return SOCIAL_PLATFORMS.find(p => p.host.test(host))?.key || null;
+  } catch { return null; }
+}
+
+/** Platform → profile URL, from a list of links or a {platform: url} object (first link per platform wins). */
+export function cleanSocials(raw: unknown): Record<string, string> {
+  const links = Array.isArray(raw) ? raw : raw && typeof raw === 'object' ? Object.values(raw as Record<string, unknown>) : typeof raw === 'string' ? raw.split(/\s+/) : [];
+  const out: Record<string, string> = {};
+  for (const l of links) {
+    if (typeof l !== 'string' || !l.trim() || l.length > 300) continue;
+    const key = platformOf(l);
+    if (key && !out[key]) out[key] = /^https?:\/\//i.test(l.trim()) ? l.trim() : `https://${l.trim()}`;
+  }
+  return out;
+}
+
+/** Plain-language "to pass them" list: every known metric where they lead us. */
+export function passGaps(us: Metrics, them: Metrics) {
+  const cmp = compareToUs(us, them);
+  return METRICS.filter(m => cmp[m.key] === 'behind' || cmp[m.key] === 'tied').map(m => ({ key: m.key, label: m.label, ours: us[m.key] as number, theirs: them[m.key] as number, tied: cmp[m.key] === 'tied' }));
+}

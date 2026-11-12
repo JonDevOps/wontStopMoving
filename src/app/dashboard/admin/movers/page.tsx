@@ -23,7 +23,8 @@ type Row = {
   kind: string | null; sosActive: boolean | null; competitorId: string | null;
 };
 type Rank = { rank: number; of: number; nextUp: { dot: string; name: string; city: string; state: string; units: number; drivers: number; years: number; gap: { units: number; drivers: number; years: number } }[] };
-type Result = { mode: 'national' | 'detailed'; nationalComplete?: boolean | null; total: number; rows: Row[]; rank: Rank | null; points?: MapPoint[]; totals: { units: number; drivers: number }; updatedAt: string | null; synced: number; jev: boolean; stateStats?: (StateStat & { count: number; updatedAt: string | null })[] };
+type Explain = { formula: string; ours: { trucks: number; drivers: number; miles: number; total: number }; rank: number; of: number; nextUp: { dot: string; name: string; city: string; state: string; units: number; drivers: number; years: number; score: { total: number }; need: { points: number; trucks: number; drivers: number } }[]; measures: { label: string; ours: number; rank: number; of: number; leader: number; median: number; unit: string }[]; shares: { authority: number; website: number }; steps: string[] };
+type Result = { mode: 'national' | 'detailed'; nationalComplete?: boolean | null; explain?: Explain | null; total: number; rows: Row[]; rank: Rank | null; points?: MapPoint[]; totals: { units: number; drivers: number }; updatedAt: string | null; synced: number; jev: boolean; stateStats?: (StateStat & { count: number; updatedAt: string | null })[] };
 
 const KIND_LABEL: Record<string, string> = { local_mover: 'Local mover', van_line: 'Van line', broker: 'Broker', freight: 'Freight', other: 'Not a mover' };
 const KIND_STYLE: Record<string, string> = { local_mover: 'bg-green-100 text-green-800', van_line: 'bg-blue-100 text-blue-800', broker: 'bg-amber-100 text-amber-800', freight: 'bg-slate-200 text-slate-700', other: 'bg-red-100 text-red-800' };
@@ -185,21 +186,31 @@ function Registry() {
 }
 
 function RankCard({ data, areaLabel, rankBy, setRankBy, onOpen }: { data: Result | null; areaLabel: string; rankBy: string; setRankBy: (v: string) => void; onOpen: (dot: string, state: string) => void }) {
-  const r = data?.rank;
+  const r = data?.rank, x = data?.explain;
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
   return <Card className="bg-slate-900 text-white"><CardContent className="p-5 space-y-4">
     <div>
       <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Your rank · {areaLabel}</p>
       {r ? <p className="text-4xl font-black mt-1">#{r.rank.toLocaleString()} <span className="text-lg text-slate-400">of {r.of.toLocaleString()}</span></p> : <p className="text-sm text-slate-300 mt-2">Loading…</p>}
       <select aria-label="Rank by" className="mt-2 bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-sm" value={rankBy} onChange={e => setRankBy(e.target.value)}><option value="size">By overall size</option><option value="units">By trucks</option><option value="drivers">By drivers</option></select>
     </div>
-    {r && r.nextUp.length > 0 && <div className="space-y-2">
+    {x && <details className="bg-white/5 rounded-lg p-3 text-sm" open>
+      <summary className="cursor-pointer font-bold">How this is calculated</summary>
+      <p className="text-slate-300 mt-2">{x.formula}</p>
+      <p className="mt-1">Your score: <b>{x.ours.total}</b> <span className="text-slate-400">({x.ours.trucks} from trucks + {x.ours.drivers} from drivers{x.ours.miles ? ` + ${x.ours.miles} from miles` : ''})</span></p>
+      <table className="w-full mt-3 text-xs"><thead><tr className="text-slate-400 text-left"><th className="py-1 font-medium">Measure</th><th className="font-medium">You</th><th className="font-medium">Your rank</th><th className="font-medium">Typical</th><th className="font-medium">Leader</th></tr></thead>
+        <tbody>{x.measures.map(m => <tr key={m.label} className="border-t border-white/10"><td className="py-1">{m.label}</td><td>{m.ours}</td><td>#{m.rank.toLocaleString()} of {m.of.toLocaleString()}</td><td>{m.median}</td><td>{m.leader}</td></tr>)}
+          <tr className="border-t border-white/10"><td className="py-1">Interstate authority</td><td colSpan={4}>{x.shares.authority}% of movers here have it</td></tr></tbody></table>
+    </details>}
+    {x && x.nextUp.length > 0 && <div className="space-y-2">
       <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Next to pass</p>
-      {r.nextUp.map(m => <button key={m.dot} className="w-full text-left bg-white/5 hover:bg-white/10 rounded-lg p-2 text-sm" onClick={() => onOpen(m.dot, m.state)}>
-        <p className="font-bold">{nice(m.name)}</p>
-        <p className="text-xs text-slate-300">{nice(m.city)}, {m.state} · {m.units} trucks · {m.drivers} drivers · needs +{m.gap.units} truck{m.gap.units === 1 ? '' : 's'}, +{m.gap.drivers} driver{m.gap.drivers === 1 ? '' : 's'}</p>
+      {x.nextUp.map(m => <button key={m.dot} className="w-full text-left bg-white/5 hover:bg-white/10 rounded-lg p-2 text-sm" onClick={() => onOpen(m.dot, m.state)}>
+        <p className="font-bold">{nice(m.name)} <span className="text-slate-400 font-normal">· score {m.score.total}</span></p>
+        <p className="text-xs text-slate-300">{nice(m.city)}, {m.state} · {plural(m.units, 'truck')} · {plural(m.drivers, 'driver')} · to pass: +{plural(m.need.trucks, 'truck')} or +{plural(m.need.drivers, 'driver')}</p>
       </button>)}
     </div>}
-    <p className="text-xs text-slate-400">Ranked on your fleet from Competitors → Our numbers (trucks and drivers, including your network). <Link className="underline" href="/dashboard/admin/competitors">Update them</Link>. Fleet is one measure; reviews and bookings are tracked per competitor.</p>
+    {x && <div className="space-y-1"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">How to move up</p><ol className="list-decimal pl-5 text-sm space-y-1 text-slate-200">{x.steps.map((st, i) => <li key={i}>{st}</li>)}</ol></div>}
+    <p className="text-xs text-slate-400">Your numbers come from Competitors → Our numbers. <Link className="underline" href="/dashboard/admin/competitors">Update them</Link>.</p>
   </CardContent></Card>;
 }
 
