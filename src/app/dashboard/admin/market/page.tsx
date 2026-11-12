@@ -209,19 +209,19 @@ function Changes({ scope }: { scope: string }) {
 
 // ---- Where to expand ---------------------------------------------------------------------
 
-type County = { fips: string; name: string; state: string; population: number; movers: number; trucks: number; quotes: number; bookings: number; per10k: number; trucksPer10k: number; score: number };
+type County = { fips: string; name: string; state: string; population: number; movers: number; registryMovers: number; censusBusinesses: number | null; censusEmployees: number | null; trucks: number; quotes: number; bookings: number; per10k: number; trucksPer10k: number; score: number };
 function Expansion({ scope }: { scope: string }) {
   const { data, error } = useView<{ counties: County[] }>('expansion', scope);
   const [min, setMin] = useState(100000);
   const shown = (data?.counties || []).filter(c => c.population >= min).slice(0, 150);
   return <div className="space-y-4">
-    <p className="text-sm text-muted-foreground">Counties ranked by opportunity: lots of people per moving company (less competition), market size, and your own quote requests and bookings there (last 180 days). Population: U.S. Census 2024 estimates. Movers: the federal registry.</p>
+    <p className="text-sm text-muted-foreground">Counties ranked by opportunity: lots of people per moving company (less competition), market size, and your own quote requests and bookings there (last 180 days). Population: U.S. Census 2024 estimates. Moving businesses: the U.S. Census 2023 County Business Patterns count (all moving companies with employees, NAICS 484210) and DOT-registered movers; the larger is used.</p>
     <label className="text-sm">Minimum population <select className="ml-2 h-9 border rounded-md px-2 bg-white" value={min} onChange={e => setMin(Number(e.target.value))}>{[20000, 50000, 100000, 250000, 500000, 1000000].map(n => <option key={n} value={n}>{n.toLocaleString()}</option>)}</select></label>
     {error && <p role="alert">{error}</p>}
     {!data ? <p>Loading…</p> : <Card className="bg-white"><CardContent className="p-0 overflow-x-auto"><table className="w-full text-sm">
-      <thead><tr className="text-left text-muted-foreground border-b">{['#', 'County', 'Population', 'Movers', 'Movers per 10k', 'Trucks per 10k', 'Your quotes', 'Bookings', 'Score'].map(h => <th key={h} className="p-3 font-medium whitespace-nowrap">{h}</th>)}</tr></thead>
-      <tbody>{shown.map((c, i) => <tr key={c.fips} className="border-b last:border-0"><td className="p-3 text-muted-foreground">{i + 1}</td><td className="p-3 font-semibold">{c.name}, {c.state}</td><td className="p-3">{c.population.toLocaleString()}</td><td className="p-3">{c.movers}</td>
-        <td className={`p-3 ${c.per10k < 0.5 ? 'text-green-700 font-semibold' : ''}`}>{c.per10k}</td><td className="p-3">{c.trucksPer10k}</td><td className="p-3">{c.quotes}</td><td className="p-3">{c.bookings}</td><td className="p-3 font-black text-accent">{c.score}</td></tr>)}</tbody>
+      <thead><tr className="text-left text-muted-foreground border-b">{['#', 'County', 'Population', 'Moving businesses (Census)', 'DOT-registered', 'Per 10k people', 'Your quotes', 'Bookings', 'Score'].map(h => <th key={h} className="p-3 font-medium whitespace-nowrap">{h}</th>)}</tr></thead>
+      <tbody>{shown.map((c, i) => <tr key={c.fips} className="border-b last:border-0"><td className="p-3 text-muted-foreground">{i + 1}</td><td className="p-3 font-semibold">{c.name}, {c.state}</td><td className="p-3">{c.population.toLocaleString()}</td><td className="p-3">{c.censusBusinesses ?? '—'}{c.censusEmployees ? <span className="text-xs text-muted-foreground"> · {c.censusEmployees.toLocaleString()} staff</span> : ''}</td><td className="p-3">{c.registryMovers}</td>
+        <td className={`p-3 ${c.per10k < 0.5 ? 'text-green-700 font-semibold' : ''}`}>{c.per10k}</td><td className="p-3">{c.quotes}</td><td className="p-3">{c.bookings}</td><td className="p-3 font-black text-accent">{c.score}</td></tr>)}</tbody>
     </table></CardContent></Card>}
     <p className="text-xs text-muted-foreground">Green: under 0.5 movers per 10,000 people, an under-served market. A county with your quote requests but few movers is the best next market: recruit agents there first.</p>
   </div>;
