@@ -38,6 +38,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry('/check-a-mover', 0.7),
     entry('/mover-closed', 0.6),
     entry('/shop', 0.6),
+    entry('/gift-cards', 0.5),
     entry('/moving-reports', 0.6, 'weekly'),
     entry('/moving-cost', 0.7),
     ...COST_CITIES.map(c => entry(`/moving-cost/${c.slug}`, 0.6)),

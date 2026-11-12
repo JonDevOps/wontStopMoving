@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ADDON_PRICING, MILEAGE, MOVE_PRICING, calculateMoveTotal, isLongDistance, mileageFee } from '@/lib/pricing';
 import { Button } from '@/components/ui/button';
+import { FinancingNote } from '@/components/dashboard/financing-note';
 
 const SIZES = ['studio', '2br', '3br', '4br+'] as const;
 const ADDONS: [string, string][] = [
@@ -70,6 +71,7 @@ export function MoveCostEstimator({ city, campaign }: { city: string; campaign: 
         <div>
           <p className="text-xs uppercase tracking-widest text-white/70">Estimated flat price</p>
           <p className="text-4xl font-black" aria-live="polite">{usd(total)}</p>
+          <FinancingNote total={total} className="text-white/80 mt-1" />
           {isLongDistance(miles) && <p className="text-xs text-white/80 mt-1">Over {MILEAGE.longDistanceMiles} miles we confirm the price with a custom long-distance quote.</p>}
         </div>
         <Button asChild size="lg" className="bg-accent hover:bg-accent/90 font-black uppercase">

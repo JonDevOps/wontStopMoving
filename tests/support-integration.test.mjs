@@ -28,6 +28,7 @@ import { platformOf, cleanSocials, passGaps } from '../src/lib/competitors.ts';
 import { guessDomains, isDirectory, matchPage, nameTokens, urlsIn } from '../src/lib/web-presence.ts';
 import { explainRank, sizeParts } from '../src/lib/registry.ts';
 import { METROS } from '../src/lib/metros.ts';
+import { usableCredit, giftCardAmount, normalizeGiftCode, formatGiftCode, isGiftCodeCore } from '../src/lib/rewards.ts';
 import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, columnChanges, filterCarriers, sortCarriers, tupleToMover, servicesLabel, KNOWN_COLUMNS, partnerScore, isPartnerCandidate, newPartnerCarriers, newCarrierAlerts, primaryCategory, CATEGORY_COLOR } from '../src/lib/carriers.ts';
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
@@ -1650,4 +1651,59 @@ test('census file import: script splits the DOT file, the app loads movers from 
   const second = newList();
   assert.equal(second.baseline, false); assert.deepEqual(second.rows.map(r => r.slice(0, 2)), [['NV', '9100007']]);
   assert.equal(JSON.parse(readFileSync(join(process.env.REGISTRY_LOCAL_DIR, 'import/manifest.json'), 'utf8')).totals.newPartners, 1);
+});
+
+test('rewards: credit covers at most 15% of a move; gift card codes are normalized', () => {
+  assert.equal(usableCredit(1000, 500), 150);
+  assert.equal(usableCredit(1000, 40), 40);
+  assert.equal(usableCredit(0, 40), 0);
+  assert.equal(usableCredit(825, -5), 0);
+  assert.equal(giftCardAmount(100), 100);
+  assert.equal(giftCardAmount(24), null);
+  assert.equal(giftCardAmount(10.5), null);
+  assert.equal(giftCardAmount(1001), null);
+  assert.equal(normalizeGiftCode('wsm-abcd-efgh'), 'ABCDEFGH');
+  assert.equal(formatGiftCode('ABCDEFGH'), 'WSM-ABCD-EFGH');
+  assert.equal(isGiftCodeCore('ABCDEFGH'), true);
+  assert.equal(isGiftCodeCore('ABCDEFG0'), false); // No zeros in codes.
+});
+
+test('gift cards: issued once on a matching payment, redeemed once into move credit; expired checkouts only return credit they held', async () => {
+  const uid = auth.currentUser.uid;
+  assert.equal((await fetch(`${base}/api/gift-cards/checkout`, json({ amount: 50, recipientEmail: 'friend@example.com' }))).status, 401);
+  assert.equal((await fetch(`${base}/api/gift-cards/checkout`, authorized(customerToken, { amount: 5, recipientEmail: 'friend@example.com' }))).status, 400);
+  assert.equal((await fetch(`${base}/api/gift-cards/checkout`, authorized(customerToken, { amount: 50, recipientEmail: 'not-an-email' }))).status, 400);
+
+  const orderRef = db.doc('giftCardOrders/gc-order-1');
+  await orderRef.set({ buyerUid: uid, buyerEmail: 'test-customer@example.com', amount: 50, recipientEmail: 'friend@example.com', recipientName: 'Sam', fromName: 'Alex', message: '', status: 'pending', createdAt: Timestamp.now() });
+  const paid = (amount, id) => ({ id, type: 'checkout.session.completed', data: { object: { id: `cs_${id}`, payment_status: 'paid', amount_total: amount, metadata: { type: 'giftcard', orderId: 'gc-order-1', customerId: uid } } } });
+  assert.equal((await webhook(paid(4000, 'evt_gc_wrong'))).status, 200);
+  assert.equal((await orderRef.get()).data().status, 'pending');
+  assert.equal((await webhook(paid(5000, 'evt_gc_ok'))).status, 200);
+  assert.equal((await webhook(paid(5000, 'evt_gc_again'))).status, 200);
+  const order = (await orderRef.get()).data();
+  assert.equal(order.status, 'paid');
+  assert.equal((await db.collection('giftCards').where('orderId', '==', 'gc-order-1').get()).size, 1);
+
+  const redeem = code => fetch(`${base}/api/rewards/redeem`, authorized(customerToken, { code }));
+  assert.equal((await redeem('WSM-2222-2222')).status, 404);
+  const ok = await redeem(formatGiftCode(order.code).toLowerCase());
+  assert.equal(ok.status, 200);
+  assert.equal((await ok.json()).amount, 50);
+  assert.equal((await redeem(formatGiftCode(order.code))).status, 409);
+  const me = await (await fetch(`${base}/api/rewards/me`, { headers: { Authorization: `Bearer ${customerToken}` } })).json();
+  assert.equal(me.balance, 50);
+  assert.ok(me.ledger.some(e => e.reason === 'gift-card' && e.amount === 50));
+
+  // An expired checkout that never held credit gives nothing back.
+  const expired = (id, credit) => ({ id, type: 'checkout.session.expired', data: { object: { id: `cs_${id}`, payment_status: 'unpaid', metadata: { flow: 'quote', customerId: uid, creditApplied: String(credit) } } } });
+  assert.equal((await webhook(expired('evt_exp_none', 20))).status, 200);
+  assert.equal((await db.doc(`rewardWallets/${uid}`).get()).data().balance, 50);
+  // One that held $20 gets it back, once.
+  await db.doc(`rewardWallets/${uid}`).set({ balance: 30 }, { merge: true });
+  await db.doc(`rewardWallets/${uid}/ledger/checkout-cs_evt_exp_held`).set({ amount: -20, reason: 'checkout', createdAt: Timestamp.now() });
+  assert.equal((await webhook(expired('evt_exp_held', 20))).status, 200);
+  assert.equal((await webhook(expired('evt_exp_held', 20))).status, 200);
+  assert.equal((await db.doc(`rewardWallets/${uid}`).get()).data().balance, 50);
+  assert.equal((await fetch(`${base}/gift-cards`)).status, 200);
 });
