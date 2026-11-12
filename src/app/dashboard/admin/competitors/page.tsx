@@ -9,17 +9,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/firebase';
 import { apiFetch } from '@/lib/api-client';
-import { compareToUs, METRICS, sortActions, type ActionItem, type Metrics, type Scoreboard, type Tier } from '@/lib/competitors';
+import { compareToUs, METRICS, passGaps, SOCIAL_LABEL, sortActions, type ActionItem, type Metrics, type Scoreboard, type Tier } from '@/lib/competitors';
 
 type Competitor = {
   id: string; name: string; website: string; location: string; tier: Tier; status: 'tracking' | 'passed';
-  metrics: Metrics; notes: Record<string, string>; actions: ActionItem[]; score: Scoreboard;
+  metrics: Metrics; socials: Record<string, string>; notes: Record<string, string>; actions: ActionItem[]; score: Scoreboard;
   intel: { summary: string; services: string[]; pricing: string; promotions: string; sellingPoints: string[]; sourceUrl: string | null; websiteError: string | null } | null;
   analysis: { strengths: string[]; weaknesses: string[]; threat: 'high' | 'medium' | 'low' } | null;
   passedAt: string | null; passedHow: string | null; analyzedAt: string | null;
 };
-type Data = { us: { metrics: Metrics; auto: Metrics; manual: Metrics }; competitors: Competitor[]; progress?: Progress };
-type View = 'challenger' | 'legend' | 'actions' | 'us' | 'progress';
+type Data = { us: { metrics: Metrics; auto: Metrics; manual: Metrics; socials: Record<string, string>; hasAuthority: boolean }; competitors: Competitor[]; progress?: Progress };
+type View = 'challenger' | 'legend' | 'actions' | 'social' | 'us' | 'progress';
 type Progress = { history: { day: string; metrics: Metrics; passed: number; actionsDone: number }[]; passes: { id: string; name: string; tier: Tier; at: string; how: string | null }[]; actions: { competitor: string; text: string; area: string; impact: string; at: string }[] };
 
 const fmt = (key: keyof Metrics, v: number | undefined) => {
@@ -68,6 +68,7 @@ function Competitors() {
     <div className="space-y-2">
       <h1 className="text-3xl font-bold">Competitor tracker</h1>
       <p className="text-muted-foreground">Study each competitor, copy what works, then pass them on the numbers. Pass your main list first, then take on the legends.</p>
+      <details className="text-sm bg-white border rounded-lg p-3"><summary className="cursor-pointer font-semibold">How “passing” works</summary><p className="mt-2 text-muted-foreground">You pass a competitor when you lead them on <b>every</b> number you both have (at least two): revenue, Google reviews and rating, followers, posts, likes, customers, repeat rate, trucks, drivers and years. Each competitor shows exactly which numbers they still lead on and by how much. Numbers either side hasn’t entered don’t count, so fill in Our numbers and theirs. “Check for passes” applies this; you can also mark a pass by hand.</p></details>
     </div>
 
     <div className="grid md:grid-cols-3 gap-4">
@@ -92,7 +93,7 @@ function Competitors() {
     </div>
 
     <div className="flex flex-wrap gap-2">
-      {([['challenger', `Main list (${challengers.length})`], ['legend', `Legends (${legends.length})`], ['actions', `Action board (${openActions.length})`], ['us', 'Our numbers'], ['progress', 'Progress']] as [View, string][]).map(([v, label]) =>
+      {([['challenger', `Main list (${challengers.length})`], ['legend', `Legends (${legends.length})`], ['actions', `Action board (${openActions.length})`], ['social', 'Social media'], ['us', 'Our numbers'], ['progress', 'Progress']] as [View, string][]).map(([v, label]) =>
         <Button key={v} variant={view === v ? 'default' : 'outline'} onClick={() => setView(v)}>{label}</Button>)}
       <Button asChild variant="ghost"><a href="/dashboard/admin/movers">Find competitors in the registry</a></Button>
       <Button variant="ghost" disabled={!!busy} onClick={async () => { const r = await post({ action: 'refresh-standings' }, 'refresh'); if (r) setNotice(r.newlyPassed.length ? `Passed: ${r.newlyPassed.join(', ')}` : 'No new passes yet. Keep going.'); }}>Check for passes</Button>
@@ -100,7 +101,8 @@ function Competitors() {
     {notice && <p role="status" className="text-sm font-medium bg-white border rounded-lg p-3">{notice}</p>}
 
     {!data ? <p>Loading…</p> : view === 'progress' ? <ProgressView progress={data.progress} us={data.us.metrics} />
-      : view === 'us' ? <OurNumbers us={data.us} busy={!!busy} onSave={m => post({ action: 'us', metrics: m }).then(r => r && setNotice('Our numbers saved.'))} />
+      : view === 'social' ? <SocialView competitors={all.filter(c => c.status === 'tracking')} us={data.us} busy={!!busy} post={post} setNotice={setNotice} onOpen={c => { setView(c.tier); setOpenId(c.id); }} />
+      : view === 'us' ? <OurNumbers us={data.us} busy={!!busy} onSave={(m, extra) => post({ action: 'us', metrics: m, ...extra }).then(r => r && setNotice('Our numbers saved.'))} />
       : view === 'actions' ? <ActionBoard items={openActions} onToggle={(cid, aid) => post({ action: 'toggle-action', id: cid, actionId: aid, done: true })} onOpen={c => { setView(c.tier); setOpenId(c.id); }} />
       : <>
         <AddCompetitors tier={view} busy={!!busy} post={post} setNotice={setNotice} />
@@ -186,6 +188,7 @@ function CompetitorRow({ c, us, open, onToggle, post, busy, setBusy, setNotice, 
       </div>
     </button>
     {open && <div className="border-t p-4 space-y-6">
+      <PassPlan us={us} them={c.metrics} />
       <section className="space-y-2">
         <h3 className="font-bold">Numbers: us vs them</h3>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -200,6 +203,10 @@ function CompetitorRow({ c, us, open, onToggle, post, busy, setBusy, setNotice, 
       </section>
 
       <section className="space-y-2">
+        <h3 className="font-bold">Social profiles</h3>
+        <SocialLinks socials={c.socials} />
+        <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={!!busy || !c.website} onClick={async () => { const r = await post({ action: 'find-socials', id: c.id }); if (r) setNotice(r.found ? `Found ${r.found} social profile${r.found === 1 ? '' : 's'} on their website.` : 'No social links on their website. Add them below.'); }}>{c.website ? 'Find on their website' : 'Add their website to find these'}</Button></div>
+        <Textarea rows={2} placeholder="Or paste their profile links, one per line (Facebook, Instagram, Yelp, Google…)" defaultValue={Object.values(c.socials || {}).join('\n')} onBlur={e => { const v = e.target.value; if (v.trim() !== Object.values(c.socials || {}).join('\n')) void post({ action: 'update', id: c.id, socials: v.split(/\s+/).filter(Boolean) }); }} />
         <h3 className="font-bold">What we know</h3>
         <div className="grid sm:grid-cols-3 gap-2">
           <Input value={details.name} onChange={e => setDetails({ ...details, name: e.target.value })} aria-label="Company name" />
@@ -275,8 +282,55 @@ function ActionBoard({ items, onToggle, onOpen }: { items: (ActionItem & { compe
   </CardContent></Card>;
 }
 
-function OurNumbers({ us, busy, onSave }: { us: Data['us']; busy: boolean; onSave: (m: Record<string, string>) => void }) {
+/** "To pass them": every number where they still lead us. */
+function PassPlan({ us, them }: { us: Metrics; them: Metrics }) {
+  const gaps = passGaps(us, them);
+  const known = METRICS.filter(m => typeof us[m.key] === 'number' && typeof them[m.key] === 'number').length;
+  return <section className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm space-y-1">
+    <p className="font-bold">To pass them</p>
+    {known < 2 ? <p>Enter at least two numbers for both of you (below, and under Our numbers) to compare.</p>
+      : !gaps.length ? <p className="text-green-800 font-semibold">You lead on every number you both have. Click “Mark as passed” or “Check for passes”.</p>
+      : <ul className="list-disc pl-5">{gaps.map(g => <li key={g.key}><b>{g.label}:</b> they {fmt(g.key, g.theirs)}, you {fmt(g.key, g.ours)}{g.tied ? ' (tied: beat it by one)' : ` → you need ${fmt(g.key, Math.max(0, g.theirs - g.ours) + (['googleRating'].includes(g.key) ? 0.1 : 1))} more`}</li>)}</ul>}
+  </section>;
+}
+
+function SocialLinks({ socials }: { socials: Record<string, string> }) {
+  const entries = Object.entries(socials || {});
+  if (!entries.length) return <p className="text-sm text-muted-foreground">No social profiles yet.</p>;
+  return <div className="flex flex-wrap gap-2">{entries.map(([k, url]) => <a key={k} href={url} target="_blank" rel="noreferrer noopener" className="text-xs px-2 py-1 rounded-full border hover:bg-slate-50">{SOCIAL_LABEL[k] || k}</a>)}</div>;
+}
+
+/** Side-by-side social presence for tracked competitors vs us, with the gap to the next one ahead. */
+function SocialView({ competitors, us, busy, post, setNotice, onOpen }: { competitors: Competitor[]; us: Data['us']; busy: boolean; post: (b: Record<string, unknown>, l?: string) => Promise<any>; setNotice: (s: string) => void; onOpen: (c: Competitor) => void }) {
+  const rows = [...competitors].sort((a, b) => (b.metrics.followers ?? -1) - (a.metrics.followers ?? -1));
+  const ours = us.metrics.followers;
+  const ahead = typeof ours === 'number' ? rows.filter(c => typeof c.metrics.followers === 'number' && c.metrics.followers > ours).sort((a, b) => (a.metrics.followers as number) - (b.metrics.followers as number))[0] : undefined;
+  const missing = competitors.filter(c => c.website && !Object.keys(c.socials || {}).length);
+  return <div className="space-y-4">
+    <Card className="bg-slate-900 text-white"><CardContent className="p-5 space-y-2 text-sm">
+      <p className="font-black text-lg">Social media: you vs them</p>
+      <p className="text-slate-300">Your followers: <b className="text-white">{typeof ours === 'number' ? ours.toLocaleString() : 'not entered'}</b> · posts/month: <b className="text-white">{us.metrics.postsPerMonth ?? '—'}</b> · likes/post: <b className="text-white">{us.metrics.avgPostLikes ?? '—'}</b></p>
+      {ahead ? <p>Next to pass on followers: <b>{ahead.name}</b> with {(ahead.metrics.followers as number).toLocaleString()}: you need <b>{((ahead.metrics.followers as number) - (ours as number) + 1).toLocaleString()} more</b>.</p> : typeof ours === 'number' ? <p>You lead every tracked competitor with a follower count.</p> : <p>Enter your followers under Our numbers to see who’s next.</p>}
+      <SocialLinks socials={us.socials} />
+    </CardContent></Card>
+    {missing.length > 0 && <Button size="sm" variant="outline" disabled={busy} onClick={async () => { let found = 0; for (const c of missing.slice(0, 10)) { const r = await post({ action: 'find-socials', id: c.id }); if (r?.found) found++; } setNotice(`Checked ${Math.min(10, missing.length)} websites; found profiles for ${found}.`); }}>Find social profiles for {Math.min(10, missing.length)} competitors from their websites</Button>}
+    <p className="text-xs text-muted-foreground">Profiles come from links on each company’s own website (or you paste them). Follower counts are entered by hand on each competitor: Facebook, Instagram, TikTok and X restrict automatic access to these numbers.</p>
+    <Card className="bg-white"><CardContent className="p-0 overflow-x-auto"><table className="w-full text-sm">
+      <thead><tr className="text-left text-muted-foreground border-b">{['Company', 'Profiles', 'Followers', 'Posts/month', 'Likes/post', ''].map(h => <th key={h} className="p-3 font-medium">{h}</th>)}</tr></thead>
+      <tbody>{rows.map(c => <tr key={c.id} className="border-b last:border-0">
+        <td className="p-3 font-semibold">{c.name}</td><td className="p-3"><SocialLinks socials={c.socials} /></td>
+        <td className={`p-3 ${typeof ours === 'number' && typeof c.metrics.followers === 'number' ? (c.metrics.followers > ours ? 'text-red-700' : 'text-green-700') : ''}`}>{c.metrics.followers?.toLocaleString() ?? '—'}</td>
+        <td className="p-3">{c.metrics.postsPerMonth ?? '—'}</td><td className="p-3">{c.metrics.avgPostLikes ?? '—'}</td>
+        <td className="p-3"><Button size="sm" variant="ghost" onClick={() => onOpen(c)}>Open</Button></td></tr>)}
+        {!rows.length && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Track competitors first (Main list, or from the Mover Registry).</td></tr>}</tbody>
+    </table></CardContent></Card>
+  </div>;
+}
+
+function OurNumbers({ us, busy, onSave }: { us: Data['us']; busy: boolean; onSave: (m: Record<string, string>, extra: Record<string, unknown>) => void }) {
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(METRICS.map(m => [m.key, us.manual[m.key]?.toString() ?? ''])));
+  const [authority, setAuthority] = useState(us.hasAuthority);
+  const [socials, setSocials] = useState(Object.values(us.socials || {}).join('\n'));
   return <Card className="bg-white"><CardContent className="p-6 space-y-4">
     <p className="text-sm text-muted-foreground">Revenue, customers and repeat rate fill in automatically from the last 12 months of paid bookings. Enter the rest (Google reviews, social followers). A number you enter replaces the automatic one.</p>
     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -284,7 +338,9 @@ function OurNumbers({ us, busy, onSave }: { us: Data['us']; busy: boolean; onSav
         <Input inputMode="decimal" placeholder={typeof us.auto[m.key] === 'number' ? `Auto: ${fmt(m.key, us.auto[m.key])}` : m.hint} value={values[m.key] ?? ''} onChange={e => setValues({ ...values, [m.key]: e.target.value })} />
         <span className="text-xs text-muted-foreground block">Using: {fmt(m.key, us.metrics[m.key])}</span></label>)}
     </div>
-    <Button disabled={busy} onClick={() => onSave(values)}>Save our numbers</Button>
+    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={authority} onChange={e => setAuthority(e.target.checked)} />We have our own USDOT number and household-goods authority (see GitHub issue #76)</label>
+    <label className="text-sm space-y-1 block"><span className="font-medium">Our social profiles</span><Textarea rows={3} placeholder="One link per line: Facebook, Instagram, TikTok, Yelp, Google…" value={socials} onChange={e => setSocials(e.target.value)} /></label>
+    <Button disabled={busy} onClick={() => onSave(values, { hasAuthority: authority, socials: socials.split(/\s+/).filter(Boolean) })}>Save our numbers</Button>
   </CardContent></Card>;
 }
 

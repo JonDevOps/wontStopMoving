@@ -4,7 +4,7 @@ import { Type } from '@google/genai';
 import { adminDb } from './firebase-admin';
 import { generateJson } from './gemini';
 import { fetchPublicPageText } from './safe-fetch';
-import { METRICS, scoreboard, type ActionItem, type Metrics } from '@/lib/competitors';
+import { cleanSocials, METRICS, scoreboard, type ActionItem, type Metrics } from '@/lib/competitors';
 
 /**
  * Competitor tracker storage and AI analysis.
@@ -118,6 +118,7 @@ Rules: Use only facts from the sources above; never invent prices, review counts
     },
     analysis: { strengths: list(out.strengths), weaknesses: list(out.weaknesses), threat: ['high', 'medium', 'low'].includes(out.threat) ? out.threat : 'medium' },
     actions: [...kept, ...fresh].slice(0, 40),
+    ...(page?.social?.length ? { socials: { ...cleanSocials(page.social), ...(c.socials || {}) }, socialsCheckedAt: FieldValue.serverTimestamp() } : {}),
     analyzedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
   });
   return { websiteRead: !!page, websiteError };

@@ -4,7 +4,8 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/server/firebase-admin';
 import { errorResponse, HttpError, isId, readJson, requireRole } from '@/lib/server/auth';
 import { ourMetrics, refreshStandings } from '@/lib/server/competitors';
-import { cleanMetrics, normalizeWebsite, parseCompetitorList, scoreboard, type Tier } from '@/lib/competitors';
+import { cleanMetrics, cleanSocials, normalizeWebsite, parseCompetitorList, scoreboard, type Tier } from '@/lib/competitors';
+import { fetchPublicPageText } from '@/lib/server/safe-fetch';
 
 /** Competitor tracker: the list with scoreboards, and every change to it. */
 const iso = (v: any) => v?.toDate?.().toISOString() || null;
@@ -16,13 +17,14 @@ export async function GET(req: Request) {
   try {
     await requireRole(req, ['admin']);
     const db = adminDb();
-    const [us, snap] = await Promise.all([ourMetrics(), db.collection('competitors').limit(2000).get()]);
+    const [usMetrics, snap, usSettings] = await Promise.all([ourMetrics(), db.collection('competitors').limit(2000).get(), db.doc('competitorSettings/us').get()]);
+    const us = { ...usMetrics, socials: usSettings.data()?.socials || {}, hasAuthority: usSettings.data()?.hasAuthority === true };
     const competitors = snap.docs.map(d => {
       const c = d.data();
       return {
         id: d.id, name: c.name, website: c.website || '', location: c.location || '', dot: c.dot || null, state: c.state || null, registry: c.registry || null, phone: c.phone || '', tier: tierOf(c.tier), status: c.status === 'passed' ? 'passed' : 'tracking',
-        metrics: c.metrics || {}, notes: c.notes || {}, intel: c.intel || null, analysis: c.analysis || null, actions: Array.isArray(c.actions) ? c.actions : [],
-        score: scoreboard(us.metrics, c.metrics || {}), passedAt: iso(c.passedAt), passedHow: c.passedHow || null, analyzedAt: iso(c.analyzedAt), createdAt: iso(c.createdAt),
+        metrics: c.metrics || {}, socials: c.socials || {}, notes: c.notes || {}, intel: c.intel || null, analysis: c.analysis || null, actions: Array.isArray(c.actions) ? c.actions : [],
+        score: scoreboard(usMetrics.metrics, c.metrics || {}), passedAt: iso(c.passedAt), passedHow: c.passedHow || null, analyzedAt: iso(c.analyzedAt), createdAt: iso(c.createdAt),
       };
     });
     let progress;
@@ -78,6 +80,7 @@ export async function POST(req: Request) {
         if (typeof body.location === 'string') patch.location = str(body.location, 120);
         if (body.tier !== undefined) patch.tier = tierOf(body.tier);
         if (body.metrics !== undefined) patch.metrics = cleanMetrics(body.metrics);
+        if (body.socials !== undefined) patch.socials = cleanSocials(body.socials);
         if (body.notes && typeof body.notes === 'object') for (const k of NOTE_KEYS) { const v = (body.notes as Record<string, unknown>)[k]; if (typeof v === 'string') patch[`notes.${k}`] = str(v, 4000); }
         await ref.update(patch);
         return NextResponse.json({ ok: true });
@@ -110,8 +113,24 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
       }
       case 'us': {
-        await db.doc('competitorSettings/us').set({ metrics: cleanMetrics(body.metrics), updatedBy: user.uid, updatedAt: now });
+        // Merge so other settings (authority, social links) aren't wiped.
+        await db.doc('competitorSettings/us').set({
+          ...(body.metrics !== undefined ? { metrics: cleanMetrics(body.metrics) } : {}),
+          ...(typeof body.hasAuthority === 'boolean' ? { hasAuthority: body.hasAuthority } : {}),
+          ...(body.socials !== undefined ? { socials: cleanSocials(body.socials) } : {}),
+          updatedBy: user.uid, updatedAt: now,
+        }, { merge: true });
         return NextResponse.json({ ok: true });
+      }
+      case 'find-socials': {
+        const { ref, data } = await doc(body.id);
+        if (!data.website) throw new HttpError(400, 'Add their website first.');
+        let found: Record<string, string> = {};
+        try { found = cleanSocials((await fetchPublicPageText(data.website, 2000)).social); }
+        catch (error) { throw new HttpError(502, error instanceof Error ? `Couldn’t read their website: ${error.message}` : 'Couldn’t read their website.'); }
+        const merged = { ...found, ...(data.socials || {}) };
+        await ref.update({ socials: merged, socialsCheckedAt: now, updatedAt: now });
+        return NextResponse.json({ found: Object.keys(found).length, socials: merged });
       }
       case 'refresh-standings':
         return NextResponse.json(await refreshStandings());

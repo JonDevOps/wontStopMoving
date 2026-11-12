@@ -1,6 +1,6 @@
 import { adminDb } from './firebase-admin';
 import { loadNational, loadStates } from './registry-store';
-import { filterMovers, ourRank, REGION_PRESETS, sizeScore, sortMovers, REGISTRY_AREAS, yearsInBusiness, type Mover, type MoverFilters, type OurFleet, type SortKey } from '@/lib/registry';
+import { explainRank, filterMovers, ourRank, REGION_PRESETS, sizeScore, sortMovers, REGISTRY_AREAS, yearsInBusiness, type Mover, type MoverFilters, type OurFleet, type SortKey, type UsProfile } from '@/lib/registry';
 
 /**
  * Answers registry searches. Searches inside a region, a few states or a map
@@ -22,7 +22,7 @@ const overlaps = (a: NonNullable<StateSummary['bbox']>, b: NonNullable<MoverFilt
 
 export type RegistryQuery = MoverFilters & { sort?: SortKey; page?: number; pageSize?: number; rankBy?: 'size' | 'units' | 'drivers' };
 
-export async function searchRegistry(q: RegistryQuery, us: OurFleet | null, opts: { points?: boolean; all?: boolean } = {}) {
+export async function searchRegistry(q: RegistryQuery, us: UsProfile | null, opts: { points?: boolean; all?: boolean } = {}) {
   const summaries = await stateSummaries();
   let states: string[] = [];
   if (q.region && REGION_PRESETS[q.region]) states = [REGION_PRESETS[q.region].state];
@@ -57,6 +57,7 @@ export async function searchRegistry(q: RegistryQuery, us: OurFleet | null, opts
     rows: sorted.slice((page - 1) * pageSize, page * pageSize),
     all: opts.all ? sorted : undefined,
     rank: rank ? { rank: rank.rank, of: rank.of, nextUp: rank.nextUp.map(m => ({ dot: m.dot, name: m.dba || m.name, city: m.city, state: m.state, units: m.units, drivers: m.drivers, years: yearsInBusiness(m), gap: rank.gapTo(m) })) } : null,
+    explain: us ? explainRank(rows, us) : null,
     points: opts.points ? sorted.filter(m => m.lat !== null && m.lng !== null).slice(0, national ? 30000 : 15000).map(m => [m.dot, m.lat, m.lng, m.dba || m.name, m.units, m.state]) : undefined,
     totals: { units: rows.reduce((n, m) => n + m.units, 0), drivers: rows.reduce((n, m) => n + m.drivers, 0) },
     updatedAt: summaries.filter(s => !national ? states.includes(s.state) : true).map(s => s.updatedAt).filter(Boolean).sort().pop() || null,
@@ -64,9 +65,11 @@ export async function searchRegistry(q: RegistryQuery, us: OurFleet | null, opts
 }
 
 /** Our fleet for ranking, from Competitors → Our numbers. */
-export async function ourFleet(): Promise<OurFleet> {
-  const m = (await adminDb().doc('competitorSettings/us').get()).data()?.metrics || {};
-  return { units: Number(m.trucks || 0), drivers: Number(m.drivers || 0), miles: 0, years: Number(m.yearsInBusiness || 0) };
+export async function ourFleet(): Promise<UsProfile> {
+  // Until Wont Stop Moving has its own USDOT record, authority comes from the owner's setting (competitorSettings/us.hasAuthority).
+  const settings = (await adminDb().doc('competitorSettings/us').get()).data() || {};
+  const m = settings.metrics || {};
+  return { units: Number(m.trucks || 0), drivers: Number(m.drivers || 0), miles: 0, years: Number(m.yearsInBusiness || 0), hasAuthority: settings.hasAuthority === true, hasWebsite: true };
 }
 
 /** Find one company by DOT number in its state's file. */

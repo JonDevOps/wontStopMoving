@@ -192,3 +192,48 @@ export const US_STATES = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 
 
 /** Every area the registry covers: U.S. states, DC, Puerto Rico and Canadian provinces. */
 export const REGISTRY_AREAS = [...US_STATES, ...CA_PROVINCES];
+
+// ---- Rank explanation (how the score works and what it takes to move up) ----
+
+export const SIZE_WEIGHTS = { perTruck: 10, perDriver: 4, milesPerPoint: 25_000, milesCap: 50_000_000 } as const;
+
+export function sizeParts(m: Pick<Mover, 'units' | 'drivers' | 'miles'>) {
+  const trucks = m.units * SIZE_WEIGHTS.perTruck, drivers = m.drivers * SIZE_WEIGHTS.perDriver, miles = Math.min(m.miles, SIZE_WEIGHTS.milesCap) / SIZE_WEIGHTS.milesPerPoint;
+  return { trucks, drivers, miles: Math.round(miles), total: Math.round(trucks + drivers + miles) };
+}
+
+export type UsProfile = OurFleet & { hasAuthority?: boolean; hasWebsite?: boolean };
+
+/** Full, plain explanation of where we rank among `rows` and what moves us up. */
+export function explainRank(rows: Mover[], us: UsProfile, now = Date.now()) {
+  const ours = sizeParts(us);
+  const ahead = rows.filter(m => sizeScore(m) > sizeScore(us)).sort((a, b) => sizeScore(a) - sizeScore(b));
+  const need = (m: Mover) => { const pts = Math.max(1, Math.ceil(sizeScore(m) - sizeScore(us) + 0.01)); return { points: pts, trucks: Math.ceil(pts / SIZE_WEIGHTS.perTruck), drivers: Math.ceil(pts / SIZE_WEIGHTS.perDriver) }; };
+  const measure = (label: string, ourValue: number, value: (m: Mover) => number, unit = '') => {
+    const values = rows.map(value).sort((a, b) => b - a);
+    return { label, ours: ourValue, rank: values.filter(v => v > ourValue).length + 1, of: rows.length + 1, leader: values[0] ?? 0, median: values.length ? values[Math.floor(values.length / 2)] : 0, unit };
+  };
+  const pct = (n: number) => (rows.length ? Math.round((n / rows.length) * 100) : 0);
+  const authorityShare = pct(rows.filter(m => m.hhgAuth).length), websiteShare = pct(rows.filter(m => m.site).length);
+  const sorted = [...rows].sort((a, b) => sizeScore(b) - sizeScore(a));
+  const tenth = sorted[Math.min(9, sorted.length - 1)];
+  const steps: string[] = [];
+  if (!us.units && !us.drivers) steps.push('Enter your trucks and drivers (count your providers’ and agents’ fleets as your network) under Competitors → Our numbers. Until then you’re ranked as if you had none.');
+  if (ahead[0]) { const n = need(ahead[0]); steps.push(`Pass ${ahead[0].dba || ahead[0].name}, the next company up: add ${n.trucks} truck${n.trucks === 1 ? '' : 's'} or ${n.drivers} driver${n.drivers === 1 ? '' : 's'} (or a mix worth ${n.points} points).`); }
+  if (tenth && sizeScore(tenth) > sizeScore(us)) { const n = need(tenth); steps.push(`Reach the top 10 here: about ${n.trucks} more truck${n.trucks === 1 ? '' : 's'} (or ${n.drivers} more drivers).`); }
+  if (!us.hasAuthority) steps.push(`Get your USDOT number and household-goods authority: ${authorityShare}% of movers here have it, and the registry can only rank you on real data once you’re in it.`);
+  if (!us.hasWebsite) steps.push(`Make sure your website is on your federal filing: ${websiteShare}% of movers here show one.`);
+  steps.push('Size isn’t everything: reviews, response time and repeat customers are tracked per competitor under Competitors, where you “pass” a company by beating it on every number you both have.');
+  return {
+    formula: `Score = trucks × ${SIZE_WEIGHTS.perTruck} + drivers × ${SIZE_WEIGHTS.perDriver} + yearly miles ÷ ${SIZE_WEIGHTS.milesPerPoint.toLocaleString()}`,
+    ours, rank: ahead.length + 1, of: rows.length + 1,
+    nextUp: ahead.slice(0, 5).map(m => ({ dot: m.dot, name: m.dba || m.name, city: m.city, state: m.state, units: m.units, drivers: m.drivers, years: yearsInBusiness(m, now), score: sizeParts(m), need: need(m) })),
+    measures: [
+      measure('Trucks', us.units, m => m.units),
+      measure('Drivers', us.drivers, m => m.drivers),
+      measure('Years in business', us.years, m => yearsInBusiness(m, now), 'yrs'),
+    ],
+    shares: { authority: authorityShare, website: websiteShare },
+    steps,
+  };
+}

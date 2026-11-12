@@ -24,6 +24,8 @@ import { cleanLocation, teamFromJob, isOnTeam, describeActivity } from '../src/l
 import { toMover, siteFromEmail, saneUnits, filterMovers, sortMovers, ourRank, moversCsv, moverLikelihood, REGISTRY_AREAS, isProvince } from '../src/lib/registry.ts';
 import { diffMovers, closureReason, mdy, zipOf, zipsWithin, expansionScore, acquisitionScore, isRecruitCandidate, moverVerdict, countyKey } from '../src/lib/market.ts';
 import { priceCart, SALES_TAX_RATE } from '../src/lib/shop.ts';
+import { platformOf, cleanSocials, passGaps } from '../src/lib/competitors.ts';
+import { explainRank, sizeParts } from '../src/lib/registry.ts';
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
 import { gzipSync } from 'node:zlib';
@@ -1401,4 +1403,52 @@ test('where to expand uses Census moving-business counts (and covers states the 
   const hennepin = (await view('MN')).find(c => c.fips === '27053'); // Minnesota isn't in the test registry, but the Census counts it.
   assert.equal(hennepin?.censusBusinesses, 23);
   assert.equal(hennepin?.registryMovers, 0);
+});
+
+test('ranking is explained: score parts, what it takes to pass, per-measure ranks and next steps', () => {
+  const ll = () => [37.35, -121.88];
+  const rows = [
+    toMover(census({ dot_number: '1', legal_name: 'BIG MOVING', power_units: '30', total_drivers: '40', mcs150_mileage: '0' }), { mc: '', hhg: true, active: true, broker: false }, ll),
+    toMover(census({ dot_number: '2', legal_name: 'MID MOVING', power_units: '6', total_drivers: '8', mcs150_mileage: '0' }), undefined, ll),
+    toMover(census({ dot_number: '3', legal_name: 'SMALL MOVING', power_units: '1', total_drivers: '1', mcs150_mileage: '0' }), undefined, ll),
+  ];
+  assert.deepEqual(sizeParts({ units: 6, drivers: 8, miles: 0 }), { trucks: 60, drivers: 32, miles: 0, total: 92 });
+  const x = explainRank(rows, { units: 5, drivers: 5, miles: 0, years: 2, hasAuthority: false, hasWebsite: true });
+  assert.equal(x.rank, 3); assert.equal(x.of, 4);
+  assert.equal(x.ours.total, 70);
+  assert.equal(x.nextUp[0].dot, '2');
+  assert.deepEqual(x.nextUp[0].need, { points: 23, trucks: 3, drivers: 6 }); // 92 − 70 = 22 points to tie, 23 to pass.
+  assert.equal(x.measures.find(m => m.label === 'Trucks').rank, 3);
+  assert.ok(x.steps.some(st => /USDOT/.test(st)));
+  assert.ok(explainRank(rows, { units: 0, drivers: 0, miles: 0, years: 0 }).steps[0].startsWith('Enter your trucks'));
+});
+
+test('social profiles: platforms detected from links, share links ignored; pass plan lists where they lead', () => {
+  assert.equal(platformOf('https://www.facebook.com/acmemovers'), 'facebook');
+  assert.equal(platformOf('instagram.com/acme'), 'instagram');
+  assert.equal(platformOf('https://m.yelp.com/biz/acme'), 'yelp');
+  assert.equal(platformOf('https://www.facebook.com/sharer/sharer.php?u=x'), null);
+  assert.equal(platformOf('https://example.com'), null);
+  assert.deepEqual(cleanSocials(['https://facebook.com/a', 'https://facebook.com/b', 'https://x.com/acme', 'junk']), { facebook: 'https://facebook.com/a', x: 'https://x.com/acme' });
+  const gaps = passGaps({ googleReviews: 150, googleRating: 4.9, followers: 900 }, { googleReviews: 300, googleRating: 4.9, followers: 500 });
+  assert.deepEqual(gaps.map(g => [g.key, g.tied]), [['googleReviews', false], ['googleRating', true]]);
+});
+
+test('our numbers merge (authority and socials survive saving metrics); competitor socials saved; registry returns the explanation', async () => {
+  const post = body => fetch(`${base}/api/admin/competitors`, authorized(adminToken, body));
+  await post({ action: 'us', hasAuthority: true, socials: ['https://instagram.com/wontstopmoving'] });
+  await post({ action: 'us', metrics: { trucks: 15, drivers: 10, followers: 1200 } });
+  const us = (await db.doc('competitorSettings/us').get()).data();
+  assert.equal(us.hasAuthority, true); assert.deepEqual(us.socials, { instagram: 'https://instagram.com/wontstopmoving' }); assert.equal(us.metrics.followers, 1200);
+  const id = (await (await post({ action: 'add', name: 'Social Movers', metrics: { followers: 5000 } })).json()).id;
+  await post({ action: 'update', id, socials: ['https://facebook.com/socialmovers', 'https://www.yelp.com/biz/social-movers'] });
+  assert.deepEqual((await db.doc(`competitors/${id}`).get()).data().socials, { facebook: 'https://facebook.com/socialmovers', yelp: 'https://www.yelp.com/biz/social-movers' });
+  assert.equal((await post({ action: 'find-socials', id })).status, 400); // No website yet.
+  const list = await (await fetch(`${base}/api/admin/competitors`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.equal(list.us.hasAuthority, true);
+  assert.ok(list.competitors.find(c => c.id === id).socials.facebook);
+  const reg = await (await fetch(`${base}/api/admin/registry?region=bay-area`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.match(reg.explain.formula, /trucks × 10/);
+  assert.equal(reg.explain.ours.total, 15 * 10 + 10 * 4);
+  assert.ok(!reg.explain.steps.some(st => /USDOT/.test(st))); // We said we have authority.
 });
