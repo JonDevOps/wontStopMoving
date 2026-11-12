@@ -7,6 +7,7 @@ import { classifyMover, classifyPartner, classifyStrategy, jevConfigured, type M
 import { lookupSos, sosSearchUrl, type SosRecord } from './sos';
 import { stateSummaries } from './registry-query';
 import { runPriceIndex } from './price-index';
+import type { Safety } from '@/lib/safety';
 import { refreshStaleSocialStats } from './competitors';
 import type { Mover } from '@/lib/registry';
 
@@ -24,6 +25,7 @@ export type Enrichment = {
   site?: string | null; socials?: Record<string, string>;
   strategy?: Strategy; strategyConfidence?: number; strategyAt?: string | null;
   socialStats?: Record<string, unknown>;
+  safety?: (Safety & { checkedAt: string | null }) | null;
 };
 
 const iso = (v: any) => v?.toDate?.().toISOString() || null;
@@ -36,7 +38,7 @@ export async function enrichmentFor(dots: string[]): Promise<Map<string, Enrichm
     for (const snap of await db.getAll(...refs)) {
       if (!snap.exists) continue;
       const e = snap.data()!;
-      out.set(snap.id, { kind: e.kind, kindConfidence: e.kindConfidence, partnerFit: e.partnerFit, partnerFitConfidence: e.partnerFitConfidence, classifiedAt: iso(e.classifiedAt), sos: e.sos ? { ...e.sos, checkedAt: iso(e.sos.checkedAt) } : undefined, competitorId: e.competitorId || null, placeId: e.placeId, placeCheckedAt: iso(e.placeCheckedAt), site: e.web?.site || null, socials: e.web?.socials || {}, strategy: e.strategy, strategyConfidence: e.strategyConfidence, strategyAt: iso(e.strategyAt), socialStats: e.socialStats });
+      out.set(snap.id, { kind: e.kind, kindConfidence: e.kindConfidence, partnerFit: e.partnerFit, partnerFitConfidence: e.partnerFitConfidence, classifiedAt: iso(e.classifiedAt), sos: e.sos ? { ...e.sos, checkedAt: iso(e.sos.checkedAt) } : undefined, competitorId: e.competitorId || null, placeId: e.placeId, placeCheckedAt: iso(e.placeCheckedAt), site: e.web?.site || null, socials: e.web?.socials || {}, strategy: e.strategy, strategyConfidence: e.strategyConfidence, strategyAt: iso(e.strategyAt), socialStats: e.socialStats, safety: e.safety ? { ...e.safety, checkedAt: iso(e.safety.checkedAt) } : null });
     }
   }
   return out;

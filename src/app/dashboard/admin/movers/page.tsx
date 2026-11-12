@@ -17,6 +17,7 @@ import { CATEGORIES, CATEGORY_COLOR, CATEGORY_LABEL, PARTNER_KEYS, categoriesOf 
 import type { Bounds, MapPoint, StateStat } from '@/components/registry/mover-map';
 import { ResearchPanel } from '@/components/agents/research-panel';
 import { SOCIAL_SCORE_HELP, type PlatformStats, type SocialSummary } from '@/lib/social-stats';
+import { SAFETY_HELP, type Safety } from '@/lib/safety';
 
 const MoverMap = dynamic(() => import('@/components/registry/mover-map').then(m => m.MoverMap), { ssr: false, loading: () => <div className="h-[420px] md:h-[520px] rounded-2xl bg-slate-100 animate-pulse" /> });
 
@@ -279,8 +280,9 @@ type Detail = {
   sos: { best: { name: string; status: string; active: boolean | null; entityType: string; formed: string; agent: string; agentAddress: string; id: string; source: string; url: string | null } | null; matches: unknown[]; free: boolean; checkedAt: string | null } | null;
   sosSearchUrl: string; insurance: { type: string; insurer: string; policy: string; coverage: number; effective: string }[]; competitorId: string | null; links: Record<string, string>;
   web: Web | null; searchReady: boolean; braveReady: boolean; places: { ready: boolean; usage: PlacesUsage | null };
-  statsReady: { instagram: boolean; youtube: boolean }; socialStats: Record<string, PlatformStats> | null; social: { summary: SocialSummary; score: number | null; activity: string } | null; strategy: string | null;
+  statsReady: { instagram: boolean; youtube: boolean }; socialStats: Record<string, PlatformStats> | null; social: { summary: SocialSummary; score: number | null; activity: string } | null; strategy: string | null; safety: SafetyInfo | null;
 };
+type SafetyInfo = Safety & { checkedAt: string | null };
 const STRATEGY: Record<string, { label: string; style: string; hint: string }> = {
   partner: { label: 'Partner', style: 'bg-green-100 text-green-800', hint: 'Agent or partner candidate for our network' },
   study: { label: 'Study', style: 'bg-blue-100 text-blue-800', hint: 'A legend to learn from' },
@@ -311,6 +313,7 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
     catch (e) { toast({ variant: 'destructive', title: 'Website search didn’t finish', description: e instanceof Error ? e.message : '' }); }
     finally { setWebBusy(false); }
   }, [auth, url, toast]);
+  const onSafety = useCallback((safety: SafetyInfo) => setD(prev => prev ? { ...prev, safety } : prev), []);
   const autoRan = useRef('');
   useEffect(() => { if (d && !d.web && autoRan.current !== url) { autoRan.current = url; void findWeb(false); } }, [d, url, findWeb]);
   const act = async (action: string, extra: Record<string, unknown> = {}, ok?: string) => {
@@ -360,6 +363,7 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
           {d.socialStats && <ul className="text-xs space-y-0.5">{Object.values(d.socialStats).map(p => <li key={p.platform}><b className="capitalize">{p.platform}</b>: {p.error ? <span className="text-amber-700">{p.error}</span> : `${p.followers?.toLocaleString() ?? 'hidden'} followers · ${p.posts ?? '?'} posts · ${p.avgLikes ?? '?'} likes and ${p.avgComments ?? '?'} comments per post (last ${p.sampled})`}</li>)}</ul>}
           <p className="text-[11px] text-muted-foreground">{SOCIAL_SCORE_HELP}</p>
         </section>}
+        <SafetySection url={url} safety={d.safety} onSafety={onSafety} />
         <GoogleSection url={url} places={d.places} onWeb={web => setD(prev => prev ? { ...prev, web } : prev)} />
 
         <section className="space-y-2 bg-slate-50 rounded-xl p-4">
@@ -401,6 +405,44 @@ function CompanyPanel({ dot, state, onClose, onChanged }: { dot: string; state: 
  * terms don't allow keeping ratings, reviews or contact details, so this
  * disappears when the panel closes (only the place ID is saved).
  */
+/** Activity, safety and trouble from DOT records; loads by itself when missing or over a week old. */
+const GRADE_STYLE: Record<string, string> = { A: 'bg-green-100 text-green-800', B: 'bg-lime-100 text-lime-800', C: 'bg-amber-100 text-amber-800', D: 'bg-red-100 text-red-800' };
+function SafetySection({ url, safety, onSafety }: { url: string; safety: SafetyInfo | null; onSafety: (s: SafetyInfo) => void }) {
+  const auth = useAuth();
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+  const run = useCallback(async (refresh: boolean) => {
+    setBusy(true);
+    try { onSafety(await apiFetch<SafetyInfo>(auth, url, { action: 'safety', refresh })); }
+    catch (e) { toast({ variant: 'destructive', title: 'DOT records didn’t load', description: e instanceof Error ? e.message : '' }); }
+    finally { setBusy(false); }
+  }, [auth, url, onSafety, toast]);
+  const ran = useRef('');
+  useEffect(() => { const stale = !safety?.checkedAt || Date.now() - Date.parse(safety.checkedAt) > 7 * 86400_000; if (stale && ran.current !== url) { ran.current = url; void run(false); } }, [safety, url, run]);
+  const s = safety;
+  const pct = (n: number | null) => n === null ? '—' : `${Math.round(n * 100)}%`;
+  return <section className="space-y-2 bg-slate-50 rounded-xl p-4">
+    <div className="flex justify-between items-center"><p className="font-bold">Road record (DOT, last 24 months)</p><Button size="sm" variant="outline" disabled={busy} onClick={() => run(true)}>{busy ? 'Checking…' : 'Check again'}</Button></div>
+    {!s ? <p className="text-sm text-muted-foreground">{busy ? 'Reading inspections, crashes and insurance records…' : 'Not checked yet.'}</p> : <>
+      <div className="flex flex-wrap gap-2 items-center text-sm">
+        {s.grade ? <span className={`px-2 py-0.5 rounded-full font-black ${GRADE_STYLE[s.grade]}`}>Safety {s.grade} · {s.score}</span> : <span className="text-muted-foreground">Too few inspections to grade</span>}
+        {s.trend && <span className="text-xs px-2 py-0.5 rounded-full border">{s.trend === 'growing' ? '▲ Busier' : s.trend === 'shrinking' ? '▼ Slowing down' : '● Steady'}{s.trendPct !== null ? ` (${s.trendPct > 0 ? '+' : ''}${s.trendPct}%)` : ''}</span>}
+        {s.trouble.length > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold">{s.trouble.length} warning{s.trouble.length === 1 ? '' : 's'}</span>}
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <p>Inspections: <b>{s.last12}</b> last 12 months, {s.prev12} the year before</p>
+        <p>Last inspected: <b>{s.lastInspection || '—'}</b></p>
+        <p>Trucks put out of service: <b>{pct(s.vehicleOosRate)}</b> <span className="text-xs text-muted-foreground">(national ~22%)</span></p>
+        <p>Drivers put out of service: <b>{pct(s.driverOosRate)}</b> <span className="text-xs text-muted-foreground">(national ~6%)</span></p>
+        <p>Crashes: <b>{s.crashes}</b>{s.crashes ? ` · ${s.injuries} injured · ${s.fatalities} killed` : ''}</p>
+        <p>Inspected in: <b>{s.states.map(x => `${x.state} ${x.count}`).join(', ') || '—'}</b></p>
+      </div>
+      {s.signals.length > 0 && <ul className="text-sm list-disc pl-5 space-y-0.5">{s.signals.map((x, i) => <li key={i} className={/cancel|revok|death|fail|out of service/i.test(x) ? 'text-red-800' : ''}>{x}</li>)}</ul>}
+      <p className="text-[11px] text-muted-foreground">{SAFETY_HELP} Source: FMCSA inspection, crash, insurance and revocation files{s.checkedAt ? `, checked ${new Date(s.checkedAt).toLocaleDateString()}` : ''}.</p>
+    </>}
+  </section>;
+}
+
 function GoogleSection({ url, places, onWeb }: { url: string; places: Detail['places']; onWeb: (w: Web) => void }) {
   const auth = useAuth();
   const { toast } = useToast();

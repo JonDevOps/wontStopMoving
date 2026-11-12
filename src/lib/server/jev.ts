@@ -74,7 +74,7 @@ export const STRATEGIES = {
   partner: 'Agent or partner candidate: an established local mover outside our home market that could handle origin, destination, storage or overflow work for our network',
   study: 'A legend to learn from: large, long-running, franchise or van line brand; study its marketing, pricing and service rather than fight it head on',
   compete: 'Direct competitor in our home market (the San Francisco Bay Area, within about 60 miles of Mountain View, CA) that we must beat on reviews, price and marketing',
-  acquire: 'Possible acquisition or buy-out target: a smaller, long-running, owner-run business with a weak web and social presence',
+  acquire: 'Possible acquisition or buy-out target: a smaller, long-running, owner-run business with a weak web and social presence, a shrinking fleet or activity, or insurance and authority trouble',
   ignore: 'Not relevant: not really a household mover, inactive, or too small or far away to matter',
 } as const;
 export type Strategy = keyof typeof STRATEGIES;
@@ -84,6 +84,7 @@ export type StrategySignals = {
   kind?: string | null; brand?: string | null; milesFromUs?: number | null; estimatedRevenue?: string | null;
   website?: string | null; socialPlatforms?: string[]; social?: { followers?: number | null; postsLast30?: number | null; daysSinceLastPost?: number | null } | null;
   legendGroup?: string | null;
+  safety?: { grade: string | null; inspectionsLast12: number; trend: string | null; crashes: number; trouble: string[] } | null;
 };
 
 export async function classifyStrategy(m: Mover, s: StrategySignals): Promise<{ strategy: Strategy; confidence: number; probabilities: Record<string, number>; model: string }> {
@@ -94,6 +95,7 @@ export async function classifyStrategy(m: Mover, s: StrategySignals): Promise<{ 
       company_type: s.kind || null, brand_or_franchise: s.brand || null, legend_list: s.legendGroup || null,
       power_units: m.units, drivers: m.drivers, miles_per_year: m.miles, registered_since: m.added || null, interstate: m.interstate, household_goods_authority: m.hhgAuth,
       estimated_yearly_revenue: s.estimatedRevenue || null, website: s.website || m.site || null, social_platforms: s.socialPlatforms || [],
+      safety_grade: s.safety?.grade ?? null, roadside_inspections_last_12_months: s.safety?.inspectionsLast12 ?? null, activity_trend: s.safety?.trend ?? null, crashes_last_24_months: s.safety?.crashes ?? null, recent_trouble: s.safety?.trouble ?? [],
       social_followers: s.social?.followers ?? null, posts_last_30_days: s.social?.postsLast30 ?? null, days_since_last_post: s.social?.daysSinceLastPost ?? null,
     },
   });

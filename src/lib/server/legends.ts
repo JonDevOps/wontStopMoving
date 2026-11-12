@@ -3,6 +3,7 @@ import { stateSummaries } from './registry-query';
 import { classifyAndSave, enrichmentFor, strategyAndSave, type Enrichment } from './registry-enrich';
 import { jevConfigured } from './jev';
 import { matchPlace } from './places';
+import { safetyFor } from './safety';
 import { trackedByDot } from './registry-track';
 import { brandOf, buildLegends, GROUP_LABEL, revenueRange, STATE_ZONE, type LegendGroup } from '@/lib/legends';
 import { isProvince, REGISTRY_AREAS, sizeScore, yearsInBusiness, type Mover } from '@/lib/registry';
@@ -59,7 +60,8 @@ function legendRow(m: Mover, rank: number, group: LegendGroup, e: Enrichment | u
     rank, group, dot: m.dot, state: m.state, name: m.name, dba: m.dba || '', city: m.city, units: m.units, drivers: m.drivers, miles: m.miles,
     years: yearsInBusiness(m), size: Math.round(sizeScore(m)), revenue: revenueRange(m), brand: brand ? { key: brand.key, label: brand.label, kind: brand.kind } : null,
     site: m.site || e?.site || null, socials: e?.socials || {}, followers: followers || null, milesFromUs: milesFrom(m.lat ?? null, m.lng ?? null),
-    kind: e?.kind || null, strategy: e?.strategy || null, google: e?.placeId ? 'matched' : e?.placeCheckedAt ? 'none' : null,
+    kind: e?.kind || null, strategy: e?.strategy || null,
+    safety: e?.safety ? { grade: e.safety.grade, score: e.safety.score, trend: e.safety.trend, last12: e.safety.last12, crashes: e.safety.crashes, trouble: e.safety.trouble.length, signals: e.safety.signals.slice(0, 4) } : null, google: e?.placeId ? 'matched' : e?.placeCheckedAt ? 'none' : null,
     competitorId: tracked.get(m.dot) || e?.competitorId || null,
   };
 }
@@ -100,6 +102,7 @@ export async function strategyFor(m: Mover, e?: Enrichment, group?: LegendGroup)
     estimatedRevenue: `$${(r.low / 1e6).toFixed(1)}M-$${(r.high / 1e6).toFixed(1)}M (from fleet size)`, website: m.site || e?.site || null,
     socialPlatforms: Object.keys(e?.socials || {}), legendGroup: group ? GROUP_LABEL[group] : null,
     social: sum.platforms ? { followers: sum.followers, postsLast30: sum.postsLast30, daysSinceLastPost: sum.daysSinceLastPost } : null,
+    safety: e?.safety ? { grade: e.safety.grade, inspectionsLast12: e.safety.last12, trend: e.safety.trend, crashes: e.safety.crashes, trouble: e.safety.trouble.map(t => t.text) } : null,
   });
 }
 
@@ -114,4 +117,15 @@ export async function jevGroup(group: LegendGroup) {
   });
   cache = null;
   return { checked: todo.length, done, failed, remaining: Math.max(0, b.groups[group].filter(m => !b.enr.get(m.dot)?.strategy).length - todo.length) };
+}
+
+/** DOT inspections, crashes and trouble for up to 40 legends in a group (free government data; saved). */
+export async function safetyGroup(group: LegendGroup) {
+  const b = await board();
+  const stale = (m: Mover) => { const s = b.enr.get(m.dot)?.safety; return !s?.checkedAt || Date.now() - Date.parse(s.checkedAt) > 7 * 86400_000; };
+  const todo = b.groups[group].filter(stale).slice(0, BATCH);
+  let done = 0, failed = 0;
+  await pool(todo, 3, async m => { try { await safetyFor(m); done++; } catch (error) { console.error('Safety lookup failed', m.dot, error); failed++; } });
+  cache = null;
+  return { checked: todo.length, done, failed, remaining: Math.max(0, b.groups[group].filter(stale).length - todo.length) };
 }

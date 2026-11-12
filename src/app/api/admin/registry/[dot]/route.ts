@@ -9,6 +9,7 @@ import { adoptWebsite, cachedWebPresence, findWebPresence } from '@/lib/server/w
 import { googleInfo, placesConfigured, placesUsage, PlacesBudgetError } from '@/lib/server/places';
 import { statsFor, statsReady } from '@/lib/server/social-stats';
 import { strategyFor } from '@/lib/server/legends';
+import { safetyFor } from '@/lib/server/safety';
 import { adminDb } from '@/lib/server/firebase-admin';
 import { activityOf, combineStats, socialScore } from '@/lib/social-stats';
 import { REGISTRY_AREAS, yearsInBusiness } from '@/lib/registry';
@@ -52,7 +53,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ dot: str
     const e = enr.get(m.dot);
     return NextResponse.json({
       mover: { ...m, years: yearsInBusiness(m) }, kind: e?.kind || null, kindLabel: e?.kind ? KINDS[e.kind] : null, kindConfidence: e?.kindConfidence ?? null,
-      sos: e?.sos || null, sosSearchUrl: sosSearchUrl(m.state), insurance: ins, web, searchReady: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY), braveReady: !!process.env.BRAVE_SEARCH_API_KEY, places: { ready: placesConfigured(), usage }, statsReady: statsReady(), socialStats: e?.socialStats || null, social: e?.socialStats ? (() => { const sum = combineStats(e.socialStats as never); return { summary: sum, score: socialScore(sum), activity: activityOf(sum) }; })() : null, strategy: e?.strategy || null, competitorId: tracked.get(m.dot) || null, jev: jevConfigured(),
+      sos: e?.sos || null, sosSearchUrl: sosSearchUrl(m.state), insurance: ins, web, searchReady: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY), braveReady: !!process.env.BRAVE_SEARCH_API_KEY, places: { ready: placesConfigured(), usage }, statsReady: statsReady(), socialStats: e?.socialStats || null, social: e?.socialStats ? (() => { const sum = combineStats(e.socialStats as never); return { summary: sum, score: socialScore(sum), activity: activityOf(sum) }; })() : null, strategy: e?.strategy || null, safety: e?.safety || null, competitorId: tracked.get(m.dot) || null, jev: jevConfigured(),
       links: {
         safer: `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=USDOT&query_string=${m.dot}`,
         sms: `https://ai.fmcsa.dot.gov/SMS/Carrier/${m.dot}/CarrierRegistration.aspx`,
@@ -81,6 +82,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ dot: st
     if (body.action === 'web') {
       try { return NextResponse.json(await findWebPresence(m, body.refresh === true)); }
       catch (error) { console.error('Website lookup failed', m.dot, error); throw new HttpError(502, 'The website search didn’t finish. Try again in a minute.'); }
+    }
+    if (body.action === 'safety') {
+      try { return NextResponse.json(await safetyFor(m, body.refresh === true)); }
+      catch (error) { console.error('Safety lookup failed', m.dot, error); throw new HttpError(502, 'The DOT data didn’t answer. Try again in a minute.'); }
     }
     if (body.action === 'strategy') {
       if (!jevConfigured()) throw new HttpError(503, 'Jev isn’t configured yet (TYPESAFE_API_KEY).');

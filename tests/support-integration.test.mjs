@@ -27,6 +27,7 @@ import { priceCart, SALES_TAX_RATE } from '../src/lib/shop.ts';
 import { platformOf, cleanSocials, passGaps } from '../src/lib/competitors.ts';
 import { guessDomains, isDirectory, matchPage, nameTokens, urlsIn, placeMatches } from '../src/lib/web-presence.ts';
 import { buildLegends, STATE_ZONE, brandOf, revenueRange } from '../src/lib/legends.ts';
+import { summarizeSafety, recentTrouble, NATIONAL_OOS } from '../src/lib/safety.ts';
 import { igUsername, ytRef, summarizePosts, combineStats, socialScore, activityOf, metricsFromStats } from '../src/lib/social-stats.ts';
 import { explainRank, sizeParts } from '../src/lib/registry.ts';
 import { METROS } from '../src/lib/metros.ts';
@@ -1945,4 +1946,55 @@ test('mover credentials: issues block new jobs until fixed; movers edit their ow
   assert.equal(row.profile.backgroundStatus, 'clear');
   assert.equal(row.blocking, false);
   await deleteApp(mover.app);
+});
+
+test('road record: inspections trend, out-of-service rates, crashes, trouble and a safety grade', () => {
+  const now = Date.parse('2026-11-12T00:00:00Z');
+  const day = d => new Date(now - d * 86400_000).toISOString().slice(0, 10);
+  const insp = (d, extra = {}) => ({ date: day(d), state: 'CA', level: '1', violations: 0, oos: 0, vehicleOos: 0, driverOos: 0, ...extra });
+  // 12 inspections this year, 6 last year: busier. 4 of 18 trucks out of service (22%): at the national rate.
+  const inspections = [...Array.from({ length: 12 }, (_, i) => insp(10 + i * 20, i < 3 ? { vehicleOos: 1 } : {})), ...Array.from({ length: 6 }, (_, i) => insp(400 + i * 30, i === 0 ? { vehicleOos: 1, state: 'NV' } : { state: 'NV' }))];
+  const good = summarizeSafety({ inspections, crashes: [], trouble: [], units: 10, homeState: 'CA' }, now);
+  assert.equal(good.inspections, 18); assert.equal(good.last12, 12); assert.equal(good.prev12, 6);
+  assert.equal(good.trend, 'growing'); assert.equal(good.trendPct, 100);
+  assert.equal(good.vehicleOosRate, Math.round((4 / 18) * 1000) / 1000);
+  assert.equal(good.grade, 'A'); assert.equal(good.perTruckYear, 1.2);
+  assert.ok(good.signals.some(x => /Busier/.test(x)));
+  assert.ok(good.signals.some(x => /outside CA/.test(x))); // A third of inspections in Nevada.
+  // Bad record: most trucks fail, a fatal crash, insurance cancelled.
+  const bad = summarizeSafety({
+    inspections: Array.from({ length: 10 }, (_, i) => insp(20 + i * 30, { vehicleOos: i < 6 ? 1 : 0, driverOos: i < 3 ? 1 : 0 })),
+    crashes: [{ date: day(100), state: 'CA', fatalities: 1, injuries: 2, towAway: true }],
+    trouble: [{ kind: 'insurance-cancelled', date: day(30), text: 'Insurance cancelled.' }], units: 2, homeState: 'CA',
+  }, now);
+  assert.equal(bad.grade, 'D'); assert.ok(bad.score < 50);
+  assert.ok(bad.signals.some(x => /fail inspections/.test(x)) && bad.signals.some(x => /death/.test(x)) && bad.signals.includes('Insurance cancelled.'));
+  assert.ok(NATIONAL_OOS.vehicle > 0.2);
+  // Too few inspections: no grade; nothing at all: says so; anything older than 24 months is ignored.
+  assert.equal(summarizeSafety({ inspections: [insp(5)], crashes: [], trouble: [], units: 3, homeState: 'CA' }, now).grade, null);
+  const none = summarizeSafety({ inspections: [insp(900)], crashes: [], trouble: [], units: 3, homeState: 'CA' }, now);
+  assert.equal(none.inspections, 0); assert.ok(none.signals[0].startsWith('No roadside inspections'));
+
+  const trouble = recentTrouble({
+    cancellations: [{ date: day(40), insurer: 'Acme Ins', kind: 'BIPD' }, { date: day(40), insurer: 'Acme Ins', kind: 'BIPD' }, { date: day(800), insurer: 'Old', kind: '' }],
+    upcomingCancellations: [{ date: new Date(now + 20 * 86400_000).toISOString().slice(0, 10), insurer: 'Acme Ins', kind: 'CARGO' }],
+    revocations: [{ type: 'INVOLUNTARY REVOCATION', date: day(200), license: 'COMMON' }, { type: 'INVOLUNTARY REVOCATION', date: '1994-08-16', license: 'COMMON' }],
+    pendingRevocation: true,
+  }, now);
+  assert.deepEqual(trouble.map(t => t.kind).sort(), ['insurance-cancelled', 'insurance-cancelling', 'revocation-pending', 'revoked']);
+  assert.ok(trouble.find(t => t.kind === 'revoked').text.startsWith('Common authority: involuntary revocation'));
+});
+
+test('road record is saved per company and shown on the company and Legends', async () => {
+  const company = `${base}/api/admin/registry/1234567?state=CA`;
+  const safety = { inspections: 3, last12: 3, prev12: 0, trend: null, trendPct: null, perTruckYear: 0.3, vehicleOosRate: null, driverOosRate: null, lastInspection: '2026-10-01', states: [{ state: 'CA', count: 3 }], crashes: 0, injuries: 0, fatalities: 0, crashesPer10TrucksYear: 0, trouble: [{ kind: 'insurance-cancelled', date: '2026-10-01', text: 'Insurance cancelled Oct 1, 2026.' }], score: 100, grade: 'A', signals: ['Insurance cancelled Oct 1, 2026.'] };
+  await db.doc('registryEnrichment/1234567').set({ safety: { ...safety, checkedAt: new Date() } }, { merge: true });
+  // Checked minutes ago: served from what's saved (no DOT requests), even when asked to check again.
+  const again = await (await fetch(company, authorized(adminToken, { action: 'safety', refresh: true }))).json();
+  assert.equal(again.grade, 'A'); assert.equal(again.trouble.length, 1);
+  const detail = await (await fetch(company, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  assert.equal(detail.safety.grade, 'A');
+  const board = await (await fetch(`${base}/api/admin/legends?refresh=1`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+  const row = Object.values(board.groups).flat().find(r => r.dot === '1234567');
+  if (row) { assert.equal(row.safety.grade, 'A'); assert.equal(row.safety.trouble, 1); }
 });

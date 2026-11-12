@@ -7,7 +7,7 @@ import { politeFetch } from './soda-token';
  * and revocations. Results are cached in memory for 10 minutes.
  */
 const BASE = 'https://data.transportation.gov/resource';
-const DS = { census: 'az4n-8mr2', authority: '6eyk-hxee', activeInsurance: 'qh9u-swkp', insuranceHistory: '6sqe-dvqs', revocations: 'sa6p-acbp' };
+const DS = { census: 'az4n-8mr2', authority: '6eyk-hxee', activeInsurance: 'qh9u-swkp', insuranceHistory: '6sqe-dvqs', revocations: 'sa6p-acbp', inspections: 'fx4q-ay7w', crashes: 'aayw-vxb3' };
 const cache = new Map<string, { at: number; value: unknown }>();
 
 async function soda<T>(ds: keyof typeof DS, params: Record<string, string>): Promise<T[]> {
@@ -84,4 +84,19 @@ export async function insuranceCancellationsFor(dots: string[]): Promise<Map<str
     }
   }
   return out;
+}
+
+const ymd = (v: unknown) => { const m = /^(\d{4})(\d{2})(\d{2})$/.exec(String(v || '').trim()); return m ? `${m[1]}-${m[2]}-${m[3]}` : ''; };
+const since = (months: number) => new Date(Date.now() - months * 30.44 * 86400_000).toISOString().slice(0, 10).replace(/-/g, '');
+
+/** Roadside inspections in the last 24 months (vehicle inspection file; DOT number unpadded). */
+export async function inspectionsFor(dot: string) {
+  const rows = await soda<Record<string, string>>('inspections', { $select: 'insp_date,report_state,insp_level_id,viol_total,oos_total,vehicle_oos_total,driver_oos_total', $where: `dot_number='${Number(dot)}' AND insp_date>='${since(24)}'`, $limit: '3000' });
+  return rows.map(r => ({ date: ymd(r.insp_date), state: r.report_state || '', level: r.insp_level_id || '', violations: Number(r.viol_total || 0), oos: Number(r.oos_total || 0), vehicleOos: Number(r.vehicle_oos_total || 0), driverOos: Number(r.driver_oos_total || 0) }));
+}
+
+/** Crashes reported in the last 24 months. */
+export async function crashesFor(dot: string) {
+  const rows = await soda<Record<string, string>>('crashes', { $select: 'report_date,state,fatalities,injuries,tow_away', $where: `dot_number='${Number(dot)}' AND report_date>='${since(24)}'`, $limit: '1000' });
+  return rows.map(r => ({ date: ymd(r.report_date), state: r.state || '', fatalities: Number(r.fatalities || 0), injuries: Number(r.injuries || 0), towAway: r.tow_away === 'Y' }));
 }
