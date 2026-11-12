@@ -26,6 +26,7 @@ import { diffMovers, closureReason, mdy, zipOf, zipsWithin, expansionScore, acqu
 import { priceCart, SALES_TAX_RATE } from '../src/lib/shop.ts';
 import { platformOf, cleanSocials, passGaps } from '../src/lib/competitors.ts';
 import { explainRank, sizeParts } from '../src/lib/registry.ts';
+import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, columnChanges, filterCarriers, sortCarriers, tupleToMover, servicesLabel, KNOWN_COLUMNS } from '../src/lib/carriers.ts';
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
 import { gzipSync } from 'node:zlib';
@@ -1451,4 +1452,99 @@ test('our numbers merge (authority and socials survive saving metrics); competit
   assert.match(reg.explain.formula, /trucks × 10/);
   assert.equal(reg.explain.ours.total, 15 * 10 + 10 * 4);
   assert.ok(!reg.explain.steps.some(st => /USDOT/.test(st))); // We said we have authority.
+});
+
+test('carrier categories: for-hire carriers sorted by what they haul; private fleets, buses and inactive left out', () => {
+  const common = { status_code: 'A', classdef: 'AUTHORIZED FOR HIRE', dot_number: '00123', legal_name: 'DESERT FREIGHT LLC', phy_city: 'RENO', phy_zip: '89501-1234', phy_cnty: '031', power_units: '12', total_drivers: '14', add_date: '20150301', carrier_operation: 'A', email_address: 'Ops@DesertFreight.com' };
+  const freight = { ...common, crgo_genfreight: 'X', crgo_motoveh: 'X' };
+  assert.deepEqual(categoriesOf(categoryBits(freight)), ['freight', 'auto']);
+  assert.deepEqual(categoriesOf(categoryBits({ crgo_cargoothr: 'X', hm_ind: 'Y' })), ['hazmat', 'other']);
+  assert.equal(keepCarrier(freight), true);
+  assert.equal(keepCarrier({ ...freight, classdef: 'PRIVATE PROPERTY' }), false);
+  assert.equal(keepCarrier({ ...freight, status_code: 'I' }), false);
+  assert.equal(keepCarrier({ ...common, crgo_passengers: 'X' }), false);
+  const t = toCarrierTuple(freight, { mc: 'MC999', hhg: false, active: true, broker: false });
+  assert.deepEqual(t.slice(0, 12), ['123', 'DESERT FREIGHT LLC', '', 'RENO', '89501', '031', '', 'ops@desertfreight.com', 12, 14, 0, '20150301']);
+  const row = tupleToMover(t, 'NV', [39.5, -119.8]);
+  assert.equal(row.site, 'https://desertfreight.com'); assert.equal(row.added, '2015-03-01'); assert.equal(row.authActive, true); assert.equal(row.mc, 'MC999');
+  assert.equal(servicesLabel(row), 'General freight; Car carriers & towing');
+  const small = toCarrierTuple({ ...freight, dot_number: '7', legal_name: 'TINY HAUL', power_units: '1', total_drivers: '1', phy_zip: '89101', phy_cnty: '003', email_address: 'x@gmail.com', carrier_operation: 'C' });
+  const ll = z => ({ '89501': [39.5, -119.8], '89101': [36.2, -115.1] })[z] || null;
+  assert.deepEqual(filterCarriers([t, small], { minUnits: 5 }, ll).map(m => m.t[0]), ['123']);
+  assert.deepEqual(filterCarriers([t, small], { interstate: 'no' }, ll).map(m => m.t[0]), ['7']);
+  assert.deepEqual(filterCarriers([t, small], { hasSite: true }, ll).map(m => m.t[0]), ['123']);
+  assert.deepEqual(filterCarriers([t, small], { bbox: { south: 36, north: 37, west: -116, east: -114 } }, ll).map(m => m.t[0]), ['7']);
+  assert.deepEqual(filterCarriers([t, small], { counties: ['003'] }, ll).map(m => m.t[0]), ['7']);
+  assert.deepEqual(sortCarriers(filterCarriers([small, t], {}, ll), 'size').map(m => m.t[0]), ['123', '7']);
+  assert.deepEqual(sortCarriers(filterCarriers([t, small], {}, ll), 'name').map(m => m.t[0]), ['123', '7']);
+});
+
+test('census import schedule: daily for the first three imports, then weekly; column changes flagged', () => {
+  const now = Date.parse('2026-11-20T12:00:00Z'), ago = h => new Date(now - h * 3600_000).toISOString();
+  assert.equal(importDue(null, now).due, true);
+  assert.equal(importDue({ runs: 1, generatedAt: ago(5) }, now).due, false);
+  assert.equal(importDue({ runs: 2, generatedAt: ago(23) }, now).due, true);
+  assert.equal(importDue({ runs: 3, generatedAt: ago(30) }, now).due, false);
+  assert.equal(importDue({ runs: 3, generatedAt: ago(24 * 7) }, now).due, true);
+  assert.deepEqual(columnChanges(KNOWN_COLUMNS.map(c => c.toUpperCase())), { added: [], removed: [], missingRequired: [] });
+  const changed = columnChanges([...KNOWN_COLUMNS.filter(c => c !== 'fax'), 'new_col']);
+  assert.deepEqual([changed.added, changed.removed, changed.missingRequired], [['new_col'], ['fax'], []]);
+  assert.deepEqual(columnChanges(['dot_number']).missingRequired.includes('legal_name'), true);
+});
+
+test('census file import: script splits the DOT file, the app loads movers from it and lists other carriers by category', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const dir = mkdtempSync(join(tmpdir(), 'census-'));
+  const cols = KNOWN_COLUMNS;
+  const line = o => cols.map(c => { const v = String(o[c] ?? ''); return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; }).join(',');
+  const nvBase = { status_code: 'A', classdef: 'AUTHORIZED FOR HIRE', phy_state: 'NV', phy_country: 'US', carrier_operation: 'A', add_date: '20100101', total_drivers: '5' };
+  const rows = [
+    { ...nvBase, dot_number: '9100001', legal_name: 'SILVER STATE MOVING LLC', phy_city: 'LAS VEGAS', phy_zip: '89101', phy_cnty: '003', power_units: '6', crgo_household: 'X' },
+    { ...nvBase, dot_number: '9100002', legal_name: 'DESERT FREIGHT LLC', phy_city: 'RENO', phy_zip: '89501', phy_cnty: '031', power_units: '12', crgo_genfreight: 'X', crgo_motoveh: 'X', email_address: 'ops@desertfreight.com' },
+    { ...nvBase, dot_number: '9100003', legal_name: 'ACME, "THE" HAULERS\nINC', phy_city: 'HENDERSON', phy_zip: '89002', phy_cnty: '003', power_units: '3', crgo_genfreight: 'X' },
+    { ...nvBase, dot_number: '9100004', legal_name: 'CASINO SUPPLY CO', classdef: 'PRIVATE PROPERTY', phy_zip: '89101', crgo_genfreight: 'X' },
+    { ...nvBase, dot_number: '9100005', legal_name: 'OLD FREIGHT', status_code: 'I', phy_zip: '89101', crgo_genfreight: 'X' },
+    { ...nvBase, dot_number: '9100006', legal_name: 'STRIP SHUTTLE', phy_zip: '89101', crgo_passengers: 'X' },
+  ];
+  writeFileSync(join(dir, 'census.csv'), [cols.map(c => c.toUpperCase()).join(','), ...rows.map(line)].join('\r\n') + '\r\n');
+  writeFileSync(join(dir, 'authority.csv'), 'DOCKET_NUMBER,DOT_NUMBER,COMMON_STAT,BROKER_STAT,HHG_CHK\nMC900001,09100001,A,N,Y\nMC900002,09100002,A,N,N\n');
+  writeFileSync(join(dir, 'dict.pdf'), '%PDF-1.4 test dictionary');
+  execFileSync(process.execPath, ['scripts/registry-import.mjs', 'run', '--census', join(dir, 'census.csv'), '--authority', join(dir, 'authority.csv'), '--dictionary', join(dir, 'dict.pdf'), '--out', process.env.REGISTRY_LOCAL_DIR], { env: { ...process.env, DICTIONARY_NAME: 'Dictionary Rev09.pdf' }, stdio: 'pipe' });
+  const manifest = JSON.parse(readFileSync(join(process.env.REGISTRY_LOCAL_DIR, 'import/manifest.json'), 'utf8'));
+  assert.equal(manifest.counts.NV.movers, 1); assert.equal(manifest.counts.NV.carriers, 3);
+  assert.deepEqual(manifest.counts.NV.categories, { household: 1, freight: 2, auto: 1 });
+  assert.equal(manifest.runs, 1); assert.equal(manifest.dictionary.name, 'Dictionary Rev09.pdf');
+  const check = execFileSync(process.execPath, ['scripts/registry-import.mjs', 'check', '--out', process.env.REGISTRY_LOCAL_DIR], { stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+  assert.equal(JSON.parse(check).due, false);
+
+  await db.doc('registryStates/NV').set({ backfilledAt: Timestamp.now() }); // Skip the closure-history backfill (network).
+  const post = body => fetch(`${base}/api/admin/registry`, authorized(adminToken, body));
+  const sync = await (await post({ action: 'sync', state: 'NV' })).json();
+  assert.equal(sync.source, 'file'); assert.equal(sync.count, 1); assert.equal(sync.likely, 1);
+  const nv = (await db.doc('registryStates/NV').get()).data();
+  assert.equal(nv.importedAt, manifest.generatedAt); assert.equal(nv.carriers, 3); assert.equal(nv.categories.freight, 2);
+
+  const get = qs => fetch(`${base}/api/admin/registry?${qs}`, { headers: { Authorization: `Bearer ${adminToken}` } });
+  const movers = await (await get('states=NV&stats=1')).json();
+  assert.equal(movers.rows[0].mc, 'MC900001'); assert.equal(movers.rows[0].hhgAuth, true);
+  assert.equal(movers.import.runs, 1); assert.equal(movers.import.totals.carriers, manifest.totals.carriers);
+  const freight = await (await get('states=NV&type=freight&map=1&stats=1')).json();
+  assert.equal(freight.total, 2);
+  assert.deepEqual(freight.rows.map(r => r.dot), ['9100002', '9100003']);
+  assert.equal(freight.rows[1].name, 'ACME, "THE" HAULERS INC');
+  assert.equal(freight.rank, null);
+  assert.equal(freight.stateStats.find(s => s.state === 'NV').likely, 2);
+  assert.ok(freight.points.length >= 1);
+  assert.deepEqual((await (await get('states=NV&type=auto')).json()).rows.map(r => r.dot), ['9100002']);
+  assert.equal((await (await get('states=NV&type=freight&minUnits=10')).json()).total, 1);
+  const national = await (await get('type=freight')).json();
+  assert.equal(national.needsArea, true); assert.equal(national.total, 0);
+  const csv = await (await get('states=NV&type=freight&format=csv')).text();
+  assert.match(csv, /General freight; Car carriers & towing/);
+  const pdf = await fetch(`${base}/api/admin/registry/dictionary`, { headers: { Authorization: `Bearer ${adminToken}` } });
+  assert.equal(pdf.status, 200); assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+  assert.match(pdf.headers.get('content-disposition'), /Dictionary Rev09\.pdf/);
+  assert.equal((await fetch(`${base}/api/admin/registry/dictionary`)).status, 401);
 });

@@ -1,0 +1,89 @@
+name: Registry import
+
+# Downloads the DOT's FMCSA Company Census file (~2 GB CSV, refreshed daily by
+# the DOT), the operating-authority file and the census data dictionary (PDF),
+# and loads them into the mover registry (Firebase Storage). The workflow
+# checks every day; scripts/registry-import.mjs decides whether an import is
+# due: every day for the first three imports, then once a week.
+on:
+  schedule:
+    - cron: '30 11 * * *' # 3:30 or 4:30 am Pacific, after the DOT's overnight refresh.
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Import now, even if one isn't due
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write # Keyless sign-in to Google Cloud (Workload Identity Federation).
+
+concurrency:
+  group: registry-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: Import census file
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      STORAGE_BUCKET: ${{ vars.REGISTRY_STORAGE_BUCKET }}
+      FORCE_IMPORT: ${{ inputs.force || 'false' }}
+      CENSUS_URL: https://data.transportation.gov/api/views/az4n-8mr2/rows.csv?accessType=DOWNLOAD
+      AUTHORITY_URL: https://data.transportation.gov/api/views/6eyk-hxee/rows.csv?accessType=DOWNLOAD
+      META_URL: https://data.transportation.gov/api/views/az4n-8mr2.json
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund --omit=dev
+
+      - name: Sign in to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.REGISTRY_IMPORT_SERVICE_ACCOUNT }}
+
+      - name: Is an import due?
+        id: check
+        run: node scripts/registry-import.mjs check
+
+      - name: Download the census, authority and data dictionary
+        if: steps.check.outputs.due == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dot"
+          curl -fsSL --retry 4 --retry-delay 30 "$META_URL" -o "$RUNNER_TEMP/dot/meta.json"
+          # The data dictionary is an attachment on the dataset; its file name carries the revision and date.
+          node -e '
+            const m = require(process.argv[1]); const a = (m.metadata?.attachments || []).find(x => /dictionary/i.test(x.filename || x.name || ""));
+            if (!a) { console.error("No data dictionary attachment found"); process.exit(0); }
+            const fs = require("fs"); fs.appendFileSync(process.env.GITHUB_ENV, `DICTIONARY_ASSET=${a.assetId}\nDICTIONARY_NAME=${(a.filename || a.name).replace(/[^\w.() -]+/g, "_")}\nSOURCE_UPDATED=${m.rowsUpdatedAt || ""}\n`);
+          ' "$RUNNER_TEMP/dot/meta.json"
+          curl -fsSL --retry 4 --retry-delay 60 "$CENSUS_URL" -o "$RUNNER_TEMP/dot/census.csv"
+          curl -fsSL --retry 4 --retry-delay 60 "$AUTHORITY_URL" -o "$RUNNER_TEMP/dot/authority.csv"
+          ls -la "$RUNNER_TEMP/dot"
+
+      - name: Download the data dictionary
+        if: steps.check.outputs.due == 'true' && env.DICTIONARY_ASSET != ''
+        run: curl -fsSL --retry 4 "https://data.transportation.gov/api/views/az4n-8mr2/files/${DICTIONARY_ASSET}?download=true&filename=dictionary.pdf" -o "$RUNNER_TEMP/dot/dictionary.pdf"
+
+      - name: Import into the registry
+        if: steps.check.outputs.due == 'true'
+        run: |
+          DICT=()
+          if [ -f "$RUNNER_TEMP/dot/dictionary.pdf" ]; then DICT=(--dictionary "$RUNNER_TEMP/dot/dictionary.pdf"); fi
+          node --max-old-space-size=6144 scripts/registry-import.mjs run \
+            --census "$RUNNER_TEMP/dot/census.csv" --authority "$RUNNER_TEMP/dot/authority.csv" \
+            --source-updated "${SOURCE_UPDATED:-}" "${DICT[@]}"

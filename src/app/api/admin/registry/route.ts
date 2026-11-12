@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { errorResponse, HttpError, readJson, requireRole } from '@/lib/server/auth';
-import { ourFleet, searchRegistry, stateSummaries, type RegistryQuery } from '@/lib/server/registry-query';
+import { CARRIER_TYPES, ourFleet, searchRegistry, stateSummaries, type CarrierType, type RegistryQuery } from '@/lib/server/registry-query';
 import { classifyAndSave, enrichmentFor } from '@/lib/server/registry-enrich';
 import { syncState } from '@/lib/server/registry-sync';
 import { trackedByDot, trackMovers } from '@/lib/server/registry-track';
-import { loadState } from '@/lib/server/registry-store';
+import { loadManifest, loadState } from '@/lib/server/registry-store';
+import { importDue, servicesLabel } from '@/lib/carriers';
 import { jevConfigured } from '@/lib/server/jev';
 import { moversCsv, REGION_PRESETS, REGISTRY_AREAS, yearsInBusiness, type Mover, type SortKey } from '@/lib/registry';
 
@@ -23,6 +24,7 @@ function parseQuery(p: URLSearchParams | Record<string, unknown>): RegistryQuery
   const [nearLat, nearLng, nearMiles] = ['nearLat', 'nearLng', 'nearMiles'].map(k => n(get(k)));
   const region = get('region') || undefined;
   return {
+    type: CARRIER_TYPES.includes(get('type') as Exclude<CarrierType, ''>) ? (get('type') as CarrierType) : undefined,
     q: (get('q') || '').slice(0, 80) || undefined, states, region: region && REGION_PRESETS[region] ? region : undefined,
     city: (get('city') || '').slice(0, 60) || undefined, zip: /^\d{3,5}$/.test(get('zip') || '') ? get('zip')! : undefined,
     bbox: [south, west, north, east].every(v => v !== undefined) ? { south: south!, west: west!, north: north!, east: east! } : undefined,
@@ -88,15 +90,30 @@ export async function GET(req: Request) {
       rows = csv ? filtered : filtered.slice((page - 1) * size, page * size);
     } else if (csv) rows = result.all || [];
     if (csv) {
-      return new NextResponse(moversCsv(rows.slice(0, 20000)), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="movers-${new Date().toISOString().slice(0, 10)}.csv"`, 'Cache-Control': 'private, no-store' } });
+      return new NextResponse(moversCsv(rows.slice(0, 20000), Date.now(), servicesLabel), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${query.type ? 'carriers' : 'movers'}-${new Date().toISOString().slice(0, 10)}.csv"`, 'Cache-Control': 'private, no-store' } });
     }
     const summaries = await stateSummaries();
+    const type = query.type;
+    // State totals for the map: likely movers, or the chosen kind of carrier.
+    const stateCount = (s: (typeof summaries)[number]) => (!type ? s.likely : s.categories?.[type] ?? 0);
     return NextResponse.json({
+      needsArea: 'needsArea' in result ? result.needsArea : false, import: params.get('stats') === '1' ? await importStatus() : undefined,
       mode: result.mode, nationalComplete: result.nationalComplete ?? null, total, rows: await decorate(rows), rank: result.rank, explain: result.explain, points: result.points, totals: result.totals, updatedAt: result.updatedAt,
       synced: summaries.length, jev: jevConfigured(),
-      stateStats: params.get('stats') === '1' ? summaries.map(s => ({ state: s.state, count: s.count, likely: s.likely, units: s.units, center: s.center, updatedAt: s.updatedAt })) : undefined,
+      stateStats: params.get('stats') === '1' ? summaries.map(s => ({ state: s.state, count: s.count, likely: stateCount(s), units: s.units, center: s.center, updatedAt: s.updatedAt })) : undefined,
     }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) { return errorResponse(error); }
+}
+
+/** When the DOT census file was last imported, what's next, and the data dictionary on file. */
+async function importStatus() {
+  const m = await loadManifest();
+  if (!m) return null;
+  const due = importDue(m);
+  return {
+    generatedAt: m.generatedAt, runs: m.runs, sourceUpdatedAt: m.sourceUpdatedAt, schedule: m.runs < 3 ? 'daily (first 3 imports)' : 'weekly',
+    nextCheck: due.reason, totals: m.totals, columns: m.columns, dictionary: m.dictionary,
+  };
 }
 
 /**

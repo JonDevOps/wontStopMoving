@@ -15,6 +15,7 @@ export type Mover = {
   mc: string; hhgAuth: boolean; authActive: boolean; broker: boolean;
   lat: number | null; lng: number | null;
   moverScore: number; likelyMover: boolean;
+  cats?: number; otherCargo?: string; // Service categories (bitmask, src/lib/carriers.ts), on non-mover carriers.
 };
 
 const FREE_MAIL = /(^|\.)(gmail|yahoo|ymail|hotmail|outlook|live|msn|aol|icloud|me|mac|comcast|att|sbcglobal|verizon|cox|charter|earthlink|protonmail|proton|gmx|mail|zoho|yandex|bellsouth|frontier|optonline|q|qq|163)\.[a-z.]+$/i;
@@ -173,12 +174,13 @@ export function ourRank(rows: Mover[], us: OurFleet, key: 'size' | 'units' | 'dr
 }
 
 /** Comma-safe CSV of registry rows. */
-export function moversCsv(rows: Mover[], now = Date.now()): string {
+export function moversCsv(rows: Mover[], now = Date.now(), services: (m: Mover) => string = () => 'Household goods'): string {
   const cols: [string, (m: Mover) => string | number][] = [
     ['DOT', m => m.dot], ['MC', m => m.mc], ['Legal name', m => m.name], ['DBA', m => m.dba], ['Street', m => m.street], ['City', m => m.city], ['State', m => m.state], ['ZIP', m => m.zip],
     ['Phone', m => m.phone], ['Email', m => m.email], ['Website (from email)', m => m.site], ['Officer', m => m.officer], ['Entity type', m => m.org],
     ['Power units', m => m.units], ['Trucks', m => m.trucks], ['Drivers', m => m.drivers], ['Miles/yr', m => m.miles], ['Years in business', m => yearsInBusiness(m, now)],
     ['Interstate', m => (m.interstate ? 'Yes' : 'No')], ['HHG authority', m => (m.hhgAuth ? 'Yes' : 'No')], ['Mover likelihood', m => m.moverScore],
+    ['Services', m => services(m)],
   ];
   const esc = (v: string | number) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   return [cols.map(c => esc(c[0])).join(','), ...rows.map(m => cols.map(c => esc(c[1](m))).join(','))].join('\n');
