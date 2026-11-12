@@ -5,7 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
-export type MapPoint = [dot: string, lat: number, lng: number, name: string, units: number, state: string];
+/** color: set for the partner shortlist (one color per category); otherwise pins are colored by fleet size. */
+export type MapPoint = [dot: string, lat: number, lng: number, name: string, units: number, state: string, color?: string];
 export type StateStat = { state: string; likely: number; units: number; center: [number, number] | null };
 export type Bounds = { south: number; west: number; north: number; east: number; zoom: number };
 
@@ -63,11 +64,11 @@ export function MoverMap({ points, stateStats, focus, onBounds, onSelect, onStat
       return;
     }
     const cluster = (leaflet as any).markerClusterGroup({ chunkedLoading: true, showCoverageOnHover: false, maxClusterRadius: 45 });
-    for (const [dot, lat, lng, name, units, state] of points) {
+    for (const [dot, lat, lng, name, units, state, color] of points) {
       const big = units >= 20, mid = units >= 5;
       const mk = leaflet.circleMarker([lat + ((Number(dot) % 97) - 48) * 0.00012, lng + ((Number(dot) % 89) - 44) * 0.00012], {
         radius: big ? 9 : mid ? 6 : 4, weight: dot === highlight ? 3 : 1, color: dot === highlight ? '#1d4ed8' : '#0f172a',
-        fillColor: big ? '#dc2626' : mid ? '#f97316' : '#64748b', fillOpacity: 0.85,
+        fillColor: color || (big ? '#dc2626' : mid ? '#f97316' : '#64748b'), fillOpacity: 0.85,
       });
       mk.bindTooltip(`${name.replace(/</g, '&lt;')}<br>${units} trucks`);
       mk.on('click', () => cb.current.onSelect(dot, state));

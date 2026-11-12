@@ -121,6 +121,7 @@ export function columnChanges(header: string[]) {
 export function tupleToMover(t: CarrierTuple, state: string, ll: [number, number] | null): Mover {
   const [dot, name, dba, city, zip, county, phone, email, units, drivers, miles, added, flags, cats, mc, otherCargo] = t;
   const site = siteOf(email);
+  const fit = isPartnerCandidate(t) ? partnerScore(t) : null;
   return {
     dot, name, dba, street: '', city, state, zip, county, phone, cell: '', email, site, officer: '', org: '',
     units, unitsReported: units, trucks: units, drivers, cdl: 0, miles, milesYear: 0,
@@ -128,6 +129,7 @@ export function tupleToMover(t: CarrierTuple, state: string, ll: [number, number
     interstate: (flags & FLAG.interstate) !== 0, forHire: true, safety: '', cargoTypes: categoriesOf(cats).length,
     mc, hhgAuth: (flags & FLAG.hhgAuth) !== 0, authActive: (flags & FLAG.authActive) !== 0, broker: (flags & FLAG.broker) !== 0,
     lat: ll ? ll[0] : null, lng: ll ? ll[1] : null, moverScore: 0, likelyMover: false, cats, otherCargo,
+    ...(fit ? { partnerScore: fit.score, partnerReasons: fit.reasons } : {}),
   };
 }
 
@@ -182,6 +184,10 @@ export function sortCarriers(rows: LocatedCarrier[], key: string, near?: { lat: 
     name: (a, b) => (a.t[2] || a.t[1]).localeCompare(b.t[2] || b.t[1]),
     distance: (a, b) => (near && a.lat !== null && b.lat !== null && a.lng !== null && b.lng !== null ? milesBetween(near.lat, near.lng, a.lat, a.lng) - milesBetween(near.lat, near.lng, b.lat, b.lng) : 0),
   };
+  if (key === 'score') { // Best partner fit (computed once per row).
+    const sc = new Map(rows.map(r => [r.t[0], partnerScore(r.t).score]));
+    cmp.score = (a, b) => (sc.get(b.t[0]) || 0) - (sc.get(a.t[0]) || 0) || size(b.t) - size(a.t);
+  }
   const by = cmp[key] || cmp.size;
   return rows.sort((a, b) => by(a, b) || a.t[0].localeCompare(b.t[0]));
 }
@@ -195,4 +201,73 @@ function milesBetween(aLat: number, aLng: number, bLat: number, bLng: number) {
   const r = (d: number) => (d * Math.PI) / 180;
   const h = Math.sin(r(bLat - aLat) / 2) ** 2 + Math.cos(r(aLat)) * Math.cos(r(bLat)) * Math.sin(r(bLng - aLng) / 2) ** 2;
   return 2 * 3958.8 * Math.asin(Math.sqrt(h));
+}
+
+// ---- Partners and agents: the shortlist ----
+
+/** Categories whose carriers could work with a moving company (car shipping, overflow linehaul, containers...). */
+export const PARTNER_KEYS = CATEGORIES.filter(c => c.partner && c.key !== 'household').map(c => c.key) as CategoryKey[];
+const PARTNER_BITS = PARTNER_KEYS.reduce((b, k) => b | BIT[k], 0);
+/** A partner candidate: hauls a partner category and isn't a household mover (movers are in the mover registry). */
+export const isPartnerCandidate = (t: CarrierTuple) => (t[13] & PARTNER_BITS) !== 0 && !hasCategory(t[13], 'household');
+/** The category a carrier is shown under on the map: its most specific partner category (general freight last), else its first category. */
+const PRIMARY_ORDER: CategoryKey[] = [...PARTNER_KEYS.filter(k => k !== 'freight'), 'freight'];
+export const primaryCategory = (bits: number): CategoryKey => PRIMARY_ORDER.find(k => hasCategory(bits, k)) || categoriesOf(bits)[0] || 'other';
+/** Map colors per category (partners stand out; other industries are muted). */
+export const CATEGORY_COLOR: Record<CategoryKey, string> = {
+  household: '#dc2626', freight: '#2563eb', auto: '#16a34a', mobilehome: '#9333ea', intermodal: '#ea580c', mail: '#0891b2',
+  construction: '#78716c', food: '#78716c', farm: '#78716c', hazmat: '#78716c', waste: '#78716c', other: '#78716c',
+};
+
+/**
+ * How good a partner a carrier looks from its federal filing, 0-100, with
+ * the reasons. Established, insured (active authority), interstate, a real
+ * business with a website, and in the categories most useful to a mover.
+ */
+export function partnerScore(t: CarrierTuple, now = Date.now()): { score: number; reasons: string[] } {
+  const [, , , , , , phone, email, units, , , added, flags, cats] = t;
+  const reasons: string[] = [];
+  let s = 0;
+  const fleet = Math.round(25 * Math.min(1, Math.log10(units + 1) / Math.log10(21)));
+  s += fleet;
+  if (units >= 5) reasons.push(`${units} trucks`);
+  const years = /^\d{8}$/.test(added) ? Math.max(0, Math.floor((now - Date.parse(`${added.slice(0, 4)}-${added.slice(4, 6)}-${added.slice(6, 8)}T00:00:00Z`)) / (365.25 * 86400000))) : 0;
+  s += Math.min(20, Math.round(years * 2.5));
+  if (years >= 5) reasons.push(`${years} years in business`);
+  if (flags & FLAG.authActive) { s += 15; reasons.push('active federal authority (insured)'); }
+  if (flags & FLAG.hhgAuth) { s += 10; reasons.push('can legally haul household goods'); }
+  if (flags & FLAG.interstate) { s += 10; reasons.push('interstate'); }
+  if (siteOf(email)) { s += 10; reasons.push('has a website'); } else if (email) s += 4;
+  if (phone) s += 5;
+  if (hasCategory(cats, 'auto')) { s += 5; reasons.push('ships vehicles'); }
+  else if (hasCategory(cats, 'freight')) s += 5;
+  else if (hasCategory(cats, 'intermodal')) s += 3;
+  if (flags & FLAG.broker && !(flags & FLAG.authActive)) { s -= 30; reasons.push('broker only (doesn’t haul)'); }
+  return { score: Math.max(0, Math.min(100, s)), reasons };
+}
+
+/**
+ * Partner candidates that weren't in the previous import (newly registered,
+ * newly active or newly hauling a partner category). `prev` null = the
+ * first import, which has nothing to compare with, so nothing is "new".
+ */
+export function newPartnerCarriers(prev: Set<string> | null, current: Iterable<CarrierTuple>): CarrierTuple[] {
+  if (!prev) return [];
+  const out: CarrierTuple[] = [];
+  for (const t of current) if (isPartnerCandidate(t) && !prev.has(t[0])) out.push(t);
+  return out;
+}
+
+/**
+ * The radar's "new partner carriers" from the latest import's list: only
+ * when that import ran in the last day (so each import is reported once),
+ * in the watched areas, best first.
+ */
+export function newCarrierAlerts(
+  file: { generatedAt: string; baseline?: boolean; rows: [string, ...CarrierTuple][] } | null, now: number,
+  watched: (state: string, t: CarrierTuple) => boolean,
+): { state: string; t: CarrierTuple; score: number }[] {
+  if (!file || file.baseline || now - Date.parse(file.generatedAt) > 26 * 3600_000) return [];
+  return file.rows.map(([state, ...rest]) => ({ state, t: rest as CarrierTuple }))
+    .filter(x => watched(x.state, x.t)).map(x => ({ ...x, score: partnerScore(x.t, now).score })).sort((a, b) => b.score - a.score);
 }

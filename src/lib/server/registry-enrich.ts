@@ -1,7 +1,9 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from './firebase-admin';
-import { loadState } from './registry-store';
-import { classifyMover, jevConfigured, type MoverKind } from './jev';
+import { loadPartners, loadState } from './registry-store';
+import { radarSettings, watchedStates } from './market';
+import { servicesLabel, tupleToMover } from '@/lib/carriers';
+import { classifyMover, classifyPartner, jevConfigured, type MoverKind, type PartnerFit } from './jev';
 import { lookupSos, sosSearchUrl, type SosRecord } from './sos';
 import { stateSummaries } from './registry-query';
 import { runPriceIndex } from './price-index';
@@ -14,6 +16,7 @@ import type { Mover } from '@/lib/registry';
  */
 export type Enrichment = {
   kind?: MoverKind; kindConfidence?: number; classifiedAt?: string | null;
+  partnerFit?: PartnerFit; partnerFitConfidence?: number;
   sos?: { best: SosRecord | null; matches: SosRecord[]; checkedAt: string | null; free: boolean; searchUrl: string };
   competitorId?: string | null;
 };
@@ -28,7 +31,7 @@ export async function enrichmentFor(dots: string[]): Promise<Map<string, Enrichm
     for (const snap of await db.getAll(...refs)) {
       if (!snap.exists) continue;
       const e = snap.data()!;
-      out.set(snap.id, { kind: e.kind, kindConfidence: e.kindConfidence, classifiedAt: iso(e.classifiedAt), sos: e.sos ? { ...e.sos, checkedAt: iso(e.sos.checkedAt) } : undefined, competitorId: e.competitorId || null });
+      out.set(snap.id, { kind: e.kind, kindConfidence: e.kindConfidence, partnerFit: e.partnerFit, partnerFitConfidence: e.partnerFitConfidence, classifiedAt: iso(e.classifiedAt), sos: e.sos ? { ...e.sos, checkedAt: iso(e.sos.checkedAt) } : undefined, competitorId: e.competitorId || null });
     }
   }
   return out;
@@ -37,6 +40,13 @@ export async function enrichmentFor(dots: string[]): Promise<Map<string, Enrichm
 export async function classifyAndSave(m: Mover) {
   const r = await classifyMover(m);
   await adminDb().doc(`registryEnrichment/${m.dot}`).set({ dot: m.dot, state: m.state, kind: r.kind, kindConfidence: r.confidence, kindProbabilities: r.probabilities, jevModel: r.model, classifiedAt: FieldValue.serverTimestamp() }, { merge: true });
+  return r;
+}
+
+/** Jev's partner fit for a carrier on the partner shortlist. */
+export async function classifyPartnerAndSave(m: Mover) {
+  const r = await classifyPartner({ ...m, services: servicesLabel(m) });
+  await adminDb().doc(`registryEnrichment/${m.dot}`).set({ dot: m.dot, state: m.state, partnerFit: r.fit, partnerFitConfidence: r.confidence, partnerFitProbabilities: r.probabilities, jevModel: r.model, partnerClassifiedAt: FieldValue.serverTimestamp() }, { merge: true });
   return r;
 }
 
@@ -66,11 +76,13 @@ async function pool<T>(items: T[], limit: number, deadline: number, fn: (t: T) =
  */
 export async function runEnrichment(budgetMs = 45_000) {
   const deadline = Date.now() + budgetMs;
-  // Jev sorting gets the first ~60% of the run; the price index gets the rest.
-  const classified = jevConfigured() ? await classifyTop(Date.now() + budgetMs * 0.6) : 0;
+  // Jev sorts movers for the first ~45% of the run and the partner shortlist for ~15%; the price index gets the rest.
+  const classified = jevConfigured() ? await classifyTop(Date.now() + budgetMs * 0.45) : 0;
+  let partners = 0;
+  if (jevConfigured()) { try { partners = await classifyPartners(Date.now() + budgetMs * 0.15); } catch (error) { console.error('Partner sorting failed', error); } }
   let priced = 0;
   if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) { try { priced = (await runPriceIndex(deadline)).priced; } catch (error) { console.error('Price index failed', error); } }
-  return { classified, priced };
+  return { classified, partners, priced };
 }
 
 async function classifyTop(deadline: number) {
@@ -84,6 +96,27 @@ async function classifyTop(deadline: number) {
     if (!todo.length) continue;
     const rows = new Map((await loadState(s.state)).map(m => [m.dot, m]));
     await pool(todo.map(d => rows.get(d)).filter(Boolean) as Mover[], 6, deadline, async m => { await classifyAndSave(m); classified++; });
+  }
+  return classified;
+}
+
+/**
+ * The partner shortlist in your watched areas (Market radar settings; the
+ * Bay Area and Puget Sound states until set): Jev asks how each of the best
+ * 200 per state could work with us. Only the shortlist, never all 1.3M
+ * carriers, to keep the cost small.
+ */
+export const PARTNER_JEV_PER_STATE = 200;
+async function classifyPartners(deadline: number) {
+  const settings = await radarSettings().catch(() => null);
+  const states = settings ? watchedStates(settings) : [];
+  let classified = 0;
+  for (const state of states.length ? states : ['CA', 'WA']) {
+    if (Date.now() > deadline) break;
+    const top = (await loadPartners(state)).slice(0, PARTNER_JEV_PER_STATE);
+    const known = await enrichmentFor(top.map(t => t[0]));
+    const todo = top.filter(t => !known.get(t[0])?.partnerFit).map(t => tupleToMover(t, state, null));
+    await pool(todo, 6, deadline, async m => { await classifyPartnerAndSave(m); classified++; });
   }
   return classified;
 }

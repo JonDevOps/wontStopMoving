@@ -1,7 +1,7 @@
 import { adminDb } from './firebase-admin';
-import { loadCarriers, loadNational, loadStates } from './registry-store';
+import { loadCarriers, loadNational, loadPartners, loadStates } from './registry-store';
 import { zipLookup } from './geo';
-import { CATEGORY_KEYS, filterCarriers, sortCarriers, tupleToMover, type CategoryKey, type LocatedCarrier } from '@/lib/carriers';
+import { CATEGORY_COLOR, CATEGORY_KEYS, filterCarriers, primaryCategory, sortCarriers, tupleToMover, type CategoryKey, type LocatedCarrier } from '@/lib/carriers';
 import { explainRank, filterMovers, ourRank, REGION_PRESETS, sizeScore, sortMovers, REGISTRY_AREAS, yearsInBusiness, type Mover, type MoverFilters, type OurFleet, type SortKey, type UsProfile } from '@/lib/registry';
 
 /**
@@ -9,7 +9,7 @@ import { explainRank, filterMovers, ourRank, REGION_PRESETS, sizeScore, sortMove
  * area load those states' full lists. Nationwide searches use each state's
  * stored top-300 summary (the biggest likely movers), which keeps memory low.
  */
-export type StateSummary = { state: string; count: number; likely: number; carriers?: number | null; categories?: Record<string, number> | null; units: number; drivers: number; top: (Partial<Mover> & { size: number })[]; updatedAt: string | null; bbox: { south: number; west: number; north: number; east: number } | null; center: [number, number] | null };
+export type StateSummary = { state: string; count: number; likely: number; carriers?: number | null; partners?: number | null; categories?: Record<string, number> | null; units: number; drivers: number; top: (Partial<Mover> & { size: number })[]; updatedAt: string | null; bbox: { south: number; west: number; north: number; east: number } | null; center: [number, number] | null };
 
 let summaryCache: { at: number; rows: StateSummary[] } | null = null;
 export async function stateSummaries(force = false): Promise<StateSummary[]> {
@@ -22,9 +22,13 @@ export async function stateSummaries(force = false): Promise<StateSummary[]> {
 
 const overlaps = (a: NonNullable<StateSummary['bbox']>, b: NonNullable<MoverFilters['bbox']>) => !(a.east < b.west || a.west > b.east || a.north < b.south || a.south > b.north);
 
-/** '' = moving companies (the default), or one service category of other for-hire carriers. */
-export type CarrierType = '' | Exclude<CategoryKey, 'household'>;
-export const CARRIER_TYPES = CATEGORY_KEYS.filter(k => k !== 'household') as Exclude<CarrierType, ''>[];
+/**
+ * '' = moving companies (the default), 'partners' = the partner shortlist
+ * (each state's best freight, car-carrier, container... candidates), or one
+ * service category of other for-hire carriers.
+ */
+export type CarrierType = '' | 'partners' | Exclude<CategoryKey, 'household'>;
+export const CARRIER_TYPES = ['partners', ...CATEGORY_KEYS.filter(k => k !== 'household')] as Exclude<CarrierType, ''>[];
 
 export type RegistryQuery = MoverFilters & { type?: CarrierType; sort?: SortKey; page?: number; pageSize?: number; rankBy?: 'size' | 'units' | 'drivers' };
 
@@ -96,10 +100,10 @@ async function searchCarriers(q: RegistryQuery, type: Exclude<CarrierType, ''>, 
   let matches: (LocatedCarrier & { state: string })[] = [];
   if (!national) {
     for (const state of states) {
-      for (const m of filterCarriers(await loadCarriers(state, type), { ...q, counties: preset?.counties }, zipLookup)) matches.push({ ...m, state });
+      for (const m of filterCarriers(type === 'partners' ? await loadPartners(state) : await loadCarriers(state, type), { ...q, counties: preset?.counties }, zipLookup)) matches.push({ ...m, state });
     }
   }
-  matches = sortCarriers(matches, q.sort || 'size', q.near) as typeof matches;
+  matches = sortCarriers(matches, q.sort || (type === 'partners' ? 'score' : 'size'), q.near) as typeof matches;
   const toRow = (m: (typeof matches)[number]) => tupleToMover(m.t, m.state, m.lat !== null && m.lng !== null ? [m.lat, m.lng] : null);
   const pageSize = Math.min(Math.max(q.pageSize || 50, 1), opts.all ? 10000 : 200), page = Math.max(q.page || 1, 1);
   return {
@@ -107,7 +111,8 @@ async function searchCarriers(q: RegistryQuery, type: Exclude<CarrierType, ''>, 
     states: national ? summaries.map(s => s.state) : states, total: matches.length,
     rows: matches.slice((page - 1) * pageSize, page * pageSize).map(toRow), all: opts.all ? matches.slice(0, 20000).map(toRow) : undefined,
     rank: null, explain: null,
-    points: opts.points ? matches.filter(m => m.lat !== null && m.lng !== null).slice(0, 15000).map(m => [m.t[0], m.lat, m.lng, m.t[2] || m.t[1], m.t[8], m.state]) : undefined,
+    // Shortlist pins are colored by category; single-category pins by fleet size.
+    points: opts.points ? matches.filter(m => m.lat !== null && m.lng !== null).slice(0, 15000).map(m => type === 'partners' ? [m.t[0], m.lat, m.lng, m.t[2] || m.t[1], m.t[8], m.state, CATEGORY_COLOR[primaryCategory(m.t[13])]] : [m.t[0], m.lat, m.lng, m.t[2] || m.t[1], m.t[8], m.state]) : undefined,
     totals: { units: matches.reduce((n, m) => n + m.t[8], 0), drivers: matches.reduce((n, m) => n + m.t[9], 0) },
     updatedAt: summaries.filter(s => !national ? states.includes(s.state) : true).map(s => s.updatedAt).filter(Boolean).sort().pop() || null,
   };
