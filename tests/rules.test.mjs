@@ -32,6 +32,16 @@ beforeEach(async () => {
 
 const as = (uid, token = {}) => env.authenticatedContext(uid, token).firestore();
 
+test('provider pricing cannot be saved below $45/hour or a two-hour minimum, including by browser admins', async () => {
+  for (const uid of ['prov','boss']) {
+    await assertFails(updateDoc(doc(as(uid),'providers/prov'),{hourlyRate:44.99,minimumHours:2}));
+    await assertFails(updateDoc(doc(as(uid),'providers/prov'),{hourlyRate:45,minimumHours:1}));
+    await assertFails(updateDoc(doc(as(uid),'providers/prov'),{hourlyRate:45,minimumHours:2.5}));
+    await assertSucceeds(updateDoc(doc(as(uid),'providers/prov'),{hourlyRate:45,minimumHours:2}));
+  }
+  await assertFails(setDoc(doc(as('new-provider'),'providers/new-provider'),{status:'pending',hourlyRate:10,minimumHours:2}));
+});
+
 test('custom quotes are private until claimed and their pricing and scope cannot be rewritten in browsers', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     await setDoc(doc(ctx.firestore(), 'quotes/custom'), { isCustomQuote: true, customerId: 'cust', status: 'new', description: 'Two movers', pricing: { type: 'fixed', total: 500 } });

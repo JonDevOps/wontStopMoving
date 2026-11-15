@@ -5,8 +5,7 @@ import { adminDb } from "@/lib/server/firebase-admin";
 import { errorResponse, HttpError, isId, readJson, requireRole, requireStripe, siteOrigin } from "@/lib/server/auth";
 import { requireCurrentTerms, bookingTermsAcceptance } from '@/lib/server/terms';
 import { TERMS_VERSION } from '@/lib/terms';
-
-const DEFAULT_HOURLY_RATE = 50;
+import { validProviderPricing } from '@/lib/mover-pricing';
 
 /**
  * Starts a provider booking. The job and its price are created here on the
@@ -18,7 +17,6 @@ export async function POST(req: Request) {
     const { user } = await requireRole(req, ["customer", "admin"]);
     const body = await readJson(req);
     requireCurrentTerms(body);
-    requireStripe();
     const { providerId, moveDate, pickupAddress, dropoffAddress } = body;
     const hours = Number(body.hours);
 
@@ -26,19 +24,28 @@ export async function POST(req: Request) {
     for (const [label, value] of [["move date", moveDate], ["pickup address", pickupAddress], ["drop-off address", dropoffAddress]] as const) {
       if (typeof value !== "string" || !value.trim() || value.length > 300) throw new HttpError(400, `Enter a valid ${label}.`);
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(moveDate)) || Number.isNaN(Date.parse(`${moveDate}T12:00:00Z`)) || new Date(`${moveDate}T12:00:00Z`).toISOString().slice(0,10) !== moveDate) throw new HttpError(400, 'Enter a valid move date.');
 
     const db = adminDb();
     const provider = await db.doc(`providers/${providerId}`).get();
     if (!provider.exists) throw new HttpError(404, "Provider not found.");
     const p = provider.data()!;
-    if (p.status === "suspended") throw new HttpError(409, "This provider isn't taking bookings.");
+    if (p.status !== 'approved' || p.stripeOnboardingComplete !== true || typeof p.stripeAccountId !== 'string' || !p.stripeAccountId.startsWith('acct_')) throw new HttpError(409, "This provider isn't taking bookings.");
+    if (!validProviderPricing(p.hourlyRate, p.minimumHours)) throw new HttpError(409, 'This provider must update their pricing before booking. Rates start at $45/hour with a two-hour minimum.');
 
-    const minimumHours = Math.max(1, Math.min(24, Math.floor(Number(p.minimumHours) || 2)));
+    const minimumHours = p.minimumHours;
     if (!Number.isInteger(hours) || hours < minimumHours || hours > 24) {
       throw new HttpError(400, `Book between ${minimumHours} and 24 hours.`);
     }
-    const rate = Number(p.hourlyRate) > 0 && Number(p.hourlyRate) <= 1000 ? Number(p.hourlyRate) : DEFAULT_HOURLY_RATE;
+    const rate = p.hourlyRate;
     const price = Math.round(hours * rate * 100) / 100;
+    const service = typeof body.service === 'string' ? body.service : 'loading';
+    const preferredStartTime = typeof body.preferredStartTime === 'string' ? body.preferredStartTime : '';
+    if (!['loading', 'unloading', 'packing', 'cleaning', 'heavy'].includes(service)) throw new HttpError(400, 'Choose a supported service.');
+    if (body.service && (!Array.isArray(p.services) || !p.services.includes(service === 'unloading' ? 'loading' : service))) throw new HttpError(409, 'This provider does not offer that service.');
+    if (preferredStartTime && !['morning', 'afternoon', 'evening'].includes(preferredStartTime)) throw new HttpError(400, 'Choose a preferred start time.');
+    if ((Array.isArray(p.unavailableDates) && p.unavailableDates.includes(moveDate)) || (Array.isArray(p.availableDays) && !p.availableDays.includes(new Date(`${moveDate}T12:00:00Z`).getUTCDay()))) throw new HttpError(409, 'This provider is unavailable on that date.');
+    requireStripe();
 
     const jobRef = db.collection("jobs").doc();
     await jobRef.set({
@@ -52,6 +59,8 @@ export async function POST(req: Request) {
       pickupAddress: (pickupAddress as string).trim(),
       dropoffAddress: (dropoffAddress as string).trim(),
       hoursReserved: hours,
+      service,
+      preferredStartTime,
       price,
       createdAt: FieldValue.serverTimestamp(),
       termsAcceptance: bookingTermsAcceptance(user.uid),

@@ -56,7 +56,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
   const navLinks = [
     { href: "/services/types-of-moves", label: "Types of Moves" },
-    { href: "/marketplace", label: "Marketplace" },
+    { href: "/movers", label: "Find Movers" },
   ];
 
   const resourceLinks = [

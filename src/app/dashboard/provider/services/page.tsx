@@ -18,8 +18,8 @@ import { AVAILABLE_SERVICES } from "@/lib/services";
 import { ProviderAvailability } from "@/components/dashboard/provider-availability";
 
 const pricingSchema = z.object({
-  hourlyRate: z.coerce.number().min(15, "Minimum rate is $15/hr"),
-  minimumHours: z.coerce.number().min(1, "Minimum 1 hour"),
+  hourlyRate: z.coerce.number().finite().min(45, "Minimum rate is $45/hr").max(1000).multipleOf(0.01, 'Use at most two decimal places'),
+  minimumHours: z.coerce.number().int().min(2, "Minimum 2 hours").max(24),
   services: z.array(z.string()).min(1, "Must select at least one service")
 });
 
@@ -118,7 +118,7 @@ export default function ProviderServicesPage() {
                       <FormControl>
                         <div className="relative">
                           <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          <Input type="number" placeholder="50" className="pl-10 h-14 text-lg font-bold" {...field} />
+                          <Input type="number" min={45} max={1000} step="0.01" placeholder="50" className="pl-10 h-14 text-lg font-bold" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -133,7 +133,7 @@ export default function ProviderServicesPage() {
                     <FormItem>
                       <FormLabel className="font-bold text-xs uppercase tracking-widest text-slate-500">Minimum Booking (Hours)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="2" className="h-14 text-lg font-bold" {...field} />
+                        <Input type="number" min={2} max={24} step={1} placeholder="2" className="h-14 text-lg font-bold" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

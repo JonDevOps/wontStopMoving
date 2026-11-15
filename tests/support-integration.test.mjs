@@ -39,6 +39,7 @@ import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, col
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
 import { gzipSync } from 'node:zlib';
+import { validProviderPricing } from '../src/lib/mover-pricing.ts';
 import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -65,6 +66,46 @@ before(async () => {
   customerToken = await customer.getIdToken();
 });
 after(async () => { await deleteApp(app); await deleteAdmin(adminApp); });
+
+test('marketplace pricing floor, city routes and direct-booking pages stay consistent', async () => {
+  assert.equal(validProviderPricing(45,2), true);
+  for (const [rate,hours] of [[44.99,2],[45,1],[45,2.5],[NaN,2],[Infinity,2],[45.001,2]]) assert.equal(validProviderPricing(rate,hours), false);
+  for (const path of ['/movers','/movers/az','/movers/az/queen-creek','/movers/az/queen-creek/results','/locations/arizona/queen-creek','/book']) assert.equal((await fetch(`${base}${path}`)).status,200,path);
+  assert.equal((await fetch(`${base}/movers/invalid-region`)).status,404);
+  assert.equal((await fetch(`${base}/movers/az/not-a-real-city`)).status,404);
+  const city = await (await fetch(`${base}/api/movers/locations?region=az`)).json();
+  assert.ok(city.cities.some(city => city.slug === 'queen-creek'));
+  const home = await (await fetch(base)).text();
+  assert.match(home,/Find your moving crew/);
+  assert.match(home,/Book Our Team Directly/);
+  assert.doesNotMatch(home,/Track My Move/);
+});
+
+test('mover results use local approved payout-ready providers and reject invalid booking rates', async () => {
+  const ref = db.doc('providers/marketplace-fixture');
+  const provider = { businessName: 'Test marketplace crew', status: 'approved', stripeOnboardingComplete: true, stripeAccountId: 'acct_marketplace_fixture', hourlyRate: 45, minimumHours: 2, services: ['loading'], location: { lat: 33.25, lng: -111.63 } };
+  await ref.set(provider);
+  const results = async () => (await (await fetch(`${base}/api/movers/az/queen-creek`)).json()).providers;
+  assert.ok((await results()).some(provider => provider.id === ref.id));
+  const publicProvider = await (await fetch(`${base}/api/movers/providers/${ref.id}`)).json();
+  assert.equal(publicProvider.hourlyRate,45);
+  assert.equal(publicProvider.stripeAccountId,undefined);
+  assert.equal((await fetch(`${base}/api/movers/az/queen-creek?date=2026-02-30`)).status,400);
+  const listed = (await results()).find(provider => provider.id === ref.id);
+  assert.equal(listed.stripeAccountId,undefined);
+  assert.equal((await fetch(`${base}/api/movers/az/nonexistent`)).status,404);
+  const payload = { providerId: ref.id, hours: 2, moveDate: '2027-12-15', pickupAddress: 'Synthetic pickup', dropoffAddress: 'Synthetic dropoff', termsAccepted: true, termsVersion: TERMS_VERSION };
+  const checkout = () => fetch(`${base}/api/stripe/checkout`, authorized(customerToken,payload));
+  for (const change of [{hourlyRate:44.99},{hourlyRate:45,minimumHours:1},{minimumHours:2,status:'pending'},{status:'approved',stripeOnboardingComplete:false}]) {
+    await ref.update(change);
+    assert.ok(!(await results()).some(provider => provider.id === ref.id));
+    assert.equal((await checkout()).status,409);
+  }
+  await ref.set(provider);
+  assert.equal((await checkout()).status,503); // Test Stripe is disabled; no job or payment is created.
+  await ref.update({ location: { lat: 47.60, lng: -122.33 } });
+  assert.ok(!(await results()).some(provider => provider.id === ref.id));
+});
 
 const customDraft = () => ({ name: 'Custom Customer', email: 'test-customer@example.com', description: 'Two movers and a truck. Packing excluded.', pickupAddress: '123 Test Street', dropoffAddress: '456 Test Avenue', moveDate: '2026-12-15', expiresAt: new Date(Date.now() + 86400000).toISOString(), pricing: { type: 'fixed', total: 1250.75 } });
 const authorized = (token, body) => ({ ...json(body), headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } });
@@ -123,7 +164,7 @@ test('checkout requires explicit current terms before any payment session or boo
     // Test payment keys deliberately remain unconfigured: passing this gate
     // reaches the payment-config guard, without contacting Stripe or charging.
     const accepted = await fetch(`${base}${route}`, { ...json({ termsAccepted: true, termsVersion: TERMS_VERSION }), headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${customerToken}` } });
-    assert.equal(accepted.status, route.endsWith('quote-checkout') ? 400 : 503);
+    assert.equal(accepted.status, 400);
   }
   assert.equal((await db.collection('jobs').get()).size, beforeJobs);
 });
