@@ -32,6 +32,17 @@ beforeEach(async () => {
 
 const as = (uid, token = {}) => env.authenticatedContext(uid, token).firestore();
 
+test('provider text consent and mobile numbers stay private and owner managed', async () => {
+  const ref=doc(as('prov'),'providerSmsPreferences/prov');
+  await assertSucceeds(setDoc(ref,{phone:'+15555550123',enabled:true,consentedAt:serverTimestamp()}));
+  await assertSucceeds(getDoc(ref));
+  await assertFails(getDoc(doc(as('cust'),'providerSmsPreferences/prov')));
+  await assertFails(setDoc(doc(as('cust'),'providerSmsPreferences/cust'),{phone:'+15555550123',enabled:true,consentedAt:serverTimestamp()}));
+  await assertFails(setDoc(ref,{phone:'bad',enabled:true,consentedAt:serverTimestamp()}));
+  await assertFails(setDoc(ref,{phone:'+15555550123',enabled:true,consentedAt:Timestamp.fromMillis(0)}));
+  await assertSucceeds(setDoc(ref,{phone:'',enabled:false,consentedAt:serverTimestamp()}));
+});
+
 test('provider pricing cannot be saved below $45/hour or a two-hour minimum, including by browser admins', async () => {
   for (const uid of ['prov','boss']) {
     await assertFails(updateDoc(doc(as(uid),'providers/prov'),{hourlyRate:44.99,minimumHours:2}));

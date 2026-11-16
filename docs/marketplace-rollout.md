@@ -47,6 +47,26 @@ separate codes for each reservation.
 
 ## Configuration and release checks still required
 
+### Text-message workflow
+
+- Successful paid booking: customer gets their private payment code and job link;
+  opted-in assigned providers get a new-job text with their dashboard link.
+- The customer shares the code after completion; the assigned provider redeems
+  it. The customer then gets a review link. The provider gets a code-accepted
+  alert that distinguishes a transfer sent to Stripe from a payout awaiting help.
+- Customer consent is collected at cart checkout. Provider consent and mobile
+  number are managed privately under Services & Pricing → Job text notifications.
+- Messages are keyed by event/job/provider to prevent duplicate sends. Pending
+  texts recheck current consent and job state before sending. Ambiguous sends
+  remain for review instead of automatic resending.
+- The owner confirmed trial SMS and calls were received on November 16, 2026.
+  Those Console tests do not prove this app's custom messages are delivered.
+  Twilio's current trial restricts custom bodies and recipients; production
+  payment-code/review-link traffic still needs an upgraded registered sender.
+- The owner confirmed A Moving Service also handles Wont Stop Moving in Stripe.
+  A managed `Wont Stop Moving marketplace QA` sandbox was created under that
+  account; authorization and a complete test payment round trip remain pending.
+
 - Set up Twilio sending service/number and its applicable sender registration.
   Store `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` in managed
   secrets, never source or chat. Until configured, texts are honestly marked

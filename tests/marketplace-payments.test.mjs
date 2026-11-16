@@ -13,7 +13,7 @@ import { validProviderPricing } from '../src/lib/mover-pricing.ts';
 if (!process.env.FIRESTORE_EMULATOR_HOST || process.env.GCLOUD_PROJECT !== 'demo-wsm') throw new Error('Demo emulator required.');
 const app = initializeApp({ projectId: 'demo-wsm' }, 'marketplace-money-tests'), db = getFirestore(app);
 before(async () => {
-  for (const name of ['jobs','providers','jobSecrets','moverOrders','moveTips','moneyOperations']) {
+  for (const name of ['jobs','providers','jobSecrets','moverOrders','moveTips','moneyOperations','providerSmsPreferences','smsOutbox']) {
     const docs = await db.collection(name).get();
     for (const doc of docs.docs.filter(doc => doc.id.includes('money-'))) await db.recursiveDelete(doc.ref);
   }
@@ -49,6 +49,26 @@ test('minimum booking and separate tip allocation use integer cents', () => {
   assert.equal(9000-providerShareCents(9000)-500,850);
   assert.equal(tipShareCents(2000),1800);
   assert.equal(tipShareCents(101),91);
+});
+
+test('job and review texts follow consent and lifecycle events without leaking payment codes', async () => {
+  const sms=load('move-sms',{'./firebase-admin':{adminDb:()=>db}});
+  const notices=load('notifications',{'./firebase-admin':{adminDb:()=>db},'../custom-quotes':{},'./move-sms':sms});
+  const id='money-sms-job', uid='money-sms-provider';
+  await db.doc(`jobs/${id}`).set({paymentStatus:'paid',status:'confirmed',moveDate:'2027-12-15',service:'loading',providerIds:[uid],smsConsent:true,notificationPhone:'+15555550123',reviewRefundEligible:true});
+  await notices.notifyProviderTexts(id,'assigned');
+  assert.equal((await db.collection('smsOutbox').where('jobId','==',id).get()).size,0);
+  await db.doc(`providerSmsPreferences/${uid}`).set({enabled:true,phone:'+15555550124'});
+  await notices.notifyProviderTexts(id,'assigned'); await notices.notifyProviderTexts(id,'assigned');
+  await notices.notifyReviewText(id);
+  assert.equal((await db.collection('smsOutbox').where('jobId','==',id).get()).size,1);
+  await db.doc(`jobs/${id}`).update({status:'completed',releaseConfirmedAt:Timestamp.now(),payoutStatus:'needs_manual_payout'});
+  await notices.notifyCompletedJobTexts(id); await notices.notifyCompletedJobTexts(id);
+  const texts=(await db.collection('smsOutbox').where('jobId','==',id).get()).docs.map(doc=>doc.data());
+  assert.equal(texts.length,3);
+  assert.ok(texts.some(text=>text.to==='+15555550123' && text.body.includes(`/dashboard/customer/moves/${id}`) && text.body.includes('Any honest star rating')));
+  assert.ok(texts.some(text=>text.to==='+15555550124' && text.body.includes('awaiting processing')));
+  assert.ok(texts.every(text=>!text.body.includes('123456')));
 });
 
 test('cart rejects one-hour, invalid dates, duplicate items and unsupported services', () => {

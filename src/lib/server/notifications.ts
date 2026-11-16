@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from './firebase-admin';
 import { customQuotePricingText } from '../custom-quotes';
-import { queueReleaseText } from './move-sms';
+import { queueReleaseText, queueMoveText } from './move-sms';
 
 const ORIGIN = 'https://wontstopmoving.com';
 // ZOHO_SMTP_USER must be the real Zoho mailbox (aliases can't sign in to SMTP).
@@ -91,4 +91,34 @@ export async function queueJobEmails(jobId: string) {
  */
 export async function notifyPaidJob(jobId: string) {
   try { await queueJobEmails(jobId); } catch (error) { console.error('Paid booking emails failed', jobId, error); }
+  try { await notifyProviderTexts(jobId, 'assigned'); await adminDb().doc(`jobs/${jobId}`).update({assignmentTextsPending:false}); } catch { console.error('Provider job text needs attention', jobId); }
+}
+
+export async function notifyCompletedJobTexts(jobId: string) {
+  await notifyReviewText(jobId);
+  await notifyProviderTexts(jobId, 'completed');
+  await adminDb().doc(`jobs/${jobId}`).update({completionTextsPending:false});
+}
+
+/** Provider alerts never contain the customer's private payment code. */
+export async function notifyProviderTexts(jobId: string, event: 'assigned' | 'completed') {
+  const db = adminDb(), job = (await db.doc(`jobs/${jobId}`).get()).data();
+  if (!job || job.paymentStatus !== 'paid' || job.status === 'cancelled') return;
+  if (event === 'assigned' && job.status === 'completed') return;
+  if (event === 'completed' && (!job.releaseConfirmedAt || job.status !== 'completed')) return;
+  for (const uid of job.providerIds || []) {
+    const settings = (await db.doc(`providerSmsPreferences/${uid}`).get()).data();
+    if (settings?.enabled !== true || !settings.phone) continue;
+    const text = event === 'assigned'
+      ? `Wont Stop Moving: New paid ${job.service || 'moving'} job on ${job.moveDate}. Review the job and confirm the start time: ${ORIGIN}/dashboard/provider/jobs/${jobId}`
+      : `Wont Stop Moving: The payment code for job ${jobId} was accepted. ${job.payoutStatus === 'paid' ? 'Your 85% payout was sent to your connected Stripe account; bank arrival may take longer.' : 'Your payout is awaiting processing or support follow-up.'} ${ORIGIN}/dashboard/provider/jobs/${jobId}`;
+    await queueMoveText(`provider-${event}:${jobId}:${uid}`, jobId, settings.phone, `${text} Reply STOP to opt out.`);
+  }
+}
+
+export async function notifyReviewText(jobId: string) {
+  const job = (await adminDb().doc(`jobs/${jobId}`).get()).data();
+  if (!job || job.status !== 'completed' || !job.releaseConfirmedAt || job.smsConsent !== true || !job.notificationPhone) return;
+  const text = `Wont Stop Moving: Your crew's payment code was accepted. Review your move: ${ORIGIN}/dashboard/customer/moves/${jobId}${job.reviewRefundEligible ? ' Any honest star rating qualifies for a $5 refund to your original payment method.' : ''} Optional tipping is available after your review. Reply STOP to opt out.`;
+  await queueMoveText(`review:${jobId}`, jobId, job.notificationPhone, text);
 }

@@ -219,6 +219,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /providerSmsPreferences/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if isOwner(uid) && hasRole('provider') &&
+        request.resource.data.keys().hasOnly(['phone', 'enabled', 'consentedAt']) &&
+        request.resource.data.enabled is bool && request.resource.data.phone is string &&
+        request.resource.data.phone.size() <= 16 &&
+        (!request.resource.data.enabled || request.resource.data.phone.matches('^\\+[1-9][0-9]{7,14}$')) &&
+        request.resource.data.consentedAt == request.time;
+      allow delete: if isOwner(uid);
+    }
+
     // Default deny fallback
     match /{document=**} {
       allow read, write: if false;

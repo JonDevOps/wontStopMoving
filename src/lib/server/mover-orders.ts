@@ -27,6 +27,7 @@ export async function confirmMoverOrder(session: Stripe.Checkout.Session) {
         pickupAddress: item.pickupAddress, dropoffAddress: item.dropoffAddress, hoursReserved: item.hours,
         hourlyRate: item.hourlyRate, payoutAccountId: item.payoutAccountId,
         providerName: item.providerName,
+        assignmentTextsPending: true,
         reviewRefundEligible: true, termsAcceptance: order.termsAcceptance,
         smsConsent: order.smsConsent === true, notificationPhone: order.smsConsent === true ? order.phone : '',
         createdAt: FieldValue.serverTimestamp(), paidAt: FieldValue.serverTimestamp(),

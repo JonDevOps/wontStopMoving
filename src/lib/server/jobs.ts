@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import { HttpError, isId } from "./auth";
-import { enqueueEmail, notifyPaidJob } from "./notifications";
+import { enqueueEmail, notifyPaidJob, notifyCompletedJobTexts } from "./notifications";
 import { confirmShopOrder } from './shop';
 import { routeNewJob } from './routing';
 import { recordReferralForPaidQuote } from "./referrals";
@@ -235,6 +235,7 @@ export async function completeJobWithCode(params: {
       payoutStatus: "processing",
       payeeProviderId: payeeUid || null,
       releaseConfirmedAt: FieldValue.serverTimestamp(),
+      completionTextsPending: true,
     });
     return {
       ok: true as const,
@@ -300,5 +301,6 @@ export async function payoutCompletedJob(jobId: string): Promise<CompletionResul
 
   const payoutStatus = transferId ? "paid" : "needs_manual_payout";
   await jobRef.update({ payoutStatus, payoutTransferId: transferId });
+  try { await notifyCompletedJobTexts(jobId); } catch { console.error('Completion texts need attention', jobId); }
   return { payoutStatus, transferId };
 }

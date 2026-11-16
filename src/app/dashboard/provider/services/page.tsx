@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AVAILABLE_SERVICES } from "@/lib/services";
 import { ProviderAvailability } from "@/components/dashboard/provider-availability";
+import { ProviderTextPreferences } from '@/components/dashboard/provider-text-preferences';
 
 const pricingSchema = z.object({
   hourlyRate: z.coerce.number().finite().min(45, "Minimum rate is $45/hr").max(1000).multipleOf(0.01, 'Use at most two decimal places'),
@@ -203,6 +204,7 @@ export default function ProviderServicesPage() {
           </form>
         </Form>
         <ProviderAvailability />
+        <ProviderTextPreferences />
       </div>
     </ProviderLayout>
   );

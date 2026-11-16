@@ -8,14 +8,37 @@ export function moveSmsConfigured() {
 
 /** Transactional texts only, to the number explicitly consented to at checkout. */
 export async function queueReleaseText(jobId: string, phone: string, body: string) {
-  const db = adminDb(), id = createHash('sha256').update(`release:${jobId}`).digest('hex'), ref = db.doc(`smsOutbox/${id}`);
+  return queueMoveText(`release:${jobId}`, jobId, phone, body);
+}
+
+export async function queueMoveText(key: string, jobId: string, phone: string, body: string) {
+  if (!/^\+[1-9]\d{7,14}$/.test(phone)) return 'invalid_number';
+  const db = adminDb(), id = createHash('sha256').update(key).digest('hex'), ref = db.doc(`smsOutbox/${id}`);
   await db.runTransaction(async tx => {
-    if (!(await tx.get(ref)).exists) tx.create(ref, { jobId, to: phone, body, status: 'pending', createdAt: FieldValue.serverTimestamp() });
+    if (!(await tx.get(ref)).exists) tx.create(ref, { key, jobId, to: phone, body, status: 'pending', createdAt: FieldValue.serverTimestamp() });
   });
+  return deliverMoveText(id);
+}
+
+export async function deliverMoveText(id: string) {
+  const db = adminDb(), ref = db.doc(`smsOutbox/${id}`);
   if (!moveSmsConfigured()) return 'pending_configuration';
   const message = await db.runTransaction(async tx => {
     const data = (await tx.get(ref)).data();
     if (data?.status !== 'pending') return null;
+    const job = (await tx.get(db.doc(`jobs/${data.jobId}`))).data();
+    let consent = false;
+    if (job?.paymentStatus === 'paid' && job.status !== 'cancelled') {
+      if (String(data.key || '').startsWith('provider-')) {
+        const preferences = await Promise.all((job.providerIds || []).map((uid: string) => tx.get(db.doc(`providerSmsPreferences/${uid}`))));
+        consent = preferences.some(snapshot => snapshot.data()?.enabled === true && snapshot.data()?.phone === data.to);
+        if (String(data.key).startsWith('provider-assigned:') && job.status === 'completed') consent = false;
+      } else {
+        consent = job.smsConsent === true && job.notificationPhone === data.to;
+        if (!String(data.key || '').startsWith('review:') && job.status === 'completed') consent = false;
+      }
+    }
+    if (!consent) { tx.update(ref, {status:'cancelled',reason:'consent_or_job_changed'}); return null; }
     tx.update(ref, { status: 'sending', attemptedAt: FieldValue.serverTimestamp() });
     return data;
   });
