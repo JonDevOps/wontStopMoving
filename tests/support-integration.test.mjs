@@ -323,6 +323,27 @@ test('a paid booking queues one admin alert, skips missing accounts, and retries
   assert.equal(messages[0].status, 'pending'); // Mail is not configured in tests, so nothing is sent.
 });
 
+test('signed paid-cart webhook creates separate crew jobs and queues private code delivery once', async () => {
+  const customerId=auth.currentUser.uid;
+  const items=[0,1].map(index=>({jobId:`cart-webhook-job-${index}`,providerId:`cart-webhook-crew-${index}`,providerName:`Synthetic crew ${index}`,totalCents:9000,providerPayoutCents:7650,hourlyRate:45,payoutAccountId:`acct_demo_${index}`,moveDate:'2027-12-15',service:index?'unloading':'loading',preferredStartTime:'morning',pickupAddress:'Synthetic pickup',dropoffAddress:'Synthetic dropoff',hours:2}));
+  await db.doc('moverOrders/cart-webhook').set({customerId,items,totalCents:18000,paymentStatus:'pending',checkoutSessionId:'cs_cart_webhook',smsConsent:true,phone:'+15555550123',termsAcceptance:{accepted:true}});
+  const event={id:'evt_cart_webhook',type:'checkout.session.completed',data:{object:{id:'cs_cart_webhook',payment_status:'paid',currency:'usd',amount_total:18000,payment_intent:'pi_cart_webhook',metadata:{flow:'mover_cart',orderId:'cart-webhook',customerId}}}};
+  assert.equal((await webhook({...event,data:{object:{...event.data.object,payment_status:'unpaid'}}})).status,200);
+  assert.equal((await db.doc(`jobs/${items[0].jobId}`).get()).exists,false);
+  assert.equal((await webhook(event)).status,200);
+  assert.equal((await webhook(event)).status,200);
+  for(const item of items) {
+    const job=(await db.doc(`jobs/${item.jobId}`).get()).data();
+    assert.equal(job.allocatedCents,9000); assert.equal(job.providerPayoutCents,7650); assert.equal(job.codeSmsStatus,'pending_configuration');
+    assert.equal(job.releaseCode,undefined);
+    const code=(await db.doc(`jobSecrets/${item.jobId}`).get()).data().releaseCode;
+    const messages=(await db.collection('emailOutbox').where('referenceId','==',item.jobId).get()).docs.map(doc=>doc.data());
+    const coded=messages.filter(message=>message.text.includes(code));
+    assert.equal(coded.length,1); assert.equal(coded[0].to,auth.currentUser.email); assert.equal(coded[0].category,'release_code');
+  }
+  assert.equal((await db.collection('smsOutbox').get()).size,2);
+});
+
 test('admins can review failed emails: retry or dismiss unsent ones, never resend sent ones', async () => {
   const send = (token, body) => fetch(`${base}/api/admin/notifications`, authorized(token, body));
   const failed = db.doc('emailOutbox/test-failed-email');
@@ -551,6 +572,22 @@ test('customers review completed moves once, and the provider rating updates', a
   assert.equal(provider.rating, 4.5);
   assert.equal((await db.doc('providers/review-prov/reviews/review-job').get()).data().rating, 5);
   assert.equal((await review(customerToken, { jobId: 'review-job', rating: 5 })).status, 409); // Only once.
+});
+
+test('marketplace refund and tipping endpoints require the paying customer and a completed reviewed move', async () => {
+  const uid=auth.currentUser.uid;
+  for (const route of ['/api/movers/checkout','/api/movers/tip','/api/movers/benefits','/api/admin/mover-payments','/api/jobs/payout']) assert.equal((await fetch(`${base}${route}`,json({}))).status,401);
+  assert.equal((await fetch(`${base}/api/admin/mover-payments`,authorized(customerToken,{}))).status,403);
+  await db.doc('jobs/benefit-locked').set({customerId:uid,providerIds:['review-prov'],paymentStatus:'paid',status:'confirmed',reviewed:false,reviewRefundEligible:true});
+  assert.equal((await fetch(`${base}/api/movers/tip`,authorized(customerToken,{jobId:'benefit-locked',amountCents:2000}))).status,409);
+  assert.equal((await fetch(`${base}/api/movers/benefits`,authorized(adminToken,{jobId:'benefit-locked'}))).status,404);
+  await db.doc('jobs/benefit-locked').update({status:'completed'});
+  assert.equal((await fetch(`${base}/api/reviews`,authorized(customerToken,{jobId:'benefit-locked',rating:1,comment:'Needs improvement'}))).status,409);
+  await db.doc('jobs/benefit-locked').update({releaseConfirmedAt:Timestamp.now(),platformFeeCents:1350,paymentIntentId:'pi_benefit_locked'});
+  const response=await fetch(`${base}/api/reviews`,authorized(customerToken,{jobId:'benefit-locked',rating:1,comment:'Needs improvement'}));
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).refundStatus,'pending_configuration');
+  assert.equal((await db.doc('providers/review-prov/reviews/benefit-locked').get()).data().incentivized,true);
 });
 
 test('referral links: each customer gets a code, and a paid referred quote earns one reward', async () => {

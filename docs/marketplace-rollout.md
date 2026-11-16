@@ -1,49 +1,77 @@
 # Marketplace rollout
 
-## Approved product direction
+## Approved behavior
 
-Keep every existing `/locations/{state}/{city}` page, direct booking and quote
-flow. Make a separate `/movers/` marketplace the primary landing-page journey.
+Keep all existing `/locations/{state}/{city}` pages, direct booking/quote flows
+and their sitemap entries. The added `/movers/` directory is the primary homepage
+journey, using the existing state/province/city dataset.
 
-The full journey is search → city results → provider customization → cart →
-Stripe payment → private per-job release codes → provider completion/payout →
-review → $5 refund to original payment method → optional tip. The provider gets
-85% of the job payment; W3Develops gets 15% and funds the review refund. Tips
-unlock only after a review, with 90% to the provider and a disclosed 10% fee.
-SMS delivery needs the SMS service and consent. No fake providers, reviews,
-insurance coverage or competitor branding may be introduced.
+Search → city results → provider → customize reservation → moving cart → Stripe
+Checkout → one job and private payment code per crew reservation → crew redeems
+its code after satisfactory completion → review → $5 original-method refund →
+optional tip. Loading and unloading can use different providers, dates, hours
+and start windows. A customer may also reserve the same provider twice, with
+separate codes for each reservation.
 
-## First preview
+## Implemented on this branch
 
-- Homepage search with service, region, city, addresses, date and start window.
-- Region/city directory routes and city-specific filtered provider results.
-- Provider detail route and handoff to the existing booking form.
-- Existing city pages remain untouched; their sitemap entries remain present.
-- Minimum $45 hourly rate and two-hour reservation at provider save, rules and
-  server checkout. Legacy invalid pricing is unavailable until corrected by the
-  provider; it is never silently increased before charging.
-- Search passes date/time/service/hours and keeps street addresses in tab-local
-  session storage rather than public URLs. No private files are used as photos.
-- Results require approval, valid pricing and completed Stripe onboarding.
-- Results honor explicitly blocked dates and configured working weekdays.
-  Start-window preferences are not a guarantee of calendar availability.
+- Homepage search, city results, provider pages, reservation customization and
+  a tab-local cart. Street addresses are excluded from public URLs.
+- At least $45/hour and two hours; providers may choose higher minimums. The
+  lowest labor reservation is $90. The server verifies rates, supported service,
+  date availability and current Stripe recipient capability before Checkout.
+  A changed rate requires the customer to return and review the new quote.
+- One immutable allocation per cart item. Paid webhook fulfillment validates the
+  session, customer, amount and currency and creates all jobs/codes atomically.
+  Duplicate and asynchronous payment events cannot duplicate jobs or codes.
+- Codes are private in `jobSecrets`, visible only to the customer/admin, emailed
+  only to the customer, and queued for text only with explicit number/consent.
+  Dashboard codes remain available when delivery is delayed.
+- An assigned provider's correct code completes only that job. The mover gets
+  85%, W3Develops retains 15%. A durable money-request ledger freezes the amount
+  and destination and uses one Stripe idempotency key per payout/refund/tip.
+- New marketplace jobs offer a $5 refund for any honest review after code
+  redemption. It returns to the original payment method and uses the platform's
+  share; the provider allocation is unchanged. Reviews disclose the incentive.
+  Review writes/eligibility are server-only; negative reviews receive the same
+  refund and are displayed publicly. No incentive is tied to a Google review.
+- Tip checkout is unavailable until a real review exists. Optional tips pay 90%
+  to the mover, retaining a disclosed 10% processing/platform fee, with no extra
+  15% booking fee. Webhook replays cannot duplicate the tip transfer.
+- Admin follow-up at `/dashboard/admin/mover-payments`, plus recovery in the
+  existing authenticated hourly scheduler. Ambiguous requests older than
+  23 hours stop for Stripe reconciliation instead of replaying after the
+  idempotency retention window. Full refunds/disputes hold unreleased jobs.
+- Stripe SDK updated to 23.1.0 (matching API selected by the pinned SDK).
+  Dynamic payment methods and signed asynchronous fulfillment are used.
 
-The preview's Both option saves the unloading address and starts with the
-loading city. Separate-provider cart selection is still part of the next phase;
-the existing booking flow does not yet implement the planned multi-job cart.
+## Configuration and release checks still required
 
-Nearby discovery uses the existing US/PR ZIP city centers and a 50-mile search
-radius. Other cities can match explicit `serviceAreaCities` entries in the form
-`region-code/city-slug`; they must not show unverified nearby matches. Postal/city
-geocoding for all Canadian regions remains part of completing coverage matching.
+- Set up Twilio sending service/number and its applicable sender registration.
+  Store `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` in managed
+  secrets, never source or chat. Until configured, texts are honestly marked
+  `pending_configuration`; an API acceptance is not a delivery confirmation.
+  Twilio's STOP handling must remain enabled. Ambiguous sends require review.
+- Verify the platform Stripe webhook subscribes to Checkout completed,
+  asynchronous success/failure, expired; refund created/updated/failed;
+  charge refunded and dispute created events. Keep the Connect destination
+  separate. Check current recipient capability access for existing accounts.
+- Run a dedicated Stripe sandbox round trip before production activation:
+  pay a two-crew order, redeem each code independently, submit a low-star review,
+  confirm a real $5 test refund, and complete a tip. Local accounting tests use
+  simulated Stripe responses; they do not establish live account configuration.
+- Validate configured email/SMS delivery with owner-approved test recipients.
+  Local tests disable both delivery services and cannot prove real delivery.
+- City routes cover the existing dataset. Nearby discovery currently uses US/PR
+  ZIP centers with a 50-mile radius. Where no center exists, including Canadian
+  cities, only explicit provider `serviceAreaCities` entries match. Full Canadian
+  proximity geocoding and indexed nationwide discovery remain outstanding.
+- Existing legacy direct quote rewards remain separate. New marketplace jobs
+  receive the original-method review refund instead of completion move credit.
 
-Customer review refunds, review-gated tipping, multi-provider cart payments,
-code email/SMS delivery and their money/accounting tests still require completion
-and review. Do not describe this first preview as the completed marketplace.
+## Validation policy
 
-## Validation and release
-
-Use isolated demo-wsm emulators for fixture providers and checkout guards; no
-live charges or customer emails. Typecheck, lint, production build, rules/API
-tests and browser checks must pass. Submit a draft PR for the preview. Keep
-production unchanged until the owner reviews the first milestone.
+Use isolated demo-wsm emulators and synthetic providers, with no live payments,
+customer emails or SMS. Check types, lint, production build, rules/API/accounting
+and browser flows. Existing city files must remain intact. Keep this work in draft
+until payment configuration and the test round trip are verified for release.

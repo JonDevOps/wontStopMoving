@@ -2,7 +2,7 @@
 
 import { CustomerLayout } from "@/components/layout/customer-layout";
 import { useFirestore, useUser } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { ReviewForm } from "@/components/forms/review-form";
 import { MoveHelp } from "@/components/dashboard/move-help";
 import { MoveConcierge } from "@/components/dashboard/move-concierge";
 import { MoveDocuments } from "@/components/dashboard/move-documents";
+import { MoveBenefits } from '@/components/marketplace/move-benefits';
 
 interface JobDetails {
   id: string;
@@ -36,6 +37,11 @@ export default function CustomerJobDetailsPage() {
   const [job, setJob] = useState<JobDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [releaseCode, setReleaseCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!firestore || !jobId || !user) return;
+    return onSnapshot(doc(firestore, 'jobs', jobId), snapshot => { if (snapshot.exists()) setJob({ id: snapshot.id, ...snapshot.data() } as JobDetails); });
+  }, [firestore, jobId, user]);
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -142,7 +148,7 @@ export default function CustomerJobDetailsPage() {
                     </p>
                   </div>
                   <div className="text-3xl font-black text-slate-900">
-                    ${job.price.toLocaleString()}<span className="text-lg text-slate-400">.00</span>
+                    ${job.price.toFixed(2)}
                   </div>
                 </div>
                 {job.modifications && job.modifications.length > 0 && (
@@ -166,11 +172,12 @@ export default function CustomerJobDetailsPage() {
                     <Key className="w-5 h-5" /> Payment Release Code
                   </CardTitle>
                   <CardDescription className="text-accent-foreground/80 text-xs font-medium mt-1">
-                    Give this 6-digit code to your provider ONLY when the job is completely finished to your satisfaction.
+                    {job.providerName || 'Your crew'} · {job.service || 'moving'} · {job.moveDate}. Give this code only to this crew after their work is completely finished to your satisfaction. Other crews have separate codes.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="text-5xl font-black tracking-[0.2em]">{releaseCode}</div>
+                  <p className="text-sm mt-4">Email: {job.codeEmailStatus || 'pending'}. Text: {job.codeSmsStatus || 'not requested'}. Your code remains available here if delivery is delayed.</p>
                 </CardContent>
               </Card>
             )}
@@ -183,9 +190,11 @@ export default function CustomerJobDetailsPage() {
               <ReviewForm 
                 jobId={job.id} 
                 providerId={job.providerIds[0]} 
+                refundEligible={job.reviewRefundEligible === true}
                 onReviewSubmitted={() => setJob(prev => prev ? { ...prev, reviewed: true } : prev)} 
               />
             )}
+            {job.status === 'completed' && job.reviewed && <MoveBenefits jobId={job.id} eligible={job.reviewRefundEligible === true} refundStatus={job.reviewRefundStatus} tipCents={job.tipCents}/>}
           </div>
 
           <div className="space-y-6">

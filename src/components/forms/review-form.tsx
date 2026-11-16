@@ -13,10 +13,11 @@ interface ReviewFormProps {
   jobId: string;
   providerId: string;
   onReviewSubmitted: () => void;
+  refundEligible?: boolean;
 }
 
 /** Rate the provider after a completed move. Saved on the server, which updates the provider's rating. */
-export function ReviewForm({ jobId, onReviewSubmitted }: ReviewFormProps) {
+export function ReviewForm({ jobId, onReviewSubmitted, refundEligible = false }: ReviewFormProps) {
   const auth = useAuth();
   const { toast } = useToast();
 
@@ -24,8 +25,6 @@ export function ReviewForm({ jobId, onReviewSubmitted }: ReviewFormProps) {
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [googleReviewUrl, setGoogleReviewUrl] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,10 +34,9 @@ export function ReviewForm({ jobId, onReviewSubmitted }: ReviewFormProps) {
     }
     setIsSubmitting(true);
     try {
-      const result = await apiFetch<{ googleReviewUrl: string | null }>(auth, "/api/reviews", { jobId, rating, comment });
-      toast({ title: "Thanks for your review!", description: "Your feedback helps other customers book with confidence." });
-      if (result.googleReviewUrl) { setGoogleReviewUrl(result.googleReviewUrl); setDone(true); }
-      else onReviewSubmitted();
+      await apiFetch(auth, "/api/reviews", { jobId, rating, comment });
+      toast({ title: "Thanks for your review!", description: refundEligible ? 'Your $5 original-payment refund has been requested. You can now leave an optional tip.' : 'You can now leave an optional tip.' });
+      onReviewSubmitted();
     } catch (error) {
       toast({ variant: "destructive", title: "Couldn't submit your review", description: error instanceof Error ? error.message : "Please try again." });
     } finally {
@@ -50,18 +48,12 @@ export function ReviewForm({ jobId, onReviewSubmitted }: ReviewFormProps) {
     <Card className="border-none shadow-xl bg-accent text-white mt-8 overflow-hidden relative">
       <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32" />
       <CardHeader className="relative z-10 pb-4">
-        <CardTitle className="text-2xl font-black uppercase tracking-widest text-white">{done ? "Thank you!" : "Rate your provider"}</CardTitle>
+        <CardTitle className="text-2xl font-black uppercase tracking-widest text-white">Rate your provider</CardTitle>
         <CardDescription className="text-accent-foreground font-medium">
-          {done ? "Glad the move went well. Would you share your review on Google too? It helps other families find us." : "How was your move? Your feedback helps others book with confidence."}
+          {refundEligible ? 'Submit an honest review of any rating for a $5 refund to your original payment method. This incentive will be disclosed on your review. Optional tipping is available after submission.' : 'How was your move? Your feedback helps others book with confidence. Optional tipping is available after submission.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="relative z-10">
-        {done && googleReviewUrl ? (
-          <div className="flex flex-wrap gap-3">
-            <Button asChild className="h-12 bg-white text-accent hover:bg-slate-50 font-black uppercase tracking-widest"><a href={googleReviewUrl} target="_blank" rel="noopener noreferrer">Review us on Google</a></Button>
-            <Button type="button" variant="ghost" className="h-12 text-white hover:bg-white/10" onClick={onReviewSubmitted}>No thanks</Button>
-          </div>
-        ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex gap-2" role="radiogroup" aria-label="Star rating">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -78,7 +70,6 @@ export function ReviewForm({ jobId, onReviewSubmitted }: ReviewFormProps) {
               {isSubmitting ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Submitting</> : <><Send className="w-4 h-4 mr-2" /> Submit review</>}
             </Button>
           </form>
-        )}
       </CardContent>
     </Card>
   );

@@ -10,7 +10,7 @@ export const metadata: Metadata = pageMetadata({ title: 'Customer Reviews', desc
 // New reviews appear within the hour.
 export const revalidate = 3600;
 
-type Review = { id: string; name: string; rating: number; comment: string; date: string };
+type Review = { id: string; name: string; rating: number; comment: string; date: string; incentivized: boolean };
 
 /** Reviews come only from customers whose move was completed (one per job). */
 async function loadReviews(): Promise<{ reviews: Review[]; count: number; average: number | null }> {
@@ -21,9 +21,9 @@ async function loadReviews(): Promise<{ reviews: Review[]; count: number; averag
     const average = all.length ? Math.round((all.reduce((n, r) => n + r.rating, 0) / all.length) * 10) / 10 : null;
     const reviews = snap.docs
       .map(d => ({ id: d.id, ...d.data() } as Record<string, any>))
-      .filter(r => r.rating >= 4 && typeof r.comment === 'string' && r.comment.trim().length >= 10)
+      .filter(r => r.rating >= 1 && r.rating <= 5 && typeof r.comment === 'string' && r.comment.trim().length >= 1)
       .slice(0, 30)
-      .map(r => ({ id: r.id, name: String(r.customerName || 'Customer').slice(0, 40), rating: r.rating, comment: r.comment.trim().slice(0, 600), date: r.createdAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) || '' }));
+      .map(r => ({ id: r.id, name: String(r.customerName || 'Customer').slice(0, 40), rating: r.rating, comment: r.comment.trim().slice(0, 600), incentivized: r.incentivized === true, date: r.createdAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) || '' }));
     return { reviews, count: all.length, average };
   } catch (error) {
     console.error('Could not load reviews', error);
@@ -55,6 +55,7 @@ export default async function ReviewsPage() {
             {reviews.map(r => <figure key={r.id} className="rounded-3xl border border-gray-100 p-6 space-y-3 bg-gray-50/50">
               <Stars n={r.rating} />
               <blockquote className="text-slate-700 leading-relaxed">“{r.comment}”</blockquote>
+              {r.incentivized && <p className="text-xs text-slate-600">Reviewer was offered a $5 refund for an honest review, regardless of rating.</p>}
               <figcaption className="text-sm font-bold text-primary">{r.name}{r.date ? <span className="font-medium text-muted-foreground"> · {r.date}</span> : null}</figcaption>
             </figure>)}
           </div>

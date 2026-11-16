@@ -39,9 +39,10 @@ function MovesContent() {
   useEffect(() => {
     if (!sessionId || !user) return;
     // The server checks the payment with Stripe and confirms the move.
-    apiFetch<{ paymentStatus: string; jobId: string | null }>(auth, "/api/stripe/verify-session", { sessionId })
+    apiFetch<{ paymentStatus: string; jobId: string | null; flow: string | null }>(auth, "/api/stripe/verify-session", { sessionId })
       .then((data) => {
         if (data.paymentStatus === "paid") {
+          if (data.flow === 'mover_cart') { sessionStorage.removeItem('wsm-mover-cart'); sessionStorage.removeItem('wsm-cart-attempt'); }
           toast({
             title: "Payment Successful! 🎉",
             description: "Your move is confirmed and paid. Open it to see your 6-digit release code.",

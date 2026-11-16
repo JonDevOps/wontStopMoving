@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from './firebase-admin';
 import { customQuotePricingText } from '../custom-quotes';
+import { queueReleaseText } from './move-sms';
 
 const ORIGIN = 'https://wontstopmoving.com';
 // ZOHO_SMTP_USER must be the real Zoho mailbox (aliases can't sign in to SMTP).
@@ -68,6 +69,16 @@ export async function queueJobEmails(jobId: string) {
     try { account = await adminAuth().getUser(uid); } catch (error: any) { if (error?.code === 'auth/user-not-found') continue; throw error; }
     if (!account.email) continue;
     await enqueueEmail(`job:${jobId}:${uid}`, { category: 'job', referenceId: jobId, to: account.email, subject: role === 'customer' ? 'Your moving booking is confirmed' : 'A moving job has been assigned to you', text: `View your ${role === 'customer' ? 'confirmed move' : 'assigned job'} in your secure dashboard:\n${ORIGIN}/dashboard/${role}/${role === 'customer' ? 'moves' : 'jobs'}/${jobId}\n\nSign in to view job details. Keep your payment release code private.\n\nWont Stop Moving` });
+    if (role === 'customer' && job.status !== 'completed') {
+      const secret = (await adminDb().doc(`jobSecrets/${jobId}`).get()).data();
+      if (secret?.releaseCode) {
+        const provider = job.providerIds?.[0] ? (await adminDb().doc(`providers/${job.providerIds[0]}`).get()).data() : null;
+        const text = `Wont Stop Moving payment code: ${secret.releaseCode}\nCrew: ${provider?.businessName || 'Your moving crew'}\nService: ${job.service || 'moving'} on ${job.moveDate}\nJob: ${jobId}\n\nKeep this code private. Give it only to this crew after their work is complete to your satisfaction. It authorizes their payout. Separate crews have separate codes.\n\nYour job dashboard: ${ORIGIN}/dashboard/customer/moves/${jobId}`;
+        const mail = await enqueueEmail(`release-code:${jobId}`, { category: 'release_code', referenceId: jobId, to: account.email, subject: 'Your private moving payment code', text });
+        const sms = job.smsConsent === true && job.notificationPhone ? await queueReleaseText(jobId, job.notificationPhone, `${text}\nReply STOP to stop texts. Message/data rates may apply.`) : 'not_requested';
+        await adminDb().doc(`jobs/${jobId}`).update({ codeEmailStatus: mail.status, codeSmsStatus: sms });
+      }
+    }
   }
   const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'jonathan@w3develops.org';
   await enqueueEmail(`job:${jobId}:admin`, { category: 'job', referenceId: jobId, to: adminEmail, subject: `New paid booking: ${job.moveDate || 'date pending'}`, text: `A booking was just paid.\n\nMove date: ${job.moveDate || 'Not set'}\nPickup: ${job.pickupAddress || 'Not set'}\nDrop-off: ${job.dropoffAddress || 'Not set'}\nAmount paid: $${Number(job.amountPaid || job.price || 0).toFixed(2)}\nAssigned providers: ${(job.providerIds || []).length}\n\nOpen the job:\n${ORIGIN}/dashboard/admin/jobs/${jobId}\n\nWont Stop Moving` });

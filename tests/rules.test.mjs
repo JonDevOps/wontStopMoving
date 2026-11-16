@@ -155,7 +155,7 @@ test('customers cannot change price, status or payment on their job', async () =
   for (const change of [{ price: 1 }, { status: 'completed' }, { paymentStatus: 'paid' }, { providerIds: ['cust'] }]) {
     await assertFails(updateDoc(doc(as('cust'), 'jobs/j1'), change));
   }
-  await assertSucceeds(updateDoc(doc(as('cust'), 'jobs/j1'), { reviewed: true }));
+  await assertFails(updateDoc(doc(as('cust'), 'jobs/j1'), { reviewed: true }));
 });
 
 test('providers can only toggle confirmed/in-progress, never complete or reprice', async () => {
@@ -192,13 +192,24 @@ test('a Google provider with an unfinished application can complete it without t
   await assertFails(setDoc(doc(db, 'users/g-prov'), { role: 'admin' }, { merge: true }));
 });
 
-test('reviews: only the customer of a completed job, once', async () => {
+test('reviews and incentive eligibility can only be recorded by the server', async () => {
   const review = { jobId: 'done', customerId: 'cust', rating: 5, comment: 'Great' };
   await assertFails(setDoc(doc(as('prov'), 'providers/prov/reviews/done'), { ...review, customerId: 'prov' }));
   await assertFails(setDoc(doc(as('cust'), 'providers/prov/reviews/j1'), { ...review, jobId: 'j1' }));
   await assertFails(addDoc(collection(as('cust'), 'providers/prov/reviews'), review));
-  await assertSucceeds(setDoc(doc(as('cust'), 'providers/prov/reviews/done'), review));
+  await assertFails(setDoc(doc(as('cust'), 'providers/prov/reviews/done'), review));
   await assertFails(setDoc(doc(as('cust'), 'providers/prov/reviews/done'), { ...review, rating: 1 }));
+});
+
+test('cart allocations, money operations, tips and delivery queues are private and server-managed', async () => {
+  for (const path of ['moverOrders/private', 'moneyOperations/private', 'moveTips/private', 'smsOutbox/private']) {
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(),path),{customerId:'cust',amount:500,body:'private'}));
+    for (const uid of ['cust','prov','crew','boss']) {
+      await assertFails(getDoc(doc(as(uid),path)));
+      await assertFails(setDoc(doc(as(uid),path),{status:'paid'}));
+    }
+  }
+  for (const change of [{reviewRefundEligible:true},{reviewRefundStatus:'refunded'},{tipCents:500},{releaseConfirmedAt:serverTimestamp()},{allocatedCents:1}]) await assertFails(updateDoc(doc(as('cust'),'jobs/j1'),change));
 });
 
 test('quotes: only for yourself, starting as new; no reassigning or status changes', async () => {
