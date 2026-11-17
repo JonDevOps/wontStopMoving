@@ -39,6 +39,7 @@ import { categoryBits, categoriesOf, keepCarrier, toCarrierTuple, importDue, col
 import { roadMilesBetween } from '../src/lib/distance.ts';
 import { calculateMoveTotal, mileageFee, isLongDistance, MILEAGE } from '../src/lib/pricing.ts';
 import { gzipSync } from 'node:zlib';
+import { validProviderPricing } from '../src/lib/mover-pricing.ts';
 import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -65,6 +66,46 @@ before(async () => {
   customerToken = await customer.getIdToken();
 });
 after(async () => { await deleteApp(app); await deleteAdmin(adminApp); });
+
+test('marketplace pricing floor, city routes and direct-booking pages stay consistent', async () => {
+  assert.equal(validProviderPricing(45,2), true);
+  for (const [rate,hours] of [[44.99,2],[45,1],[45,2.5],[NaN,2],[Infinity,2],[45.001,2]]) assert.equal(validProviderPricing(rate,hours), false);
+  for (const path of ['/movers','/movers/az','/movers/az/queen-creek','/movers/az/queen-creek/results','/locations/arizona/queen-creek','/book']) assert.equal((await fetch(`${base}${path}`)).status,200,path);
+  assert.equal((await fetch(`${base}/movers/invalid-region`)).status,404);
+  assert.equal((await fetch(`${base}/movers/az/not-a-real-city`)).status,404);
+  const city = await (await fetch(`${base}/api/movers/locations?region=az`)).json();
+  assert.ok(city.cities.some(city => city.slug === 'queen-creek'));
+  const home = await (await fetch(base)).text();
+  assert.match(home,/Find your moving crew/);
+  assert.match(home,/Book Our Team Directly/);
+  assert.doesNotMatch(home,/Track My Move/);
+});
+
+test('mover results use local approved payout-ready providers and reject invalid booking rates', async () => {
+  const ref = db.doc('providers/marketplace-fixture');
+  const provider = { businessName: 'Test marketplace crew', status: 'approved', stripeOnboardingComplete: true, stripeAccountId: 'acct_marketplace_fixture', hourlyRate: 45, minimumHours: 2, services: ['loading'], location: { lat: 33.25, lng: -111.63 } };
+  await ref.set(provider);
+  const results = async () => (await (await fetch(`${base}/api/movers/az/queen-creek`)).json()).providers;
+  assert.ok((await results()).some(provider => provider.id === ref.id));
+  const publicProvider = await (await fetch(`${base}/api/movers/providers/${ref.id}`)).json();
+  assert.equal(publicProvider.hourlyRate,45);
+  assert.equal(publicProvider.stripeAccountId,undefined);
+  assert.equal((await fetch(`${base}/api/movers/az/queen-creek?date=2026-02-30`)).status,400);
+  const listed = (await results()).find(provider => provider.id === ref.id);
+  assert.equal(listed.stripeAccountId,undefined);
+  assert.equal((await fetch(`${base}/api/movers/az/nonexistent`)).status,404);
+  const payload = { providerId: ref.id, hours: 2, moveDate: '2027-12-15', pickupAddress: 'Synthetic pickup', dropoffAddress: 'Synthetic dropoff', termsAccepted: true, termsVersion: TERMS_VERSION };
+  const checkout = () => fetch(`${base}/api/stripe/checkout`, authorized(customerToken,payload));
+  for (const change of [{hourlyRate:44.99},{hourlyRate:45,minimumHours:1},{minimumHours:2,status:'pending'},{status:'approved',stripeOnboardingComplete:false}]) {
+    await ref.update(change);
+    assert.ok(!(await results()).some(provider => provider.id === ref.id));
+    assert.equal((await checkout()).status,409);
+  }
+  await ref.set(provider);
+  assert.equal((await checkout()).status,503); // Test Stripe is disabled; no job or payment is created.
+  await ref.update({ location: { lat: 47.60, lng: -122.33 } });
+  assert.ok(!(await results()).some(provider => provider.id === ref.id));
+});
 
 const customDraft = () => ({ name: 'Custom Customer', email: 'test-customer@example.com', description: 'Two movers and a truck. Packing excluded.', pickupAddress: '123 Test Street', dropoffAddress: '456 Test Avenue', moveDate: '2026-12-15', expiresAt: new Date(Date.now() + 86400000).toISOString(), pricing: { type: 'fixed', total: 1250.75 } });
 const authorized = (token, body) => ({ ...json(body), headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } });
@@ -123,7 +164,7 @@ test('checkout requires explicit current terms before any payment session or boo
     // Test payment keys deliberately remain unconfigured: passing this gate
     // reaches the payment-config guard, without contacting Stripe or charging.
     const accepted = await fetch(`${base}${route}`, { ...json({ termsAccepted: true, termsVersion: TERMS_VERSION }), headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${customerToken}` } });
-    assert.equal(accepted.status, route.endsWith('quote-checkout') ? 400 : 503);
+    assert.equal(accepted.status, 400);
   }
   assert.equal((await db.collection('jobs').get()).size, beforeJobs);
 });
@@ -280,6 +321,27 @@ test('a paid booking queues one admin alert, skips missing accounts, and retries
   assert.equal(messages[0].to, 'admin-alerts@example.com');
   assert.equal(messages[0].category, 'job');
   assert.equal(messages[0].status, 'pending'); // Mail is not configured in tests, so nothing is sent.
+});
+
+test('signed paid-cart webhook creates separate crew jobs and queues private code delivery once', async () => {
+  const customerId=auth.currentUser.uid;
+  const items=[0,1].map(index=>({jobId:`cart-webhook-job-${index}`,providerId:`cart-webhook-crew-${index}`,providerName:`Synthetic crew ${index}`,totalCents:9000,providerPayoutCents:7650,hourlyRate:45,payoutAccountId:`acct_demo_${index}`,moveDate:'2027-12-15',service:index?'unloading':'loading',preferredStartTime:'morning',pickupAddress:'Synthetic pickup',dropoffAddress:'Synthetic dropoff',hours:2}));
+  await db.doc('moverOrders/cart-webhook').set({customerId,items,totalCents:18000,paymentStatus:'pending',checkoutSessionId:'cs_cart_webhook',smsConsent:true,phone:'+15555550123',termsAcceptance:{accepted:true}});
+  const event={id:'evt_cart_webhook',type:'checkout.session.completed',data:{object:{id:'cs_cart_webhook',payment_status:'paid',currency:'usd',amount_total:18000,payment_intent:'pi_cart_webhook',metadata:{flow:'mover_cart',orderId:'cart-webhook',customerId}}}};
+  assert.equal((await webhook({...event,data:{object:{...event.data.object,payment_status:'unpaid'}}})).status,200);
+  assert.equal((await db.doc(`jobs/${items[0].jobId}`).get()).exists,false);
+  assert.equal((await webhook(event)).status,200);
+  assert.equal((await webhook(event)).status,200);
+  for(const item of items) {
+    const job=(await db.doc(`jobs/${item.jobId}`).get()).data();
+    assert.equal(job.allocatedCents,9000); assert.equal(job.providerPayoutCents,7650); assert.equal(job.codeSmsStatus,'pending_configuration');
+    assert.equal(job.releaseCode,undefined);
+    const code=(await db.doc(`jobSecrets/${item.jobId}`).get()).data().releaseCode;
+    const messages=(await db.collection('emailOutbox').where('referenceId','==',item.jobId).get()).docs.map(doc=>doc.data());
+    const coded=messages.filter(message=>message.text.includes(code));
+    assert.equal(coded.length,1); assert.equal(coded[0].to,auth.currentUser.email); assert.equal(coded[0].category,'release_code');
+  }
+  assert.equal((await db.collection('smsOutbox').get()).size,2);
 });
 
 test('admins can review failed emails: retry or dismiss unsent ones, never resend sent ones', async () => {
@@ -510,6 +572,22 @@ test('customers review completed moves once, and the provider rating updates', a
   assert.equal(provider.rating, 4.5);
   assert.equal((await db.doc('providers/review-prov/reviews/review-job').get()).data().rating, 5);
   assert.equal((await review(customerToken, { jobId: 'review-job', rating: 5 })).status, 409); // Only once.
+});
+
+test('marketplace refund and tipping endpoints require the paying customer and a completed reviewed move', async () => {
+  const uid=auth.currentUser.uid;
+  for (const route of ['/api/movers/checkout','/api/movers/tip','/api/movers/benefits','/api/admin/mover-payments','/api/jobs/payout']) assert.equal((await fetch(`${base}${route}`,json({}))).status,401);
+  assert.equal((await fetch(`${base}/api/admin/mover-payments`,authorized(customerToken,{}))).status,403);
+  await db.doc('jobs/benefit-locked').set({customerId:uid,providerIds:['review-prov'],paymentStatus:'paid',status:'confirmed',reviewed:false,reviewRefundEligible:true});
+  assert.equal((await fetch(`${base}/api/movers/tip`,authorized(customerToken,{jobId:'benefit-locked',amountCents:2000}))).status,409);
+  assert.equal((await fetch(`${base}/api/movers/benefits`,authorized(adminToken,{jobId:'benefit-locked'}))).status,404);
+  await db.doc('jobs/benefit-locked').update({status:'completed'});
+  assert.equal((await fetch(`${base}/api/reviews`,authorized(customerToken,{jobId:'benefit-locked',rating:1,comment:'Needs improvement'}))).status,409);
+  await db.doc('jobs/benefit-locked').update({releaseConfirmedAt:Timestamp.now(),platformFeeCents:1350,paymentIntentId:'pi_benefit_locked'});
+  const response=await fetch(`${base}/api/reviews`,authorized(customerToken,{jobId:'benefit-locked',rating:1,comment:'Needs improvement'}));
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).refundStatus,'pending_configuration');
+  assert.equal((await db.doc('providers/review-prov/reviews/benefit-locked').get()).data().incentivized,true);
 });
 
 test('referral links: each customer gets a code, and a paid referred quote earns one reward', async () => {

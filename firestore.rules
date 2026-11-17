@@ -114,38 +114,36 @@ service cloud.firestore {
     }
 
     // Fields only the server (payout setup, reviews) or an admin may set.
+    function providerPricingValid(data) {
+      return data.get('hourlyRate', 45) is number && data.get('hourlyRate', 45) >= 45 && data.get('hourlyRate', 45) <= 1000 &&
+        data.get('minimumHours', 2) is int && data.get('minimumHours', 2) >= 2 && data.get('minimumHours', 2) <= 24;
+    }
     function providerProtectedFields() {
       return ['status', 'stripeAccountId', 'stripeOnboardingComplete', 'rating', 'reviewCount'];
     }
 
     match /providers/{providerUid} {
       allow read: if true;
-      allow create: if isAdmin() || (
+      allow create: if providerPricingValid(request.resource.data) && (isAdmin() || (
         isOwner(providerUid) &&
         request.resource.data.status == 'pending' &&
         !('stripeAccountId' in request.resource.data) &&
         !('stripeOnboardingComplete' in request.resource.data) &&
         request.resource.data.get('rating', 0) == 0 &&
         request.resource.data.get('reviewCount', 0) == 0
-      );
-      allow update: if isAdmin() || (
+      ));
+      allow update: if (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['hourlyRate', 'minimumHours']) || providerPricingValid(request.resource.data)) && (isAdmin() || (
         isOwner(providerUid) &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(providerProtectedFields())
-      );
+      ));
       allow delete: if isAdmin();
 
       // One review per completed job, written by that job's customer. The
       // review's ID is the job ID.
       match /reviews/{jobId} {
         allow read: if true;
-        allow create: if isSignedIn() &&
-          request.resource.data.customerId == request.auth.uid &&
-          request.resource.data.jobId == jobId &&
-          request.resource.data.rating is number &&
-          request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
-          get(/databases/$(database)/documents/jobs/$(jobId)).data.customerId == request.auth.uid &&
-          get(/databases/$(database)/documents/jobs/$(jobId)).data.status == 'completed' &&
-          providerUid in get(/databases/$(database)/documents/jobs/$(jobId)).data.providerIds;
+        // Reviews, incentives and aggregate ratings are one server transaction.
+        allow create: if false;
         allow update, delete: if isAdmin();
       }
     }
@@ -199,9 +197,6 @@ service cloud.firestore {
         (resource.data.providerIds != null && request.auth.uid in resource.data.providerIds))) || isAdmin();
       allow create: if isAdmin() && !('termsAcceptance' in request.resource.data);
       allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['termsAcceptance']) && (isAdmin() ||
-        // Customer: mark the job reviewed.
-        (isSignedIn() && resource.data.customerId == request.auth.uid &&
-          changedOnly(['reviewed']) && request.resource.data.reviewed == true) ||
         // Provider: switch between confirmed and in-progress.
         (isJobProvider() && changedOnly(['status']) &&
           resource.data.status in ['confirmed', 'in-progress'] &&
@@ -222,6 +217,17 @@ service cloud.firestore {
     match /jobSecrets/{jobId} {
       allow read: if (isSignedIn() && resource.data.customerId == request.auth.uid) || isAdmin();
       allow write: if false;
+    }
+
+    match /providerSmsPreferences/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if isOwner(uid) && hasRole('provider') &&
+        request.resource.data.keys().hasOnly(['phone', 'enabled', 'consentedAt']) &&
+        request.resource.data.enabled is bool && request.resource.data.phone is string &&
+        request.resource.data.phone.size() <= 16 &&
+        (!request.resource.data.enabled || request.resource.data.phone.matches('^\\+[1-9][0-9]{7,14}$')) &&
+        request.resource.data.consentedAt == request.time;
+      allow delete: if isOwner(uid);
     }
 
     // Default deny fallback

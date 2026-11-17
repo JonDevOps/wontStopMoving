@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/server/firebase-admin';
 import { errorResponse, HttpError, isId, readJson, requireRole } from '@/lib/server/auth';
+import { refundReviewedMove } from '@/lib/server/move-benefits';
 
 /**
  * A customer reviews the provider for their completed job: one review per
  * job, and the provider's average rating and count are updated in the same
- * transaction. Happy customers (4–5 stars) are offered the Google review link
- * when GOOGLE_REVIEW_URL is set.
+ * transaction. The same refund is offered regardless of the star rating.
  */
 export async function POST(req: Request) {
   try {
@@ -28,17 +28,19 @@ export async function POST(req: Request) {
       const job = (await tx.get(jobRef)).data();
       if (!job || job.customerId !== user.uid) throw new HttpError(404, 'Move not found.');
       if (job.status !== 'completed') throw new HttpError(409, 'You can review your mover once the move is complete.');
+      if (job.reviewRefundEligible && !job.releaseConfirmedAt) throw new HttpError(409, 'Your provider must enter the payment code before you can review this move.');
       if (job.reviewed) throw new HttpError(409, 'You already reviewed this move. Thank you!');
       const providerId = Array.isArray(job.providerIds) ? job.providerIds[0] : null;
       if (!isId(providerId)) throw new HttpError(409, 'This move has no assigned provider to review.');
       const providerRef = db.doc(`providers/${providerId}`);
       const provider = (await tx.get(providerRef)).data();
       const count = Number(provider?.reviewCount || 0), avg = Number(provider?.rating || 0);
-      tx.create(db.doc(`providers/${providerId}/reviews/${jobId}`), { jobId, providerId, customerId: user.uid, customerName: displayName, rating, comment: text, createdAt: FieldValue.serverTimestamp() });
-      tx.update(jobRef, { reviewed: true, reviewRating: rating });
+      tx.create(db.doc(`providers/${providerId}/reviews/${jobId}`), { jobId, providerId, customerId: user.uid, customerName: displayName, rating, comment: text, incentivized: job.reviewRefundEligible === true, createdAt: FieldValue.serverTimestamp() });
+      tx.update(jobRef, { reviewed: true, reviewRating: rating, reviewRefundStatus: job.reviewRefundEligible === true ? 'pending' : 'not_eligible' });
       if (provider) tx.update(providerRef, { reviewCount: count + 1, rating: Math.round(((avg * count + rating) / (count + 1)) * 100) / 100 });
     });
-    const googleReviewUrl = rating >= 4 && process.env.GOOGLE_REVIEW_URL?.startsWith('https://') ? process.env.GOOGLE_REVIEW_URL : null;
-    return NextResponse.json({ saved: true, googleReviewUrl });
+    const refundStatus = await refundReviewedMove(jobId);
+    // Never attach the incentive to external reviews or route only positive ratings to Google.
+    return NextResponse.json({ saved: true, googleReviewUrl: null, refundStatus });
   } catch (error) { return errorResponse(error); }
 }
