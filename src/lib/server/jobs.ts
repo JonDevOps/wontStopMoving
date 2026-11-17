@@ -277,7 +277,6 @@ export async function payoutCompletedJob(jobId: string): Promise<CompletionResul
           amount: cents,
           currency: "usd",
           destination: data.payoutAccountId || accountId,
-          transfer_group: `JOB_${jobId}`,
           description: `85% payout for job ${jobId}`,
           metadata: { jobId, providerId: payeeUid },
         }, async (request, key) => {

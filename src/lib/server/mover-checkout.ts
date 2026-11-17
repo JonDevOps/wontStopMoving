@@ -7,6 +7,7 @@ import { bookingTermsAcceptance, requireCurrentTerms } from './terms';
 import { moverCartSchema, providerShareCents, type MoverCartItem } from '../mover-cart';
 import { validProviderPricing } from '../mover-pricing';
 import { moverCity } from './mover-locations';
+import { moverCityCenter, providerServesCity } from './mover-coverage';
 
 export async function createMoverCheckout(uid: string, email: string | undefined, body: Record<string, unknown>, origin: string) {
   if (process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED !== 'true') throw new HttpError(503, 'Marketplace checkout is opening soon. Book our team directly or contact us for help.');
@@ -19,10 +20,12 @@ export async function createMoverCheckout(uid: string, email: string | undefined
   const db = adminDb();
   const items: (MoverCartItem & { providerName: string; hourlyRate: number; totalCents: number; providerPayoutCents: number; payoutAccountId: string })[] = [];
   for (const item of parsed.data) {
-    if (!moverCity(item.region, item.city)) throw new HttpError(400, 'Choose a supported service city.');
+    const place = moverCity(item.region, item.city);
+    if (!place) throw new HttpError(400, 'Choose a supported service city.');
     if (item.moveDate < new Date().toISOString().slice(0, 10)) throw new HttpError(400, 'Choose today or a future date.');
     const p = (await db.doc(`providers/${item.providerId}`).get()).data();
     if (!p || p.status !== 'approved' || !validProviderPricing(p.hourlyRate, p.minimumHours) || p.stripeOnboardingComplete !== true || !/^acct_[A-Za-z0-9_]+$/.test(p.stripeAccountId || '')) throw new HttpError(409, 'A provider is no longer available. Update your cart.');
+    if (!providerServesCity(p, item.region, item.city, moverCityCenter(item.region, place.city, item.city))) throw new HttpError(409, 'This provider does not cover the selected city. Choose a provider from your city results.');
     if (item.hours < p.minimumHours || !p.services?.includes(item.service === 'unloading' ? 'loading' : item.service)) throw new HttpError(409, 'The service or minimum hours changed. Update your cart.');
     if (item.quotedRate !== p.hourlyRate) throw new HttpError(409, 'A provider’s rate changed. Return to their booking page to review the new price.');
     if (p.unavailableDates?.includes(item.moveDate) || (Array.isArray(p.availableDays) && !p.availableDays.includes(new Date(`${item.moveDate}T12:00:00Z`).getUTCDay()))) throw new HttpError(409, 'A provider is unavailable on the selected date.');

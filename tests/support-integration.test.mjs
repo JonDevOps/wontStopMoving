@@ -5,6 +5,7 @@ import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, applyActi
 import { initializeApp as initializeAdmin, deleteApp as deleteAdmin } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
+import { geohashForLocation } from 'geofire-common';
 import { supportInquirySchema } from '../src/lib/support.ts';
 import { sendSignupVerification } from '../src/lib/email-verification.ts';
 import { syncConnectedAccountStatus } from '../src/lib/server/connect-status.ts';
@@ -81,9 +82,23 @@ test('marketplace pricing floor, city routes and direct-booking pages stay consi
   assert.doesNotMatch(home,/Track My Move/);
 });
 
+test('Canadian proximity and explicit city coverage exclude distant and unapproved providers', async () => {
+  const baseProvider={businessName:'Synthetic Canadian crew',status:'approved',stripeOnboardingComplete:true,stripeAccountId:'acct_qa_canada',hourlyRate:45,minimumHours:2,services:['loading']};
+  const near=db.doc('providers/canada-near'),far=db.doc('providers/canada-far'),explicit=db.doc('providers/canada-explicit'),pending=db.doc('providers/canada-pending');
+  await near.set({...baseProvider,location:{lat:43.65,lng:-79.38},geohash:geohashForLocation([43.65,-79.38])});
+  await far.set({...baseProvider,location:{lat:45.42,lng:-75.69},geohash:geohashForLocation([45.42,-75.69])});
+  await explicit.set({...baseProvider,serviceAreaCities:['on/toronto']});
+  await pending.set({...baseProvider,status:'pending',serviceAreaCities:['on/toronto']});
+  const response=await fetch(`${base}/api/movers/on/toronto`),data=await response.json();
+  assert.equal(response.status,200);assert.equal(data.coverageLocated,true);
+  const ids=data.providers.map(p=>p.id);assert.ok(ids.includes(near.id));assert.ok(ids.includes(explicit.id));assert.ok(!ids.includes(far.id));assert.ok(!ids.includes(pending.id));
+  assert.equal(data.providers.find(p=>p.id===near.id).jobsCompleted,0);
+  await Promise.all([near.delete(),far.delete(),explicit.delete(),pending.delete()]);
+});
+
 test('mover results use local approved payout-ready providers and reject invalid booking rates', async () => {
   const ref = db.doc('providers/marketplace-fixture');
-  const provider = { businessName: 'Test marketplace crew', status: 'approved', stripeOnboardingComplete: true, stripeAccountId: 'acct_marketplace_fixture', hourlyRate: 45, minimumHours: 2, services: ['loading'], location: { lat: 33.25, lng: -111.63 } };
+  const provider = { businessName: 'Test marketplace crew', status: 'approved', stripeOnboardingComplete: true, stripeAccountId: 'acct_marketplace_fixture', hourlyRate: 45, minimumHours: 2, services: ['loading'], location: { lat: 33.25, lng: -111.63 }, geohash: geohashForLocation([33.25,-111.63]) };
   await ref.set(provider);
   const results = async () => (await (await fetch(`${base}/api/movers/az/queen-creek`)).json()).providers;
   assert.ok((await results()).some(provider => provider.id === ref.id));
