@@ -9,6 +9,7 @@ import { validProviderPricing } from '../mover-pricing';
 import { moverCity } from './mover-locations';
 
 export async function createMoverCheckout(uid: string, email: string | undefined, body: Record<string, unknown>, origin: string) {
+  if (process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED !== 'true') throw new HttpError(503, 'Marketplace checkout is opening soon. Book our team directly or contact us for help.');
   requireCurrentTerms(body);
   const parsed = moverCartSchema.safeParse(body.items);
   if (!parsed.success) throw new HttpError(400, 'Check the providers, dates, addresses and hours in your cart.');

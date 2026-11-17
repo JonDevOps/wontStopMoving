@@ -11,6 +11,7 @@ import { providerShareCents, tipShareCents, moverCartSchema } from '../src/lib/m
 import { validProviderPricing } from '../src/lib/mover-pricing.ts';
 
 if (!process.env.FIRESTORE_EMULATOR_HOST || process.env.GCLOUD_PROJECT !== 'demo-wsm') throw new Error('Demo emulator required.');
+process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED = 'true';
 const app = initializeApp({ projectId: 'demo-wsm' }, 'marketplace-money-tests'), db = getFirestore(app);
 before(async () => {
   for (const name of ['jobs','providers','jobSecrets','moverOrders','moveTips','moneyOperations','providerSmsPreferences','smsOutbox']) {
@@ -81,6 +82,11 @@ test('cart rejects one-hour, invalid dates, duplicate items and unsupported serv
 test('cart checkout reprices on the server, rejects stale rates and checks live recipient capability', async () => {
   const stripe=fakeStripe();
   const checkout=load('mover-checkout', {'@/lib/stripe':{stripe},'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./terms':{requireCurrentTerms:()=>{},bookingTermsAcceptance:()=>({accepted:true})},'../mover-cart':{moverCartSchema,providerShareCents},'../mover-pricing':{validProviderPricing},'./mover-locations':{moverCity:()=>({city:'Queen Creek'})}});
+  process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED = 'false';
+  try {
+    await assert.rejects(() => checkout.createMoverCheckout('money-customer', undefined, {}, 'https://wontstopmoving.com'), error => error.status === 503);
+    assert.equal(stripe.sessionsMade.size, 0);
+  } finally { process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED = 'true'; }
   const ref=db.doc('providers/money-checkout-crew');
   await ref.set({status:'approved',hourlyRate:45,minimumHours:2,services:['loading'],stripeOnboardingComplete:true,stripeAccountId:'acct_checkout_demo',businessName:'Checkout crew'});
   const body={requestId:'money-checkout-request-1234',items:[{id:'item-1',providerId:ref.id,hours:2,moveDate:'2027-12-15',service:'loading',preferredStartTime:'morning',pickupAddress:'Synthetic pickup',dropoffAddress:'Synthetic dropoff',region:'az',city:'queen-creek',quotedRate:45,price:1}]};

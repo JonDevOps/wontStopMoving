@@ -3,7 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from './firebase-admin';
 
 export function moveSmsConfigured() {
-  return /^AC[a-f0-9]{32}$/i.test(process.env.TWILIO_ACCOUNT_SID || '') && !!process.env.TWILIO_AUTH_TOKEN && /^\+[1-9]\d{7,14}$/.test(process.env.TWILIO_FROM_NUMBER || '') && !/placeholder/i.test(process.env.TWILIO_AUTH_TOKEN || '');
+  return process.env.NEXT_PUBLIC_MARKETPLACE_SMS_ENABLED === 'true' && /^AC[a-f0-9]{32}$/i.test(process.env.TWILIO_ACCOUNT_SID || '') && !!process.env.TWILIO_AUTH_TOKEN && /^\+[1-9]\d{7,14}$/.test(process.env.TWILIO_FROM_NUMBER || '') && !/placeholder/i.test(process.env.TWILIO_AUTH_TOKEN || '');
 }
 
 /** Transactional texts only, to the number explicitly consented to at checkout. */

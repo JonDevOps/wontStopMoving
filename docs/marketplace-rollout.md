@@ -95,3 +95,21 @@ Use isolated demo-wsm emulators and synthetic providers, with no live payments,
 customer emails or SMS. Check types, lint, production build, rules/API/accounting
 and browser flows. Existing city files must remain intact. Keep this work in draft
 until payment configuration and the test round trip are verified for release.
+
+## November 16 staged release
+
+The owner authorized publishing completed work and deferring Twilio for two days.
+`NEXT_PUBLIC_MARKETPLACE_SMS_ENABLED=false` hides the customer SMS opt-in and
+provider SMS settings, explains email/dashboard delivery, and prevents sends even
+if Twilio credentials exist. Flip it only after sender approval and delivery QA.
+
+`NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED=false` allows publishing the mover
+directory and reservation/cart pages while rejecting marketplace payments on
+the server and showing direct-booking/contact alternatives. Existing direct
+bookings are unaffected by this flag. Enable it at BUILD and RUNTIME only after
+the isolated Stripe round trip passes. The owner authorization to deploy does
+not itself establish that external payment configuration has been verified.
+
+The live Stripe account was verified as A Moving Service, Inc. on November 16.
+The platform webhook currently has only the three Checkout completion/failure
+events; refund/dispute/expiry subscriptions still need adding before activation.
