@@ -65,27 +65,27 @@ separate codes for each reservation.
   payment-code/review-link traffic still needs an upgraded registered sender.
 - The owner confirmed A Moving Service also handles Wont Stop Moving in Stripe.
   A managed `Wont Stop Moving marketplace QA` sandbox was created under that
-  account; authorization and a complete test payment round trip remain pending.
+  account; authorization and the test payment/refund/transfer/tip round trip are now complete (November 17).
 
 - Set up Twilio sending service/number and its applicable sender registration.
   Store `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` in managed
   secrets, never source or chat. Until configured, texts are honestly marked
   `pending_configuration`; an API acceptance is not a delivery confirmation.
   Twilio's STOP handling must remain enabled. Ambiguous sends require review.
-- Verify the platform Stripe webhook subscribes to Checkout completed,
+- The platform Stripe webhook now subscribes to Checkout completed,
   asynchronous success/failure, expired; refund created/updated/failed;
   charge refunded and dispute created events. Keep the Connect destination
   separate. Check current recipient capability access for existing accounts.
-- Run a dedicated Stripe sandbox round trip before production activation:
-  pay a two-crew order, redeem each code independently, submit a low-star review,
-  confirm a real $5 test refund, and complete a tip. Local accounting tests use
+- Completed the dedicated Stripe sandbox round trip before production activation:
+  paid a two-crew order, redeemed each code independently, used a low-star review fixture,
+  confirmed a real $5 test refund, and completed a tip. Local accounting tests use
   simulated Stripe responses; they do not establish live account configuration.
-- Validate configured email/SMS delivery with owner-approved test recipients.
+- Email fallback was confirmed in the owner's inbox after an explicitly approved test.
+  SMS delivery remains deferred until the owner activates Twilio.
   Local tests disable both delivery services and cannot prove real delivery.
-- City routes cover the existing dataset. Nearby discovery currently uses US/PR
-  ZIP centers with a 50-mile radius. Where no center exists, including Canadian
-  cities, only explicit provider `serviceAreaCities` entries match. Full Canadian
-  proximity geocoding and indexed nationwide discovery remain outstanding.
+- City routes cover the existing dataset. Indexed nearby discovery uses US/PR
+  ZIP centers plus 792 matched Canadian places with a 50-mile radius. Where no
+  reliable center exists, explicit provider `serviceAreaCities` entries match.
 - Existing legacy direct quote rewards remain separate. New marketplace jobs
   receive the original-method review refund instead of completion move credit.
 
@@ -93,8 +93,8 @@ separate codes for each reservation.
 
 Use isolated demo-wsm emulators and synthetic providers, with no live payments,
 customer emails or SMS. Check types, lint, production build, rules/API/accounting
-and browser flows. Existing city files must remain intact. Keep this work in draft
-until payment configuration and the test round trip are verified for release.
+and browser flows. Existing city files must remain intact. Use the checkout activation gate until payment configuration, the sandbox round
+trip and email fallback are verified. Keep SMS disabled until Twilio is ready.
 
 ## November 16 staged release
 
@@ -111,5 +111,22 @@ the isolated Stripe round trip passes. The owner authorization to deploy does
 not itself establish that external payment configuration has been verified.
 
 The live Stripe account was verified as A Moving Service, Inc. on November 16.
-The platform webhook currently has only the three Checkout completion/failure
-events; refund/dispute/expiry subscriptions still need adding before activation.
+At the staged release check, the platform webhook had only three Checkout
+completion/failure events; its refund/dispute/expiry subscriptions were added
+with explicit owner approval on November 17.
+
+## November 17 release verification
+
+- Staged release deployed as production App Hosting rollout `rollout-2026-11-17-001`, source commit `7334d579fbd27e02a21c8694f0f83a0d8281bcfe`. Home, mover directory, Arizona directory, Queen Creek results, the existing Los Angeles direct-booking page, and the combined sitemap returned HTTP 200. Both repositories merged passing release PRs.
+- Owner specifically approved and deployed provider-pricing/private-review rules, then specifically approved the live platform webhook event additions. Checkout expiry, refund created/updated/failed, charge refunded and dispute created are now enabled alongside the original Checkout events. URL, signing secret and endpoint version were preserved.
+- QA sandbox authorized and Connect enabled. A synthetic recipient has active transfers/payout capabilities. No production provider or customer payment records were changed by the money tests.
+- Actual hosted Stripe sandbox Checkout collected $220 for separate $90 loading and $130 unloading reservations. Real server fulfillment/code/payout handlers ran against demo Firestore with Stripe calls transported through the authorized CLI. Wrong-provider redemption was rejected; separate codes released independently. Real test transfers were $76.50 and $110.50. Duplicate fulfillment and payout calls did not duplicate allocations/transfers.
+- This caught a real Stripe error: setting a job transfer group conflicts with the order group already attached to the source charge. New payout requests now omit that override and inherit the charge's group. Do not rewrite ambiguous historical production money operations automatically; reconcile them first.
+- An eligible one-star review fixture produced a successful real $5 test refund without reducing the mover allocation; a repeat call kept the same refund. Tipping was refused before review. Post-review hosted tip Checkout collected $20 and the real tip handler transferred $18, retaining $2. Duplicate confirmations kept one transfer.
+- The sandbox check uses synthetic identities/addresses and demo Firestore. No real money, SMS or customer emails were used. Auth, authorization, signed-webhook behavior and review transactions are separately covered by emulator integration tests; the sandbox test does not claim that a real production payment webhook was delivered.
+- SMTP authentication succeeded. After explicit owner approval, one clearly labeled test email without a real payment code was accepted by Zoho for `jonathan@w3develops.org`; the owner confirmed receipt in their inbox.
+- Indexed search queries approved providers by nearby geohash ranges plus explicit service-city coverage, removes distance false positives, and counts completed jobs only for matching providers. Existing production providers' hashes were checked: 2 profiles, no hash repairs required, no provider writes. No production providers were approved/payment-ready at that check; approval and onboarding remain required before a provider can take bookings.
+- Canadian coordinates cover 792 existing city routes using attributed GeoNames data. Unmatched/ambiguous place labels retain explicit city coverage, editable under provider Services & Pricing → Cities you serve. Existing `/locations` pages remain unchanged.
+- Twilio remains deferred by the owner. Its build/runtime switch stays false until the owner purchases/registers a sender and delivery tests pass. No upgrade, purchase or charge was made for Twilio.
+
+All required non-SMS payment/email checks above passed. The November 17 follow-up enables `NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED=true`; SMS remains false.

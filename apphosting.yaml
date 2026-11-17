@@ -7,9 +7,9 @@ runConfig:
   maxInstances: 2
 
 env:
-  # Turn on only after the isolated payment/refund/payout round trip passes.
+  # Sandbox checkout, independent payouts, review refund and tip checks passed.
   - variable: NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED
-    value: "false"
+    value: "true"
     availability: [BUILD, RUNTIME]
   # Deferred until the owner activates and registers the Twilio sender.
   - variable: NEXT_PUBLIC_MARKETPLACE_SMS_ENABLED

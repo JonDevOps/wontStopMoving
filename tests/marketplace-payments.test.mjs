@@ -38,7 +38,7 @@ function fakeStripe() {
   return { transfersMade: transfers, refundsMade: refunds, sessionsMade: sessions,
     v2: { core: { accounts: { retrieve: async id => ({ id, configuration: { recipient: { capabilities: { stripe_balance: { stripe_transfers: { status: 'active' } } } } } }) } } },
     paymentIntents: { retrieve: async () => ({ status: 'succeeded', currency: 'usd', latest_charge: { id: 'ch_demo_shared', amount: 100000, amount_refunded: 0, refunded: false, disputed: false } }) },
-    transfers: { create: (params, options) => record(transfers, 'tr', params, options) },
+    transfers: { create: (params, options) => { if (params.transfer_group) throw new Error('A source charge already has its order transfer group'); return record(transfers, 'tr', params, options); } },
     refunds: { create: (params, options) => record(refunds, 're', params, options) },
     checkout: { sessions: { create: (params, options) => record(sessions, 'cs', params, options).then(result => ({...result,url:'https://checkout.stripe.com/c/pay/demo'})) } },
   };
@@ -81,20 +81,23 @@ test('cart rejects one-hour, invalid dates, duplicate items and unsupported serv
 
 test('cart checkout reprices on the server, rejects stale rates and checks live recipient capability', async () => {
   const stripe=fakeStripe();
-  const checkout=load('mover-checkout', {'@/lib/stripe':{stripe},'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./terms':{requireCurrentTerms:()=>{},bookingTermsAcceptance:()=>({accepted:true})},'../mover-cart':{moverCartSchema,providerShareCents},'../mover-pricing':{validProviderPricing},'./mover-locations':{moverCity:()=>({city:'Queen Creek'})}});
+  const coverage=load('mover-coverage', Object.fromEntries(['zip-cities','zip-latlng','canada-city-centers'].map(name => [`@/data/${name}.json`,{default:JSON.parse(readFileSync(new URL(`../src/data/${name}.json`,import.meta.url),'utf8'))}])));
+  const checkout=load('mover-checkout', {'@/lib/stripe':{stripe},'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./terms':{requireCurrentTerms:()=>{},bookingTermsAcceptance:()=>({accepted:true})},'../mover-cart':{moverCartSchema,providerShareCents},'../mover-pricing':{validProviderPricing},'./mover-locations':{moverCity:()=>({city:'Queen Creek'})},'./mover-coverage':coverage});
   process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED = 'false';
   try {
     await assert.rejects(() => checkout.createMoverCheckout('money-customer', undefined, {}, 'https://wontstopmoving.com'), error => error.status === 503);
     assert.equal(stripe.sessionsMade.size, 0);
   } finally { process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED = 'true'; }
   const ref=db.doc('providers/money-checkout-crew');
-  await ref.set({status:'approved',hourlyRate:45,minimumHours:2,services:['loading'],stripeOnboardingComplete:true,stripeAccountId:'acct_checkout_demo',businessName:'Checkout crew'});
+  await ref.set({status:'approved',hourlyRate:45,minimumHours:2,services:['loading'],stripeOnboardingComplete:true,stripeAccountId:'acct_checkout_demo',businessName:'Checkout crew',serviceAreaCities:['az/queen-creek']});
   const body={requestId:'money-checkout-request-1234',items:[{id:'item-1',providerId:ref.id,hours:2,moveDate:'2027-12-15',service:'loading',preferredStartTime:'morning',pickupAddress:'Synthetic pickup',dropoffAddress:'Synthetic dropoff',region:'az',city:'queen-creek',quotedRate:45,price:1}]};
   await checkout.createMoverCheckout('money-customer',undefined,body,'https://wontstopmoving.com');
   await checkout.createMoverCheckout('money-customer',undefined,body,'https://wontstopmoving.com');
   assert.equal(stripe.sessionsMade.size,1);
   assert.equal([...stripe.sessionsMade.values()][0].params.line_items[0].price_data.unit_amount,9000);
-  await ref.update({hourlyRate:46});
+  await ref.update({serviceAreaCities:[]});
+  await assert.rejects(()=>checkout.createMoverCheckout('money-customer',undefined,{...body,requestId:'money-outside-coverage'},'https://wontstopmoving.com'), error => error.status===409);
+  await ref.update({serviceAreaCities:['az/queen-creek'],hourlyRate:46});
   await assert.rejects(()=>checkout.createMoverCheckout('money-customer',undefined,body,'https://wontstopmoving.com'));
   await ref.update({hourlyRate:44});
   await assert.rejects(()=>checkout.createMoverCheckout('money-customer',undefined,body,'https://wontstopmoving.com'));
@@ -180,7 +183,7 @@ test('only the assigned crew can redeem its code; each allocation pays independe
   const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation} });
   for(const [id,uid,cents] of [['money-release-a','money-release-crew-a',9000],['money-release-b','money-release-crew-b',13000]]) {
     await db.doc(`providers/${uid}`).set({stripeAccountId:`acct_${uid}`,stripeOnboardingComplete:true});
-    await db.doc(`jobs/${id}`).set({customerId:'money-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_shared_release',amountPaid:cents/100,providerPayoutCents:providerShareCents(cents),reviewRefundEligible:true});
+    await db.doc(`jobs/${id}`).set({customerId:'money-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_shared_release',orderId:'money-shared-order',amountPaid:cents/100,providerPayoutCents:providerShareCents(cents),reviewRefundEligible:true});
     await db.doc(`jobSecrets/${id}`).set({customerId:'money-customer',releaseCode:id.endsWith('a')?'123456':'654321',failedAttempts:0});
   }
   await assert.rejects(()=>lifecycle.completeJobWithCode({jobId:'money-release-a',code:'123456',uid:'money-release-crew-b',isAdmin:false}));
@@ -191,5 +194,6 @@ test('only the assigned crew can redeem its code; each allocation pays independe
   await lifecycle.payoutCompletedJob('money-release-a');
   await lifecycle.completeJobWithCode({jobId:'money-release-b',code:'654321',uid:'money-release-crew-b',isAdmin:false});
   assert.equal(stripe.transfersMade.size,2);
+  assert.ok([...stripe.transfersMade.values()].every(item => !('transfer_group' in item.params)));
   assert.equal([...stripe.transfersMade.values()].reduce((sum,item)=>sum+item.params.amount,0),18700);
 });
