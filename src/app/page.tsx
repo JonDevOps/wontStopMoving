@@ -15,6 +15,7 @@ import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { pageMetadata } from '@/lib/seo';
+import { MoverSearch } from '@/components/marketplace/mover-search';
 
 export const metadata = {
   ...pageMetadata({
@@ -49,21 +50,14 @@ export default function Home() {
           </div>
           
           <div className="container relative mx-auto px-4 z-10">
-            <div className="max-w-3xl">
-              <h1 className="text-[clamp(2.25rem,10vw,6rem)] font-headline font-black text-white leading-tight mb-6 break-words">
-                MOVING MADE <span className="text-accent inline-block animate-float">SIMPLE</span>
+            <div className="max-w-6xl">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-white leading-tight mb-4 break-words">
+                FIND YOUR <span className="text-accent inline-block animate-float">MOVING CREW</span>
               </h1>
-              <p className="text-xl text-white/80 mb-10 max-w-xl leading-relaxed">
-                Moving made simple across the US, Puerto Rico and Canada. Vetted professionals, upfront pricing, and movers paid only after the job is done.
+              <p className="text-lg text-white/80 mb-6 max-w-3xl leading-relaxed">
+                Compare local providers. Choose your crew, customize your services and book with Wont Stop Moving.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white rounded-full px-8 h-16 text-lg font-bold shadow-xl shadow-accent/20">
-                  <Link href="/quote">Get a Free Quote</Link>
-                </Button>
-                <Button asChild size="lg" variant="ghost" className="text-white border-2 border-white/40 hover:border-white hover:bg-white/10 rounded-full px-8 h-16 text-lg font-bold">
-                  <Link href="/login">Track My Move</Link>
-                </Button>
-              </div>
+              <MoverSearch />
             </div>
           </div>
         </section>

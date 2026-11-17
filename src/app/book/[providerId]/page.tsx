@@ -3,7 +3,6 @@
 import { PublicLayout } from "@/components/layout/public-layout";
 import { useAuth, useFirestore, useUser } from "@/firebase";
 import { apiFetch } from "@/lib/api-client";
-import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { TermsAcceptance } from '@/components/legal/terms-acceptance';
 import { TERMS_VERSION } from '@/lib/terms';
+import { validProviderPricing } from '@/lib/mover-pricing';
 
 interface ProviderProfile {
   id: string;
@@ -44,23 +44,34 @@ export default function DirectBookingPage() {
   const [dropoffAddress, setDropoffAddress] = useState("");
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchProvider = async () => {
       if (!firestore) return;
+      setLoading(true); setProvider(null);
       try {
-        const docRef = doc(firestore, "providers", providerId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data() as ProviderProfile;
-          setProvider({ ...data, id: docSnap.id });
-          setHours(data.minimumHours || 2);
+        const response = await fetch(`/api/movers/providers/${encodeURIComponent(providerId)}`, { signal: controller.signal });
+        if (response.ok) {
+          const data = await response.json() as ProviderProfile;
+          setProvider(data);
+          const search = new URLSearchParams(window.location.search);
+          setHours(Math.max(data.minimumHours || 2, Math.min(24, Math.floor(Number(search.get('hours')) || 2))));
+          if (/^\d{4}-\d{2}-\d{2}$/.test(search.get('date') || '')) setMoveDate(search.get('date')!);
+          try {
+            const saved = JSON.parse(sessionStorage.getItem('wsm-mover-search') || 'null');
+            if (saved && saved.region === search.get('region') && saved.city === search.get('city') && saved.date === search.get('date')) {
+              setPickupAddress(saved.type === 'unloading' ? '' : String(saved.address || '').slice(0,300));
+              setDropoffAddress(saved.type === 'unloading' ? String(saved.address || '').slice(0,300) : String(saved.unloadingAddress || '').slice(0,300));
+            }
+          } catch { /* Customers can still enter addresses manually. */ }
         }
       } catch (err) {
-        console.error("Error fetching provider", err);
+        if (!controller.signal.aborted) console.error("Error fetching provider", err);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
     fetchProvider();
+    return () => controller.abort();
   }, [firestore, providerId]);
 
   if (loading || isUserLoading) {
@@ -75,11 +86,12 @@ export default function DirectBookingPage() {
     );
   }
 
-  if (!provider) {
+  if (!provider || !validProviderPricing(provider.hourlyRate, provider.minimumHours)) {
     return (
       <PublicLayout>
         <div className="bg-slate-50 min-h-screen py-32 flex flex-col justify-center items-center">
-          <h1 className="text-3xl font-black text-slate-800 uppercase mb-4">Provider Not Found</h1>
+          <h1 className="text-3xl font-black text-slate-800 uppercase mb-4">Provider unavailable for booking</h1>
+          <p className="mb-4">Providers must have a rate of at least $45/hour and a minimum of two hours.</p>
           <Button asChild><Link href="/marketplace">Return to Marketplace</Link></Button>
         </div>
       </PublicLayout>
@@ -127,6 +139,7 @@ export default function DirectBookingPage() {
         dropoffAddress,
         termsAccepted,
         termsVersion: TERMS_VERSION,
+        ...(new URLSearchParams(window.location.search).has('service') ? { service: new URLSearchParams(window.location.search).get('service'), preferredStartTime: new URLSearchParams(window.location.search).get('time') || '' } : {}),
       });
       
       if (data.url) {

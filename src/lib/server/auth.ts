@@ -73,7 +73,7 @@ export async function readJson(req: Request): Promise<Record<string, unknown>> {
 
 export function stripeConfigured(): boolean {
   const key = process.env.STRIPE_SECRET_KEY || "";
-  return (key.startsWith("sk_live_") || key.startsWith("sk_test_")) && !key.includes("placeholder");
+  return /^(sk|rk)_(live|test)_/.test(key) && !key.includes("placeholder");
 }
 
 export function requireStripe() {

@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
   try { event = stripe.webhooks.constructEvent(await req.text(), signature, secret); }
   catch { return new NextResponse('Invalid signature', { status: 400 }); }
-  if (event.livemode !== (process.env.STRIPE_SECRET_KEY || '').startsWith('sk_live_') || event.type !== 'account.updated') {
+  if (event.livemode !== /^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY || '') || event.type !== 'account.updated') {
     return NextResponse.json({ received: true });
   }
   const account = event.data.object as Stripe.Account;

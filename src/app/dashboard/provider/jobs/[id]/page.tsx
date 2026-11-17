@@ -60,7 +60,7 @@ export default function ProviderJobDetailsPage() {
         title: "Job Completed! 🎉",
         description: data.transferId
           ? "Your 85% payout was sent to your connected Stripe account."
-          : "Job complete. Your payout will be sent once your Stripe account is connected.",
+          : "Job complete. Your payout needs follow-up; contact support for help.",
       });
       setJob({ ...job, status: "completed", releasedToProvider: true });
     } catch (err: any) {

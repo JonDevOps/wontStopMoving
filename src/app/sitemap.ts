@@ -4,6 +4,8 @@ import { ALL_LOCATIONS, CITIES_BY_STATE, slugify } from '@/lib/location-data';
 import { SERVICES, SITE_URL } from '@/lib/seo';
 import { cityIndex } from '@/lib/server/city-reports';
 import { COST_CITIES } from '@/lib/city-costs';
+import { MOVER_REGIONS } from '@/lib/mover-regions';
+import { moverRegion } from '@/lib/server/mover-locations';
 
 /**
  * Public pages, including every state and city service-area page.
@@ -28,6 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry('/services', 0.8),
     entry('/locations', 0.8),
     entry('/marketplace', 0.7, 'weekly'),
+    entry('/movers', 0.8, 'weekly'),
     entry('/faq', 0.7),
     entry('/about', 0.6),
     entry('/contact', 0.6),
@@ -72,5 +75,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // City moving-market reports (from the federal mover registry); skipped if the registry isn't reachable.
   const reports = await cityIndex().then(list => [...list.map(c => entry(`/moving-reports/${c.state.toLowerCase()}/${c.slug}`, 0.5, 'weekly'))]).catch(() => []);
-  return [...core, ...services, ...blog, ...places, ...reports];
+  const moverPlaces = Object.keys(MOVER_REGIONS).flatMap(code => {
+    const region = moverRegion(code);
+    return region ? [entry(`/movers/${code}`, 0.7), ...region.cities.map(city => entry(`/movers/${code}/${slugify(city)}`, 0.5))] : [];
+  });
+  return [...core, ...services, ...blog, ...places, ...reports, ...moverPlaces];
 }

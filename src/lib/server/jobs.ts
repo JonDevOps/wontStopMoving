@@ -3,12 +3,15 @@ import type Stripe from "stripe";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import { HttpError, isId } from "./auth";
-import { enqueueEmail, notifyPaidJob } from "./notifications";
+import { enqueueEmail, notifyPaidJob, notifyCompletedJobTexts } from "./notifications";
 import { confirmShopOrder } from './shop';
 import { routeNewJob } from './routing';
 import { recordReferralForPaidQuote } from "./referrals";
 import { confirmGiftCardOrder, grantMoveCredit } from './rewards';
 import { stripe } from "@/lib/stripe";
+import { confirmMoverOrder } from './mover-orders';
+import { confirmTipCheckout } from './move-benefits';
+import { moneyOperation } from './money-operation';
 
 /**
  * Server-side job lifecycle. Jobs are created, confirmed and completed only
@@ -36,6 +39,8 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
   if (session.metadata?.type === "shop") { await confirmShopOrder(session); return { jobId: null }; }
   if (session.metadata?.type === "giftcard") { await confirmGiftCardOrder(session); return { jobId: null }; }
   if (session.payment_status !== "paid") return { jobId: null };
+  if (session.metadata?.flow === 'move_tip') { await confirmTipCheckout(session); return { jobId: session.metadata.jobId || null }; }
+  if (session.metadata?.flow === 'mover_cart') return confirmMoverOrder(session);
   const md = session.metadata || {};
   const customerId = md.customerId;
   if (!customerId) throw new HttpError(400, "Payment is missing its customer.");
@@ -209,7 +214,7 @@ export async function completeJobWithCode(params: {
     const data = job.data()!;
     const providerIds: string[] = Array.isArray(data.providerIds) ? data.providerIds : [];
     if (!isAdmin && !providerIds.includes(uid)) throw new HttpError(403, "You are not assigned to this job.");
-    if (data.paymentStatus !== "paid") throw new HttpError(409, "This job hasn't been paid for yet.");
+    if (data.paymentStatus !== "paid" || data.paymentHold) throw new HttpError(409, "This job isn't available for release. Contact support.");
     if (data.status === "completed" || data.status === "cancelled") {
       throw new HttpError(409, `This job is already ${data.status}.`);
     }
@@ -229,6 +234,8 @@ export async function completeJobWithCode(params: {
       completedBy: uid,
       payoutStatus: "processing",
       payeeProviderId: payeeUid || null,
+      releaseConfirmedAt: FieldValue.serverTimestamp(),
+      completionTextsPending: true,
     });
     return {
       ok: true as const,
@@ -248,38 +255,52 @@ export async function completeJobWithCode(params: {
   }
 
   await requestReview(jobId);
-  await grantMoveCredit(jobId);
+  // Marketplace reviews earn an original-method refund, not move-credit rewards.
+  if (!(await jobRef.get()).data()?.reviewRefundEligible) await grantMoveCredit(jobId);
 
+  return payoutCompletedJob(jobId);
+}
+
+/** Safe recovery for interrupted transfers. A stale ambiguous operation is held for manual reconciliation. */
+export async function payoutCompletedJob(jobId: string): Promise<CompletionResult> {
+  const db = adminDb(), jobRef = db.doc(`jobs/${jobId}`), data = (await jobRef.get()).data();
+  if (!data || data.status !== 'completed' || data.paymentStatus !== 'paid' || data.paymentHold || !data.releaseConfirmedAt) throw new HttpError(409, 'This move needs payment review before payout.');
+  if (data.payoutTransferId) return { payoutStatus: 'paid', transferId: data.payoutTransferId };
   let transferId: string | null = null;
   try {
-    const provider = outcome.payeeUid ? await db.doc(`providers/${outcome.payeeUid}`).get() : null;
+    const payeeUid = data.payeeProviderId;
+    const provider = payeeUid ? await db.doc(`providers/${payeeUid}`).get() : null;
     const accountId = provider?.data()?.stripeAccountId as string | undefined;
-    const cents = Math.round(outcome.amountPaid * PROVIDER_SHARE * 100);
+    const cents = data.providerPayoutCents ?? Math.round((Number(data.amountPaid || 0) + Number(data.creditApplied || 0)) * PROVIDER_SHARE * 100);
     if (accountId?.startsWith("acct_") && provider?.data()?.stripeOnboardingComplete && cents > 0) {
-      let sourceTransaction: string | undefined;
-      if (outcome.paymentIntentId) {
-        const pi = await stripe.paymentIntents.retrieve(outcome.paymentIntentId);
-        sourceTransaction = idOf(pi.latest_charge as any) ?? undefined;
-      }
-      const transfer = await stripe.transfers.create(
-        {
+      const transfer = await moneyOperation(db, `payout-${jobId}`, {
           amount: cents,
           currency: "usd",
-          destination: accountId,
+          destination: data.payoutAccountId || accountId,
           transfer_group: `JOB_${jobId}`,
           description: `85% payout for job ${jobId}`,
-          ...(sourceTransaction ? { source_transaction: sourceTransaction } : {}),
-          metadata: { jobId, providerId: outcome.payeeUid! },
-        },
-        { idempotencyKey: `payout-${jobId}` }
-      );
+          metadata: { jobId, providerId: payeeUid },
+        }, async (request, key) => {
+          const pi = await stripe.paymentIntents.retrieve(data.paymentIntentId, { expand: ['latest_charge'] });
+          const charge = typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
+          if (pi.status !== 'succeeded' || !charge || charge.refunded || charge.disputed || pi.currency !== 'usd') throw new Error('PAYMENT_REQUIRES_REVIEW');
+          if (charge.amount_refunded > 0) {
+            const allocations = await db.collection('jobs').where('paymentIntentId', '==', data.paymentIntentId).get();
+            const knownReviewRefunds = allocations.docs.reduce((sum, job) => sum + (job.data().reviewRefundStatus === 'refunded' && job.data().reviewRefundId ? Number(job.data().reviewRefundCents || 0) : 0), 0);
+            if (charge.amount_refunded !== knownReviewRefunds) throw new Error('PARTIAL_REFUND_REQUIRES_REVIEW');
+          }
+          const current = await stripe.v2.core.accounts.retrieve(String(request.destination), { include: ['configuration.recipient'] });
+          if (current.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status !== 'active') throw new Error('RECIPIENT_NOT_READY');
+          return stripe.transfers.create({ ...request, source_transaction: charge.id } as unknown as Stripe.TransferCreateParams, { idempotencyKey: key });
+        });
       transferId = transfer.id;
     }
-  } catch (error) {
-    console.error(`Payout for job ${jobId} needs manual review:`, error);
+  } catch {
+    console.error(`Payout for job ${jobId} needs manual review.`);
   }
 
   const payoutStatus = transferId ? "paid" : "needs_manual_payout";
   await jobRef.update({ payoutStatus, payoutTransferId: transferId });
+  try { await notifyCompletedJobTexts(jobId); } catch { console.error('Completion texts need attention', jobId); }
   return { payoutStatus, transferId };
 }

@@ -7,10 +7,10 @@ const base = 'http://127.0.0.1:9014';
 // Registry files go to a temp folder instead of Cloud Storage during tests.
 const registryDir = (await import('node:fs')).mkdtempSync((await import('node:path')).join((await import('node:os')).tmpdir(), 'wsm-registry-'));
 const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-H', '127.0.0.1', '-p', '9014'], {
-  env: { ...process.env, GCLOUD_PROJECT: 'demo-wsm', STRIPE_SECRET_KEY: 'sk_test_placeholder_key_required', STRIPE_WEBHOOK_SECRET: 'whsec_integration_test', STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connect_integration_test',
+  env: { ...process.env, GCLOUD_PROJECT: 'demo-wsm', NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED: 'true', STRIPE_SECRET_KEY: 'sk_test_placeholder_key_required', STRIPE_WEBHOOK_SECRET: 'whsec_integration_test', STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connect_integration_test',
     // Never send real email from tests, even when .env.local holds Zoho credentials:
     // a placeholder password marks mail as not configured, and the host is unroutable.
-    ZOHO_SMTP_USER: 'test@example.com', ZOHO_SMTP_PASS: 'test-placeholder', ZOHO_SMTP_HOST: '127.0.0.1', ZOHO_SMTP_PORT: '9', ADMIN_NOTIFICATION_EMAIL: 'admin-alerts@example.com',
+    ZOHO_SMTP_USER: 'test@example.com', ZOHO_SMTP_PASS: 'test-placeholder', ZOHO_SMTP_HOST: '127.0.0.1', ZOHO_SMTP_PORT: '9', ADMIN_NOTIFICATION_EMAIL: 'admin-alerts@example.com', TWILIO_ACCOUNT_SID: '', TWILIO_AUTH_TOKEN: '', TWILIO_FROM_NUMBER: '',
     CRON_SERVICE_ACCOUNT: 'scheduler@example.iam.gserviceaccount.com', GEMINI_API_KEY: '', TYPESAFE_API_KEY: '', REGISTRY_LOCAL_DIR: registryDir },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
@@ -24,7 +24,7 @@ try {
     await new Promise(resolve => setTimeout(resolve, 200));
   }
   if (!ready) throw new Error(`Local test server did not start. ${logs}`);
-  const tests = spawn(process.execPath, ['--test', '--test-concurrency=1', 'tests/rules.test.mjs', 'tests/support-integration.test.mjs'], {
+  const tests = spawn(process.execPath, ['--test', '--test-concurrency=1', 'tests/rules.test.mjs', 'tests/support-integration.test.mjs', 'tests/marketplace-payments.test.mjs'], {
     env: { ...process.env, GCLOUD_PROJECT: 'demo-wsm', SUPPORT_TEST_BASE_URL: base, REGISTRY_LOCAL_DIR: registryDir }, stdio: 'inherit',
   });
   process.exitCode = await new Promise(resolve => tests.on('exit', code => resolve(code ?? 1)));

@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       await requireRoleFromToken(req.headers.get('authorization')?.slice(7), ['admin']);
     }
     const { jobId } = await confirmPaidCheckout(session);
-    return NextResponse.json({ paymentStatus: session.payment_status, jobId });
+    return NextResponse.json({ paymentStatus: session.payment_status, jobId, flow: session.metadata?.flow || null });
   } catch (error) {
     return errorResponse(error);
   }
