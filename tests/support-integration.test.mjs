@@ -5,6 +5,8 @@ import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, applyActi
 import { initializeApp as initializeAdmin, deleteApp as deleteAdmin } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
+import { createHash } from 'node:crypto';
+import { SMS_DISCLOSURE_VERSION } from '../src/lib/sms-consent.ts';
 import { geohashForLocation } from 'geofire-common';
 import { supportInquirySchema } from '../src/lib/support.ts';
 import { sendSignupVerification } from '../src/lib/email-verification.ts';
@@ -190,8 +192,8 @@ test('the accepted terms revision has a permanent public page and unknown revisi
   assert.equal(current.status, 200);
   assert.equal(versioned.status, 200);
   for (const html of [await current.text(), await versioned.text()]) {
-    assert.match(html, /minimum number of hours is shown for your selected provider and booking/);
-    assert.match(html, /November 8, 2026/);
+    assert.match(html, /at least a two-hour minimum/);
+    assert.match(html, /Effective November 18, 2026/);
     assert.doesNotMatch(html, /strict 3-hour minimum/);
   }
   assert.equal((await fetch(`${base}/terms/not-a-published-version`)).status, 404);
@@ -341,6 +343,7 @@ test('a paid booking queues one admin alert, skips missing accounts, and retries
 test('signed paid-cart webhook creates separate crew jobs and queues private code delivery once', async () => {
   const customerId=auth.currentUser.uid;
   const items=[0,1].map(index=>({jobId:`cart-webhook-job-${index}`,providerId:`cart-webhook-crew-${index}`,providerName:`Synthetic crew ${index}`,totalCents:9000,providerPayoutCents:7650,hourlyRate:45,payoutAccountId:`acct_demo_${index}`,moveDate:'2027-12-15',service:index?'unloading':'loading',preferredStartTime:'morning',pickupAddress:'Synthetic pickup',dropoffAddress:'Synthetic dropoff',hours:2}));
+  await db.doc(`smsConsentProfiles/${createHash('sha256').update(`user:${customerId}`).digest('hex')}`).set({enabled:true,phone:'+15555550123',consentStatus:'granted',disclosureVersion:SMS_DISCLOSURE_VERSION});
   await db.doc('moverOrders/cart-webhook').set({customerId,items,totalCents:18000,paymentStatus:'pending',checkoutSessionId:'cs_cart_webhook',smsConsent:true,phone:'+15555550123',termsAcceptance:{accepted:true}});
   const event={id:'evt_cart_webhook',type:'checkout.session.completed',data:{object:{id:'cs_cart_webhook',payment_status:'paid',currency:'usd',amount_total:18000,payment_intent:'pi_cart_webhook',metadata:{flow:'mover_cart',orderId:'cart-webhook',customerId}}}};
   assert.equal((await webhook({...event,data:{object:{...event.data.object,payment_status:'unpaid'}}})).status,200);
@@ -356,7 +359,7 @@ test('signed paid-cart webhook creates separate crew jobs and queues private cod
     const coded=messages.filter(message=>message.text.includes(code));
     assert.equal(coded.length,1); assert.equal(coded[0].to,auth.currentUser.email); assert.equal(coded[0].category,'release_code');
   }
-  assert.equal((await db.collection('smsOutbox').get()).size,2);
+  assert.equal((await db.collection('smsOutbox').where('jobId','in',items.map(item=>item.jobId)).get()).size,2);
 });
 
 test('admins can review failed emails: retry or dismiss unsent ones, never resend sent ones', async () => {

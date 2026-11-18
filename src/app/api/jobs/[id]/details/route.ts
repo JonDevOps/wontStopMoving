@@ -1,3 +1,5 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
+import { customerTextPhone, queueMoveText } from '@/lib/server/move-sms';
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/server/firebase-admin';
@@ -68,11 +70,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           await enqueueEmail(`move-update:${id}:${Date.now()}`, {
             category: 'job', referenceId: id, to,
             subject: 'Your move details were updated',
-            text: `Hi ${customer?.name || 'there'},\n\nWe updated the details of your upcoming move:\n\n${lines}\n\nSee everything in your dashboard:\nhttps://wontstopmoving.com/dashboard/customer/moves/${id}\n\nIf anything looks wrong, call us at (415) 214-5474 or reply to this email.\n\nWont Stop Moving`,
+            text: `Hi ${customer?.name || 'there'},\n\nWe updated the details of your upcoming move:\n\n${lines}\n\nSee everything in your dashboard:\nhttps://wontstopmoving.com/dashboard/customer/moves/${id}\n\nIf anything looks wrong, call us at ${BUSINESS_CONTACT.phoneNumeric} or reply to this email.\n\nWont Stop Moving`,
           });
           emailed = true;
         } catch (error) { console.error('Move update email failed', id, error); }
       }
+    }
+    if(body.notifyCustomer===true && facing.length && result.job.customerId){
+      const phone=await customerTextPhone(result.job.customerId);
+      if(phone) await queueMoveText(`move-update:${id}:${result.changes.map(c=>`${c.field}:${c.to}`).join('|')}`,id,phone,`WontStopMoving: Your move details have been updated. Review them in your dashboard: ${BUSINESS_CONTACT.website}/dashboard/customer/moves/${id}. Reply HELP for help or STOP to opt out.`).catch(()=>{});
     }
     return NextResponse.json({ changed: result.changes.length, changes: result.changes, emailed });
   } catch (error) { return errorResponse(error); }

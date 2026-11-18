@@ -1,7 +1,9 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
 import { adminDb } from './firebase-admin';
 import { enqueueEmail } from './notifications';
 import { MOVE_PRICING } from '@/lib/pricing';
+import { queueInformationalText } from './move-sms';
 
 /**
  * Leads are customer quote requests (`quotes` that aren't admin-made custom
@@ -12,7 +14,7 @@ import { MOVE_PRICING } from '@/lib/pricing';
 export const LEAD_FIELDS = ['leadStatus', 'assignedTo', 'assignedAt', 'firstContactAt', 'lastContactAt', 'lostReason', 'leadNotifiedAt'];
 
 const ORIGIN = 'https://wontstopmoving.com';
-const PHONE = '(415) 214-5474';
+const PHONE = BUSINESS_CONTACT.phoneNumeric;
 
 /**
  * Speed to lead: thank the customer at once and alert the team. Each email is
@@ -39,6 +41,7 @@ export async function notifyNewLead(quoteId: string) {
       text: `New quote request. Call within 5 minutes.\n\nName: ${q.name || '—'}\nPhone: ${q.phone || '—'}\nEmail: ${q.email || '—'}\nMove: ${size}, ${route}\nDate: ${q.moveDate || 'not set'}\nEstimate: $${total.toLocaleString()}\n\nOpen the lead inbox:\n${ORIGIN}/dashboard/admin/leads\n\nWont Stop Moving`,
     });
     await ref.update({ leadNotifiedAt: FieldValue.serverTimestamp() });
+    if (q.customerId) await queueInformationalText(`quote-ack:${quoteId}`, `user:${q.customerId}`, {kind:'quote',id:quoteId}, 'WontStopMoving: Your moving quote request has been received. Review it at https://wontstopmoving.com/dashboard/customer/quotes. Reply HELP for assistance or STOP to opt out.');
   } catch (error) {
     console.error('Lead notification failed', quoteId, error);
   }

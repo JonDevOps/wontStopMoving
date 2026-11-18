@@ -1,3 +1,4 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PublicLayout } from '@/components/layout/public-layout';
@@ -27,7 +28,7 @@ export default function MoverClosedPage() {
           <p className="text-lg text-muted-foreground">Moving companies sometimes shut down, lose their license, or stop answering, often right before moving day. We step in fast.</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button asChild size="lg" className="font-black uppercase"><Link href="/quote?utm_source=mover-closed&utm_medium=landing&utm_campaign=stranded">Get a quote now</Link></Button>
-            <Button asChild size="lg" variant="outline" className="font-black uppercase"><a href="tel:+14152145474">Call (415) 214-5474</a></Button>
+            <Button asChild size="lg" variant="outline" className="font-black uppercase"><a href={BUSINESS_CONTACT.phoneHref}>Call {BUSINESS_CONTACT.phoneDisplay}</a></Button>
           </div>
         </header>
         <section className="grid sm:grid-cols-2 gap-4">

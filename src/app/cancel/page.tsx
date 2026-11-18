@@ -1,4 +1,5 @@
 'use client';
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -50,7 +51,7 @@ export default function CancelPage() {
       <section className="bg-primary pt-40 pb-16 text-white">
         <div className="container mx-auto px-4 text-center max-w-2xl">
           <h1 className="text-4xl md:text-5xl font-headline font-black mb-4">Cancel or reschedule</h1>
-          <p className="text-white/80">Plans change. Tell us what you need and we&apos;ll confirm within 4 business hours. Moving in the next 48 hours? Call <a className="underline font-bold" href={`tel:${SITE_PHONE}`}>(415) 214-5474</a>.</p>
+          <p className="text-white/80">Plans change. Tell us what you need and we&apos;ll confirm within 4 business hours. Moving in the next 48 hours? Call <a className="underline font-bold" href={`tel:${SITE_PHONE}`}>{BUSINESS_CONTACT.phoneDisplay}</a>.</p>
         </div>
       </section>
       <section className="py-16 bg-white">
@@ -92,7 +93,7 @@ export default function CancelPage() {
                   <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden value={form.website} onChange={set('website')} />
                   {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
                   <Button type="submit" className="w-full h-12" disabled={busy}>{busy ? 'Sending…' : kind === 'cancel' ? 'Request cancellation' : 'Request new date'}</Button>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />Prefer to talk? <a className="underline" href={`tel:${SITE_PHONE}`}>(415) 214-5474</a></p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />Prefer to talk? <a className="underline" href={`tel:${SITE_PHONE}`}>{BUSINESS_CONTACT.phoneDisplay}</a></p>
                 </form>
               </CardContent>
             </Card>

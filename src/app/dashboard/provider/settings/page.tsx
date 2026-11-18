@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useUser, useAuth } from "@/firebase";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { ProviderLayout } from "@/components/layout/provider-layout";
@@ -8,32 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Bell, Lock, User, ShieldAlert } from "lucide-react";
+import { Lock, User, ShieldAlert } from "lucide-react";
+import { TextPreferences } from '@/components/dashboard/text-preferences';
 import { useToast } from "@/hooks/use-toast";
 
 export default function ProviderSettingsPage() {
   const { user } = useUser();
   const auth = useAuth();
   const { toast } = useToast();
-  const [saving, setSaving] = useState(false);
-
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [smsNotifications, setSmsNotifications] = useState(false);
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    // Simulate saving preferences
-    setTimeout(() => {
-      setSaving(false);
-      toast({
-        title: "Settings Saved",
-        description: "Your preferences have been updated successfully."
-      });
-    }, 800);
-  };
-
   return (
     <ProviderLayout>
       <div className="space-y-6 max-w-4xl mx-auto pb-12">
@@ -42,7 +23,8 @@ export default function ProviderSettingsPage() {
           <p className="text-muted-foreground text-sm mt-1">Manage your account preferences and security settings.</p>
         </div>
         
-        <form onSubmit={handleSave} className="space-y-6">
+        <TextPreferences provider />
+        <div className="space-y-6">
           {/* Profile Reference */}
           <Card className="shadow-sm border-gray-100">
             <CardHeader className="pb-4">
@@ -79,43 +61,6 @@ export default function ProviderSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Notifications */}
-          <Card className="shadow-sm border-gray-100">
-            <CardHeader className="pb-4">
-              <div className="flex items-center space-x-2">
-                <Bell className="w-5 h-5 text-blue-500" />
-                <CardTitle>Notifications</CardTitle>
-              </div>
-              <CardDescription>
-                Manage how you receive updates about new job assignments and platform messages.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between border-b pb-4 border-gray-50">
-                <div className="space-y-0.5">
-                  <Label className="text-base cursor-pointer" htmlFor="email-notif">Email Notifications</Label>
-                  <p className="text-sm text-muted-foreground">Receive daily summaries and critical job updates.</p>
-                </div>
-                <Switch 
-                  id="email-notif"
-                  checked={emailNotifications} 
-                  onCheckedChange={setEmailNotifications} 
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base cursor-pointer" htmlFor="sms-notif">SMS Text Alerts</Label>
-                  <p className="text-sm text-muted-foreground">Get instant texts when you are hired for a new job.</p>
-                </div>
-                <Switch 
-                  id="sms-notif"
-                  checked={smsNotifications} 
-                  onCheckedChange={setSmsNotifications} 
-                />
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Security */}
           <Card className="shadow-sm border-gray-100">
             <CardHeader className="pb-4">
@@ -145,12 +90,7 @@ export default function ProviderSettingsPage() {
           </Card>
 
 
-          <div className="flex justify-end pt-2">
-            <Button type="submit" className="bg-slate-900 text-white min-w-[150px] shadow-sm hover:bg-slate-800" disabled={saving}>
-              {saving ? "Saving..." : "Save Preferences"}
-            </Button>
-          </div>
-        </form>
+        </div>
 
         {/* Danger Zone */}
         <div className="pt-10">

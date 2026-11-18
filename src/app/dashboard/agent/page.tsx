@@ -1,4 +1,5 @@
 'use client';
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -19,8 +20,8 @@ type DirEntry = { uid: string; companyName: string; city: string; region: string
 const STATUS: Record<string, { label: string; text: string; cls: string }> = {
   pending: { label: 'Application under review', text: 'We’re verifying your authority, insurance and references. We’ll email you when you’re approved.', cls: 'bg-amber-100 text-amber-900' },
   approved: { label: 'Approved agent', text: 'You’re in the network. Shipments we assign to you appear below.', cls: 'bg-green-100 text-green-900' },
-  suspended: { label: 'Suspended', text: 'Your agent account is paused. Call (415) 214-5474 to resolve it.', cls: 'bg-red-100 text-red-900' },
-  rejected: { label: 'Not approved', text: 'We couldn’t approve your application at this time. Call (415) 214-5474 with questions.', cls: 'bg-red-100 text-red-900' },
+  suspended: { label: 'Suspended', text: `Your agent account is paused. Call ${BUSINESS_CONTACT.phoneDisplay} to resolve it.`, cls: 'bg-red-100 text-red-900' },
+  rejected: { label: 'Not approved', text: `We couldn’t approve your application at this time. Call ${BUSINESS_CONTACT.phoneDisplay} with questions.`, cls: 'bg-red-100 text-red-900' },
 };
 const regionName = (code: string) => REGION_BY_CODE.get(code)?.name || code;
 

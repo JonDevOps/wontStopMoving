@@ -1,3 +1,4 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/server/firebase-admin';
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
       await enqueueEmail(`agent-received:${token.uid}`, {
         category: 'agent', referenceId: token.uid, to: email,
         subject: 'We received your agent network application',
-        text: `Hi ${app.contactName},\n\nThanks for applying to join the Wont Stop Moving agent network with ${app.companyName}. Our team will verify your operating authority, insurance and references, usually within a few business days, and email you when you're approved.\n\nYou can check your status any time:\nhttps://wontstopmoving.com/dashboard/agent\n\nQuestions? Call (415) 214-5474 or reply to this email.\n\nWont Stop Moving`,
+        text: `Hi ${app.contactName},\n\nThanks for applying to join the Wont Stop Moving agent network with ${app.companyName}. Our team will verify your operating authority, insurance and references, usually within a few business days, and email you when you're approved.\n\nYou can check your status any time:\nhttps://wontstopmoving.com/dashboard/agent\n\nQuestions? Call ${BUSINESS_CONTACT.phoneNumeric} or reply to this email.\n\nWont Stop Moving`,
       });
     } catch (error) { console.error('Agent application emails failed', token.uid, error); }
     return NextResponse.json({ status: 'pending' }, { status: 201 });

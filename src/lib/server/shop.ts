@@ -1,3 +1,4 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import type Stripe from 'stripe';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from './firebase-admin';
@@ -70,7 +71,7 @@ export async function confirmShopOrder(session: Stripe.Checkout.Session) {
   const how = FULFILLMENT[order.fulfillment as Fulfillment]?.label || order.fulfillment;
   try {
     await enqueueEmail(`shop-order:${orderId}:admin`, { category: 'shop', referenceId: orderId, to: process.env.ADMIN_NOTIFICATION_EMAIL || 'jonathan@w3develops.org', subject: `New supplies order: $${order.total.toFixed(2)} (${how})`, text: `A supplies order was paid.\n\n${list}\nTotal: $${order.total.toFixed(2)}\nFulfillment: ${how}${order.jobId ? ` (move ${order.jobId})` : ''}\n${order.notes ? `Notes: ${order.notes}\n` : ''}\nOpen shop orders:\nhttps://wontstopmoving.com/dashboard/admin/shop\n\nWont Stop Moving` });
-    await enqueueEmail(`shop-order:${orderId}:customer`, { category: 'shop', referenceId: orderId, to: order.email, subject: 'Your moving supplies order is confirmed', text: `Thanks for your order!\n\n${list}\nTotal paid: $${order.total.toFixed(2)}\n\n${FULFILLMENT[order.fulfillment as Fulfillment]?.note || ''}\n\nTrack it: https://wontstopmoving.com/shop/order/${orderId}\n\nQuestions? Call (415) 214-5474.\n\nWont Stop Moving` });
+    await enqueueEmail(`shop-order:${orderId}:customer`, { category: 'shop', referenceId: orderId, to: order.email, subject: 'Your moving supplies order is confirmed', text: `Thanks for your order!\n\n${list}\nTotal paid: $${order.total.toFixed(2)}\n\n${FULFILLMENT[order.fulfillment as Fulfillment]?.note || ''}\n\nTrack it: https://wontstopmoving.com/shop/order/${orderId}\n\nQuestions? Call ${BUSINESS_CONTACT.phoneNumeric}.\n\nWont Stop Moving` });
   } catch (error) { console.error('Shop order emails failed', orderId, error); }
 }
 

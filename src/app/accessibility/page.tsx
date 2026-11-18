@@ -1,3 +1,4 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { ShieldCheck, MessageSquare, Monitor, Search } from 'lucide-react';
 
@@ -63,7 +64,7 @@ export default function AccessibilityPage() {
                   <div className="flex flex-col sm:flex-row gap-6 mt-8 p-8 bg-primary text-white rounded-3xl">
                     <div className="flex-1 space-y-2">
                       <p className="text-xs font-black uppercase tracking-widest text-accent">Contact Support</p>
-                      <p className="text-2xl font-black">(415) 214-5474</p>
+                      <p className="text-2xl font-black">{BUSINESS_CONTACT.phoneDisplay}</p>
                       <p className="text-sm opacity-60">Available 24/7 for immediate assistance.</p>
                     </div>
                     <div className="flex-1 space-y-2">
@@ -86,7 +87,7 @@ export default function AccessibilityPage() {
             {/* Footer help */}
             <div className="text-center">
               <p className="text-muted-foreground text-sm">
-                Wont Stop Moving, Inc. is committed to equal opportunity and inclusion in all our service regions.
+                {BUSINESS_CONTACT.legalBusiness}, operating the WontStopMoving brand, is committed to equal opportunity and inclusion in all our service regions.
               </p>
             </div>
           </div>

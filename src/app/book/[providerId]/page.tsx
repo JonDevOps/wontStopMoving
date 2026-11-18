@@ -1,5 +1,6 @@
-"use client";
-
+'use client';
+import { SmsConsent } from '@/components/forms/sms-consent';
+import { SMS_DISCLOSURE_VERSION } from '@/lib/sms-consent';
 import { PublicLayout } from "@/components/layout/public-layout";
 import { useAuth, useFirestore, useUser } from "@/firebase";
 import { apiFetch } from "@/lib/api-client";
@@ -36,6 +37,7 @@ export default function DirectBookingPage() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [smsConsent, setSmsConsent] = useState(false), [phone, setPhone] = useState('');
 
   // Form State
   const [hours, setHours] = useState<number>(2);
@@ -137,6 +139,7 @@ export default function DirectBookingPage() {
         moveDate,
         pickupAddress,
         dropoffAddress,
+        smsConsent, phone, smsDisclosureVersion: SMS_DISCLOSURE_VERSION, smsSourcePage: window.location.pathname,
         termsAccepted,
         termsVersion: TERMS_VERSION,
         ...(new URLSearchParams(window.location.search).has('service') ? { service: new URLSearchParams(window.location.search).get('service'), preferredStartTime: new URLSearchParams(window.location.search).get('time') || '' } : {}),
@@ -233,6 +236,8 @@ export default function DirectBookingPage() {
                         onChange={(e) => setDropoffAddress(e.target.value)}
                       />
                     </div>
+                    <Label htmlFor="booking-sms-phone">Mobile number for optional text updates</Label><Input id="booking-sms-phone" type="tel" maxLength={40} value={phone} onChange={e=>setPhone(e.target.value)}/>
+                    <SmsConsent id="booking-sms-consent" checked={smsConsent} onChange={setSmsConsent} disabled={isSubmitting}/>
                   </form>
                 </CardContent>
               </Card>

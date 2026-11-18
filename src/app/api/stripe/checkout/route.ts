@@ -1,3 +1,4 @@
+import { saveSmsConsent } from '@/lib/server/sms-consent';
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { stripe } from "@/lib/stripe";
@@ -45,6 +46,7 @@ export async function POST(req: Request) {
     if (body.service && (!Array.isArray(p.services) || !p.services.includes(service === 'unloading' ? 'loading' : service))) throw new HttpError(409, 'This provider does not offer that service.');
     if (preferredStartTime && !['morning', 'afternoon', 'evening'].includes(preferredStartTime)) throw new HttpError(400, 'Choose a preferred start time.');
     if ((Array.isArray(p.unavailableDates) && p.unavailableDates.includes(moveDate)) || (Array.isArray(p.availableDays) && !p.availableDays.includes(new Date(`${moveDate}T12:00:00Z`).getUTCDay()))) throw new HttpError(409, 'This provider is unavailable on that date.');
+    if (typeof body.smsConsent === 'boolean') await saveSmsConsent({subject:`user:${user.uid}`,customerId:user.uid,phone:body.phone,consent:body.smsConsent,version:body.smsDisclosureVersion,source:'provider_checkout',sourcePage:body.smsSourcePage});
     requireStripe();
 
     const jobRef = db.collection("jobs").doc();
