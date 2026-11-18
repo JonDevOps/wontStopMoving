@@ -22,8 +22,11 @@ Owner review of registration identity, legal business/EIN/address, expected mess
 
 Owner review is also needed for service-specific cancellation/valuation agreements and recording retention. No generic insurance or cancellation-fee guarantee was added. The previous accepted terms remain available at `/terms/2026-11-08`.
 
+The six-page downloadable checklist was also audited: all eight old-number references were replaced. Extracted non-contact text matched the original on every page, and all six rendered pages were visually reviewed.
+
 ## Phone migration locations
 
+- `public/moving-checklist.pdf` (eight references on six pages)
 - `src/app/accessibility/page.tsx`
 - `src/app/agents/page.tsx`
 - `src/app/api/admin/agents/route.ts`
@@ -67,6 +70,7 @@ All new application-generated emails pass through `enqueueEmail` and receive the
 
 ## Complete source and documentation manifest
 
+- `public/moving-checklist.pdf`
 - `TWILIO_SETUP.md`
 - `TWILIO_VERIFICATION.md`
 - `apphosting.yaml`
