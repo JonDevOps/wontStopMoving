@@ -1,5 +1,6 @@
+'use client';
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 
-"use client";
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -188,7 +189,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             {/* Desktop Actions */}
             <div className="hidden sm:flex items-center gap-4">
               <a href={`tel:${SITE_PHONE}`} className="hidden xl:inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-primary hover:text-accent transition-colors">
-                <Phone className="h-4 w-4" /> (415) 214-5474
+                <Phone className="h-4 w-4" /> {BUSINESS_CONTACT.phoneDisplay}
               </a>
               {!mounted || isUserLoading ? (
                 <div className="w-24 h-10 bg-gray-100 animate-pulse rounded-full" />
@@ -413,9 +414,10 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           </div>
           
           <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
-            <p>Copyright © 2026 Wont Stop Moving, Inc. All rights reserved.</p>
+            <p>Copyright © 2026 {BUSINESS_CONTACT.legalBusiness} · WontStopMoving. All rights reserved.</p>
             <div className="flex gap-6">
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+              <Link href="/sms" className="hover:text-white transition-colors">Text updates</Link>
               <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
               <Link href="/accessibility" className="hover:text-white transition-colors">Accessibility</Link>
             </div>

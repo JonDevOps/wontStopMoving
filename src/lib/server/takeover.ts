@@ -1,3 +1,4 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { Type } from '@google/genai';
 import { adminDb } from './firebase-admin';
@@ -74,11 +75,11 @@ export type Scripts = { ownerCall: string; ownerEmail: string; crewText: string;
 /** AI-written outreach for one closed company, saved on its takeover record. */
 export async function writeScripts(e: MarketEvent): Promise<Scripts> {
   const name = e.dba || e.name;
-  const prompt = `Write outreach for Wont Stop Moving (moving marketplace and mover based in Mountain View, California; phone (415) 214-5474; website wontstopmoving.com) to win the customers of a local moving company that has closed, ethically and legally.
+  const prompt = `Write outreach for Wont Stop Moving (moving marketplace and mover based in Mountain View, California; phone ${BUSINESS_CONTACT.phoneNumeric}; website wontstopmoving.com) to win the customers of a local moving company that has closed, ethically and legally.
 
 Closed company: ${name}${e.dba ? ` (legal name ${e.name})` : ''}, ${e.city}, ${e.state}. Owner/officer: ${e.officer || 'unknown'}. In business about ${e.years} years with ${e.units} trucks and ${e.drivers} drivers. Federal record: ${e.reason || 'no longer active'}${e.effectiveDate ? ` as of ${e.effectiveDate}` : ''}.
 
-Rules: Be respectful to the owner; never disparage the company or imply affiliation with it; never use its name in ad text (keywords are fine); don't promise anything about their old customers' deposits or claims; customer lists may only be bought with the owner's permission and must be contacted under consent and anti-spam rules.`;
+Rules: Be respectful to the owner; never disparage the company or imply affiliation with it; never use its name in ad text (keywords are fine); don't promise anything about their old customers' deposits or claims; Do not propose purchasing or transferring customer lists or SMS consent. WontStopMoving informational SMS requires its own first-party web opt-in. Never suggest sending recruitment, promotional, or cold outreach through the moving-notification SMS program; any crew text is a draft requiring a separate permitted outreach channel.`;
   const out = await generateJson<Scripts>([{ text: prompt }], SCRIPTS_SCHEMA);
   const clip = (s: unknown, n: number) => (typeof s === 'string' ? s.trim().slice(0, n) : '');
   const list = (v: unknown, n: number, len: number) => (Array.isArray(v) ? v.map(x => clip(x, len)).filter(Boolean).slice(0, n) : []);

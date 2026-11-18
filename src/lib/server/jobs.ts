@@ -1,3 +1,4 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import { randomInt, timingSafeEqual } from "node:crypto";
 import type Stripe from "stripe";
 import { FieldValue } from "firebase-admin/firestore";
@@ -185,7 +186,7 @@ async function requestReview(jobId: string) {
     await enqueueEmail(`review-request:${jobId}`, {
       category: "review", referenceId: jobId, to: customer.email,
       subject: "How did your move go?",
-      text: `Hi ${customer.name || "there"},\n\nThanks for moving with Wont Stop Moving. How did it go? Rating your mover takes 30 seconds and helps other families choose with confidence:\nhttps://wontstopmoving.com/dashboard/customer/moves/${jobId}\n\nIf anything wasn't right, reply to this email or call (415) 214-5474 and we'll make it right.\n\nWont Stop Moving`,
+      text: `Hi ${customer.name || "there"},\n\nThanks for moving with Wont Stop Moving. How did it go? Rating your mover takes 30 seconds and helps other families choose with confidence:\nhttps://wontstopmoving.com/dashboard/customer/moves/${jobId}\n\nIf anything wasn't right, reply to this email or call ${BUSINESS_CONTACT.phoneNumeric} and we'll make it right.\n\nWont Stop Moving`,
     });
   } catch (error) {
     console.error("Review request failed", jobId, error);

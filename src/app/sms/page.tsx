@@ -1,0 +1,8 @@
+import Link from 'next/link';
+import { PublicLayout } from '@/components/layout/public-layout';
+import { pageMetadata } from '@/lib/seo';
+import { SMS_DISCLOSURE } from '@/lib/sms-consent';
+export const metadata = pageMetadata({title:'Moving text updates',description:'Optional WontStopMoving informational text updates, consent and opt-out choices.',path:'/sms'});
+export default function SmsPage() {
+  return <PublicLayout><main className="mx-auto max-w-3xl px-4 pt-36 pb-24 space-y-6"><h1 className="text-4xl font-bold">Moving text updates</h1><p>WontStopMoving, operated by A Moving Service Inc., offers optional informational texts from 1-888-741-6683. Text sending is pending toll-free verification.</p><p>{SMS_DISCLOSURE}</p><p>You enroll using an unchecked, optional checkbox on our quote, booking or contact form. Enter your own mobile number and choose texts only if you want them. You can submit these forms without checking the box.</p><Link className="block underline font-bold" href="/contact#sms-consent">Open the contact form and optional SMS checkbox</Link><Link className="block underline" href="/quote">Request a moving quote</Link><Link className="block underline" href="/dashboard/customer/profile">Manage your saved text preferences</Link><p>Payment codes remain available in your job dashboard and email. To stop texts, reply STOP. For help, reply HELP or email support@wontstopmoving.com. After STOP, reply START and enroll again on the website to resume.</p><p><Link className="underline" href="/terms#sms">SMS Terms and Conditions</Link> · <Link className="underline" href="/privacy#sms">Privacy Policy</Link></p></main></PublicLayout>;
+}

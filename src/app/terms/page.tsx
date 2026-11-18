@@ -1,1 +1,1 @@
-export { default } from '@/components/legal/terms-2026-11-08';
+export { default } from '@/components/legal/terms-2026-11-18';

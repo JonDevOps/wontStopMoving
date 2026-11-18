@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { runInThisContext } from 'node:vm';
 import ts from 'typescript';
+import * as contact from '../src/lib/business-contact.ts';
+import * as consentShared from '../src/lib/sms-consent.ts';
 import { initializeApp, deleteApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { moneyOperation } from '../src/lib/server/money-operation.ts';
@@ -28,7 +30,7 @@ function load(file, mocks) {
   const source = readFileSync(new URL(`../src/lib/server/${file}.ts`, import.meta.url), 'utf8');
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const loaded = { exports: {} };
-  runInThisContext(`(function(require,module,exports){${output}\n})`)(id => id in mocks ? mocks[id] : id.startsWith('.') || id.startsWith('@/') ? (() => { throw new Error(`Unmocked dependency ${id}`); })() : require(id), loaded, loaded.exports);
+  runInThisContext(`(function(require,module,exports){${output}\n})`)(id => id in mocks ? mocks[id] : ['../business-contact','@/lib/business-contact'].includes(id) ? contact : id==='../sms-consent' ? consentShared : id==='./sms-consent' ? load('sms-consent',{'./firebase-admin':{adminDb:()=>db},'./auth':authMock}) : id.startsWith('.') || id.startsWith('@/') ? (() => { throw new Error(`Unmocked dependency ${id}`); })() : require(id), loaded, loaded.exports);
   return loaded.exports;
 }
 const authMock = { HttpError, isId: value => typeof value === 'string' && /^[\w-]+$/.test(value), stripeConfigured: () => true, requireStripe: () => {} };
@@ -55,11 +57,13 @@ test('minimum booking and separate tip allocation use integer cents', () => {
 test('job and review texts follow consent and lifecycle events without leaking payment codes', async () => {
   const sms=load('move-sms',{'./firebase-admin':{adminDb:()=>db}});
   const notices=load('notifications',{'./firebase-admin':{adminDb:()=>db},'../custom-quotes':{},'./move-sms':sms});
-  const id='money-sms-job', uid='money-sms-provider';
-  await db.doc(`jobs/${id}`).set({paymentStatus:'paid',status:'confirmed',moveDate:'2027-12-15',service:'loading',providerIds:[uid],smsConsent:true,notificationPhone:'+15555550123',reviewRefundEligible:true});
+  const id='money-sms-job', uid='money-sms-provider', customerId='money-sms-customer';
+  const consent=load('sms-consent',{'./firebase-admin':{adminDb:()=>db},'./auth':authMock});
+  await consent.saveSmsConsent({subject:`user:${customerId}`,customerId,phone:'+15555550123',consent:true,version:consentShared.SMS_DISCLOSURE_VERSION,source:'test'});
+  await db.doc(`jobs/${id}`).set({paymentStatus:'paid',status:'confirmed',moveDate:'2027-12-15',service:'loading',customerId,providerIds:[uid],smsConsent:true,notificationPhone:'+15555550123',reviewRefundEligible:true});
   await notices.notifyProviderTexts(id,'assigned');
   assert.equal((await db.collection('smsOutbox').where('jobId','==',id).get()).size,0);
-  await db.doc(`providerSmsPreferences/${uid}`).set({enabled:true,phone:'+15555550124'});
+  await consent.saveSmsConsent({subject:`user:${uid}`,customerId:uid,phone:'+15555550124',consent:true,version:consentShared.SMS_DISCLOSURE_VERSION,source:'test',provider:true});
   await notices.notifyProviderTexts(id,'assigned'); await notices.notifyProviderTexts(id,'assigned');
   await notices.notifyReviewText(id);
   assert.equal((await db.collection('smsOutbox').where('jobId','==',id).get()).size,1);
@@ -196,4 +200,27 @@ test('only the assigned crew can redeem its code; each allocation pays independe
   assert.equal(stripe.transfersMade.size,2);
   assert.ok([...stripe.transfersMade.values()].every(item => !('transfer_group' in item.params)));
   assert.equal([...stripe.transfersMade.values()].reduce((sum,item)=>sum+item.params.amount,0),18700);
+});
+
+test('dispatcher requires verified sender, current consent and no STOP; stale queues and legacy booleans cannot send', async () => {
+ const saved={...process.env},originalFetch=globalThis.fetch;let sends=0;
+ try {
+  process.env.NEXT_PUBLIC_MARKETPLACE_SMS_ENABLED='true';process.env.TWILIO_TOLL_FREE_VERIFIED='false';process.env.TWILIO_ACCOUNT_SID='AC'+'1'.repeat(32);process.env.TWILIO_AUTH_TOKEN='test-token';process.env.TWILIO_FROM_NUMBER='+18887416683';
+  globalThis.fetch=async (_url,options)=>{sends++;assert.equal(options.body.get('From'),'+18887416683');assert.ok(options.body.get('StatusCallback').startsWith('https://wontstopmoving.com/api/webhooks/twilio/status?id='));return new Response(JSON.stringify({sid:'SM'+'6'.repeat(32)}),{status:201,headers:{'Content-Type':'application/json'}});};
+  const sms=load('move-sms',{'./firebase-admin':{adminDb:()=>db}}),consent=load('sms-consent',{'./firebase-admin':{adminDb:()=>db},'./auth':authMock});
+  const uid='money-dispatch-customer',phone='+15555550277',jobId='money-dispatch-job';
+  await db.doc(`jobs/${jobId}`).set({customerId:uid,paymentStatus:'paid',status:'confirmed',smsConsent:true,notificationPhone:phone});
+  assert.equal(await sms.queueReleaseText(jobId,phone,'WontStopMoving: test code'), 'pending_configuration');assert.equal(sends,0);
+  process.env.TWILIO_TOLL_FREE_VERIFIED='true';
+  const releaseId=(await import('node:crypto')).createHash('sha256').update(`release:${jobId}`).digest('hex');
+  assert.equal(await sms.deliverMoveText(releaseId),'cancelled');assert.equal(sends,0);
+  await consent.saveSmsConsent({subject:`user:${uid}`,customerId:uid,phone,consent:true,version:consentShared.SMS_DISCLOSURE_VERSION,source:'test'});
+  assert.equal(await sms.queueMoveText(`notice:${jobId}`,jobId,phone,'WontStopMoving: test job update'),'accepted');assert.equal(sends,1);
+  assert.equal(await sms.queueMoveText(`notice:${jobId}`,jobId,phone,'WontStopMoving: duplicate'),'accepted');assert.equal(sends,1);
+  await db.doc(`smsSuppressions/${consent.smsPhoneId(phone)}`).set({optedOut:true,phone});
+  assert.equal(await sms.queueMoveText(`blocked:${jobId}`,jobId,phone,'WontStopMoving: suppressed'),'cancelled');assert.equal(sends,1);
+  await db.doc(`smsSuppressions/${consent.smsPhoneId(phone)}`).delete();
+  const staleId='f'.repeat(64);await db.doc(`smsOutbox/${staleId}`).set({jobId,key:`stale:${jobId}`,to:phone,body:'Old message',status:'pending',createdAt:Timestamp.fromMillis(Date.now()-2*86400000)});
+  assert.equal(await sms.deliverMoveText(staleId),'cancelled');assert.equal(sends,1);
+ } finally {globalThis.fetch=originalFetch;for(const key of Object.keys(process.env))if(!(key in saved))delete process.env[key];Object.assign(process.env,saved);}
 });

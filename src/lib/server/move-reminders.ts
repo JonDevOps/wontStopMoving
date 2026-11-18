@@ -1,8 +1,10 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import { adminAuth, adminDb } from './firebase-admin';
 import { enqueueEmail } from './notifications';
+import { customerTextPhone, queueMoveText } from './move-sms';
 
 const ORIGIN = 'https://wontstopmoving.com';
-const PHONE = '(415) 214-5474';
+const PHONE = BUSINESS_CONTACT.phoneNumeric;
 
 /** Tomorrow's date as YYYY-MM-DD in US Eastern time (move dates are stored that way). */
 export function tomorrowEastern(nowMs = Date.now()): string {
@@ -26,6 +28,8 @@ export async function runMoveReminders(nowMs = Date.now()) {
     try {
       const where = `${job.pickupAddress || 'pickup'} → ${job.dropoffAddress || 'drop-off'}`;
       if (job.customerId) {
+        const phone=await customerTextPhone(job.customerId);
+        if(phone)await queueMoveText(`reminder:${doc.id}:${date}`,doc.id,phone,`WontStopMoving: Your move is tomorrow (${date}). Confirm the time and view details: ${ORIGIN}/dashboard/customer/moves/${doc.id}. Keep your payment code private until the crew finishes. Reply HELP for help or STOP to opt out.`);
         const customer = (await adminDb().doc(`users/${job.customerId}`).get()).data();
         if (customer?.email) {
           await enqueueEmail(`move-reminder:${doc.id}:customer`, {

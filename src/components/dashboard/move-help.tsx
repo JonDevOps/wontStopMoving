@@ -1,4 +1,5 @@
 'use client';
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 
 import { useCallback, useEffect, useState } from 'react';
 import { ref, uploadBytes } from 'firebase/storage';
@@ -57,7 +58,7 @@ export function MoveHelp({ jobId, jobStatus }: { jobId: string; jobStatus: strin
       setNotice(`Thanks, we’ve received your ${SERVICE_REQUEST_LABELS[type].toLowerCase()}. Our team will contact you soon.${photoNote}`);
       setType(null); setReason(''); setRequestedDate(''); setItem(''); setValue(''); setFiles([]);
       await load();
-    } catch (e) { setNotice(e instanceof Error ? e.message : 'We couldn’t send that. Please call (415) 214-5474.'); }
+    } catch (e) { setNotice(e instanceof Error ? e.message : `We couldn’t send that. Please call ${BUSINESS_CONTACT.phoneDisplay}.`); }
     finally { setBusy(false); }
   }
 

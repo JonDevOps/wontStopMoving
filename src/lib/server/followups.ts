@@ -1,3 +1,4 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import { createHash, randomBytes } from 'node:crypto';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from './firebase-admin';
@@ -6,7 +7,7 @@ import { MOVE_PRICING } from '@/lib/pricing';
 import { dueFollowUpStep, followUpEmail, FOLLOW_UP_MAX_AGE_HOURS } from '@/lib/quote-followups';
 
 const ORIGIN = 'https://wontstopmoving.com';
-const PHONE = '(415) 214-5474';
+const PHONE = BUSINESS_CONTACT.phoneNumeric;
 const MAX_PER_RUN = 50;
 
 /** Suppression list key: a hash, so the list never stores raw addresses as IDs. */

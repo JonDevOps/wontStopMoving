@@ -1,6 +1,4 @@
-
-"use client";
-
+'use client';
 import { CustomerLayout } from "@/components/layout/customer-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +12,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_LOCATIONS } from "@/lib/location-data";
 import { User, Mail, Phone, MapPin, Save, ShieldCheck } from "lucide-react";
+import { TextPreferences } from '@/components/dashboard/text-preferences';
 
 export default function CustomerProfilePage() {
   const { user } = useUser();
@@ -83,6 +82,7 @@ export default function CustomerProfilePage() {
           <p className="text-muted-foreground">Manage your personal information and account settings</p>
         </header>
 
+        <TextPreferences />
         <div className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-6">
             <Card className="border-none shadow-sm">

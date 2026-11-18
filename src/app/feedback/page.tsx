@@ -1,4 +1,5 @@
 'use client';
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 
 import { useEffect, useState } from 'react';
 import { Star } from 'lucide-react';
@@ -32,7 +33,7 @@ export default function FeedbackPage() {
       <div className="max-w-xl mx-auto bg-white rounded-3xl shadow-sm border p-8 sm:p-10 space-y-5 text-center">
         <h1 className="text-3xl font-black text-primary uppercase tracking-tight">How did we do?</h1>
         {state === 'done' ? <p className="text-lg" role="status">Thank you! Your feedback helps us improve.</p>
-          : state === 'error' ? <p className="text-lg" role="status">That link didn’t work. Reply to our email or call (415) 214-5474 to tell us how we did.</p>
+          : state === 'error' ? <p className="text-lg" role="status">That link didn’t work. Reply to our email or call {BUSINESS_CONTACT.phoneDisplay} to tell us how we did.</p>
           : <>
             <div className="flex justify-center gap-2" role="radiogroup" aria-label="Rating">
               {[1, 2, 3, 4, 5].map(n => <button key={n} type="button" role="radio" aria-checked={score === n} aria-label={`${n} out of 5`} onClick={() => setScore(n)}>

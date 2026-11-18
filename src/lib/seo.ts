@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
+import { BUSINESS_CONTACT } from './business-contact';
 
 /** Site-wide SEO facts. Only true, verifiable details belong here. */
 export const SITE_URL = 'https://wontstopmoving.com';
 export const SITE_NAME = 'Wont Stop Moving';
 export const SOCIAL_IMAGE = { url: '/opengraph-image', width: 1200, height: 630, alt: 'Wont Stop Moving — Moving made simple' };
-export const SITE_PHONE = '+1-415-214-5474';
-export const SITE_EMAIL = 'support@wontstopmoving.com';
+export const SITE_PHONE = BUSINESS_CONTACT.phone;
+export const SITE_EMAIL = BUSINESS_CONTACT.email;
 export const DEFAULT_DESCRIPTION =
   'Wont Stop Moving connects you with vetted, independent movers across the U.S., Puerto Rico and Canada. Get an instant quote, book online with upfront pricing, and your mover is paid only after the job is done.';
 

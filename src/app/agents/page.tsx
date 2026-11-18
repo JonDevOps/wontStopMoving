@@ -1,3 +1,4 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PublicLayout } from '@/components/layout/public-layout';
@@ -56,7 +57,7 @@ export default function AgentsPage() {
           <div className="bg-slate-900 text-white rounded-3xl p-8 space-y-4">
             <h2 className="text-2xl font-black uppercase">Why join</h2>
             <ul className="space-y-2 list-disc pl-5 text-slate-300">{BENEFITS.map(b => <li key={b}>{b}</li>)}</ul>
-            <p className="text-sm text-slate-400">Questions? Call <a className="underline" href="tel:+14152145474">(415) 214-5474</a>.</p>
+            <p className="text-sm text-slate-400">Questions? Call <a className="underline" href={BUSINESS_CONTACT.phoneHref}>{BUSINESS_CONTACT.phoneDisplay}</a>.</p>
           </div>
         </section>
       </div>

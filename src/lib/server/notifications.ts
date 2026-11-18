@@ -3,7 +3,8 @@ import nodemailer from 'nodemailer';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from './firebase-admin';
 import { customQuotePricingText } from '../custom-quotes';
-import { queueReleaseText, queueMoveText } from './move-sms';
+import { queueReleaseText, queueMoveText, customerTextPhone } from './move-sms';
+import { BUSINESS_EMAIL_SIGNATURE } from '../business-contact';
 
 const ORIGIN = 'https://wontstopmoving.com';
 // ZOHO_SMTP_USER must be the real Zoho mailbox (aliases can't sign in to SMTP).
@@ -41,7 +42,7 @@ export async function deliverEmail(id: string) {
 export async function enqueueEmail(key: string, message: { to: string; subject: string; text: string; category: string; referenceId: string; unsubscribeUrl?: string }) {
   const id = createHash('sha256').update(key).digest('hex');
   const ref = adminDb().doc(`emailOutbox/${id}`);
-  await adminDb().runTransaction(async tx => { if (!(await tx.get(ref)).exists) tx.create(ref, { ...message, status: 'pending', createdAt: FieldValue.serverTimestamp() }); });
+  await adminDb().runTransaction(async tx => { if (!(await tx.get(ref)).exists) tx.create(ref, { ...message, text: `${message.text}\n\n${BUSINESS_EMAIL_SIGNATURE}`, status: 'pending', createdAt: FieldValue.serverTimestamp() }); });
   return { id, status: await deliverEmail(id) };
 }
 
@@ -75,7 +76,8 @@ export async function queueJobEmails(jobId: string) {
         const provider = job.providerIds?.[0] ? (await adminDb().doc(`providers/${job.providerIds[0]}`).get()).data() : null;
         const text = `Wont Stop Moving payment code: ${secret.releaseCode}\nCrew: ${provider?.businessName || 'Your moving crew'}\nService: ${job.service || 'moving'} on ${job.moveDate}\nJob: ${jobId}\n\nKeep this code private. Give it only to this crew after their work is complete to your satisfaction. It authorizes their payout. Separate crews have separate codes.\n\nYour job dashboard: ${ORIGIN}/dashboard/customer/moves/${jobId}`;
         const mail = await enqueueEmail(`release-code:${jobId}`, { category: 'release_code', referenceId: jobId, to: account.email, subject: 'Your private moving payment code', text });
-        const sms = job.smsConsent === true && job.notificationPhone ? await queueReleaseText(jobId, job.notificationPhone, `${text}\nReply STOP to stop texts. Message/data rates may apply.`) : 'not_requested';
+        const textPhone = await customerTextPhone(job.customerId);
+        const sms = textPhone ? await queueReleaseText(jobId, textPhone, `${text}\nReply STOP to stop texts. Message/data rates may apply.`) : 'not_requested';
         await adminDb().doc(`jobs/${jobId}`).update({ codeEmailStatus: mail.status, codeSmsStatus: sms });
       }
     }
@@ -107,18 +109,20 @@ export async function notifyProviderTexts(jobId: string, event: 'assigned' | 'co
   if (event === 'assigned' && job.status === 'completed') return;
   if (event === 'completed' && (!job.releaseConfirmedAt || job.status !== 'completed')) return;
   for (const uid of job.providerIds || []) {
-    const settings = (await db.doc(`providerSmsPreferences/${uid}`).get()).data();
-    if (settings?.enabled !== true || !settings.phone) continue;
+    const phone = await customerTextPhone(uid);
+    if (!phone) continue;
     const text = event === 'assigned'
       ? `Wont Stop Moving: New paid ${job.service || 'moving'} job on ${job.moveDate}. Review the job and confirm the start time: ${ORIGIN}/dashboard/provider/jobs/${jobId}`
       : `Wont Stop Moving: The payment code for job ${jobId} was accepted. ${job.payoutStatus === 'paid' ? 'Your 85% payout was sent to your connected Stripe account; bank arrival may take longer.' : 'Your payout is awaiting processing or support follow-up.'} ${ORIGIN}/dashboard/provider/jobs/${jobId}`;
-    await queueMoveText(`provider-${event}:${jobId}:${uid}`, jobId, settings.phone, `${text} Reply STOP to opt out.`);
+    await queueMoveText(`provider-${event}:${jobId}:${uid}`, jobId, phone, `${text} Reply STOP to opt out.`);
   }
 }
 
 export async function notifyReviewText(jobId: string) {
   const job = (await adminDb().doc(`jobs/${jobId}`).get()).data();
-  if (!job || job.status !== 'completed' || !job.releaseConfirmedAt || job.smsConsent !== true || !job.notificationPhone) return;
+  if (!job || job.status !== 'completed' || !job.releaseConfirmedAt || !job.customerId) return;
+  const phone = await customerTextPhone(job.customerId);
+  if (!phone) return;
   const text = `Wont Stop Moving: Your crew's payment code was accepted. Review your move: ${ORIGIN}/dashboard/customer/moves/${jobId}${job.reviewRefundEligible ? ' Any honest star rating qualifies for a $5 refund to your original payment method.' : ''} Optional tipping is available after your review. Reply STOP to opt out.`;
-  await queueMoveText(`review:${jobId}`, jobId, job.notificationPhone, text);
+  await queueMoveText(`review:${jobId}`, jobId, phone, text);
 }
