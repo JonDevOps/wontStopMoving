@@ -1,3 +1,5 @@
+import { normalizeSmsPhone } from '../sms-consent';
+import { saveSmsConsent } from './sms-consent';
 import { createHash } from 'node:crypto';
 import { Timestamp } from 'firebase-admin/firestore';
 import { stripe } from '@/lib/stripe';
@@ -15,8 +17,9 @@ export async function createMoverCheckout(uid: string, email: string | undefined
   const parsed = moverCartSchema.safeParse(body.items);
   if (!parsed.success) throw new HttpError(400, 'Check the providers, dates, addresses and hours in your cart.');
   if (typeof body.requestId !== 'string' || !/^[a-zA-Z0-9_-]{16,80}$/.test(body.requestId)) throw new HttpError(400, 'Refresh your cart and try again.');
-  const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+  const phone = normalizeSmsPhone(body.phone) || '';
   if (body.smsConsent === true && !/^\+[1-9]\d{7,14}$/.test(phone)) throw new HttpError(400, 'Enter your mobile number with its country code for text updates.');
+  if (typeof body.smsConsent === 'boolean') await saveSmsConsent({subject:`user:${uid}`,customerId:uid,phone:body.phone,consent:body.smsConsent,version:body.smsDisclosureVersion,source:'marketplace_checkout',sourcePage:body.smsSourcePage,eventId:`cart:${body.requestId}`});
   const db = adminDb();
   const items: (MoverCartItem & { providerName: string; hourlyRate: number; totalCents: number; providerPayoutCents: number; payoutAccountId: string })[] = [];
   for (const item of parsed.data) {
@@ -49,7 +52,7 @@ export async function createMoverCheckout(uid: string, email: string | undefined
       if (Date.now() - saved.startedAt.toMillis() > 23 * 3600000) throw new HttpError(409, 'This checkout expired. Refresh your cart.');
       return saved;
     }
-    const next = { customerId: uid, fingerprint, items: items.map((item, index) => ({ ...item, jobId: `mover_${id}_${index}` })), totalCents: items.reduce((sum, item) => sum + item.totalCents, 0), paymentStatus: 'pending', termsAcceptance: bookingTermsAcceptance(uid), smsConsent: body.smsConsent === true, phone: body.smsConsent === true ? phone : '', startedAt: Timestamp.now() };
+    const next = { customerId: uid, fingerprint, items: items.map((item, index) => ({ ...item, jobId: `mover_${id}_${index}` })), totalCents: items.reduce((sum, item) => sum + item.totalCents, 0), paymentStatus: 'pending', termsAcceptance: bookingTermsAcceptance(uid), startedAt: Timestamp.now() };
     tx.create(ref, next);
     return next;
   });

@@ -1,3 +1,5 @@
+import { writeSmsConsent } from '@/lib/server/sms-consent';
+import { queueInformationalText, queueConsentConfirmation } from '@/lib/server/move-sms';
 import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
     const parsed = supportInquirySchema.safeParse(body);
     if (!parsed.success) throw new HttpError(400, 'Enter a valid name, email, subject and a message of 10–5,000 characters.');
     if (parsed.data.website) throw new HttpError(400, 'Unable to submit this message. Please email support@wontstopmoving.com.');
-    const { website, ...inquiry } = parsed.data;
+    const { website, smsConsent, smsDisclosureVersion, smsSourcePage, ...inquiry } = parsed.data;
     const db = adminDb();
     const ticket = db.collection('supportTickets').doc();
     // Persistent, transactional limit: survives restarts and multiple instances.
@@ -51,10 +53,13 @@ export async function POST(req: Request) {
       if (inWindow && previous!.count >= 5) {
         throw new HttpError(429, 'Too many messages. Please wait an hour or email support@wontstopmoving.com.');
       }
+      await writeSmsConsent(tx, { subject: `ticket:${ticket.id}`, phone: inquiry.phone, consent: smsConsent, version: smsDisclosureVersion, source: 'contact_form', sourcePage: smsSourcePage, eventId: ticket.id });
       tx.set(rate, { count: inWindow ? previous!.count + 1 : 1,
         windowStart: inWindow ? previous!.windowStart : Timestamp.fromMillis(now) });
       tx.create(ticket, { ...inquiry, status: 'new', createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
     });
+    if(smsConsent) await queueConsentConfirmation(`ticket:${ticket.id}`).catch(()=>{});
+    if(smsConsent) await queueInformationalText(`support-ack:${ticket.id}`,`ticket:${ticket.id}`,{kind:'support',id:ticket.id},'WontStopMoving: Your support request has been received. Our team will reply by email. Help: support@wontstopmoving.com. Reply STOP to opt out.').catch(()=>{});
     return NextResponse.json({ ticketId: ticket.id }, { status: 201 });
   } catch (error) { return errorResponse(error); }
 }

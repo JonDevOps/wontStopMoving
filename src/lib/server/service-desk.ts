@@ -1,3 +1,4 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import { randomBytes } from 'node:crypto';
 import { enqueueEmail } from './notifications';
 
@@ -14,7 +15,7 @@ export async function sendResolutionEmail(opts: { kind: FeedbackKind; id: string
     await enqueueEmail(`resolved:${opts.kind}:${opts.id}`, {
       category: 'service', referenceId: opts.id, to: opts.to,
       subject: `Resolved: ${opts.subject}`.slice(0, 200),
-      text: `Hi ${opts.name || 'there'},\n\n${opts.message?.trim() || 'We\'ve resolved your request.'}\n\nHow did we do? Tap a rating (5 is best):\n5: ${link(5)}\n4: ${link(4)}\n3: ${link(3)}\n2: ${link(2)}\n1: ${link(1)}\n\nIf anything still isn't right, reply to this email or call (415) 214-5474.\n\nWont Stop Moving`,
+      text: `Hi ${opts.name || 'there'},\n\n${opts.message?.trim() || 'We\'ve resolved your request.'}\n\nHow did we do? Tap a rating (5 is best):\n5: ${link(5)}\n4: ${link(4)}\n3: ${link(3)}\n2: ${link(2)}\n1: ${link(1)}\n\nIf anything still isn't right, reply to this email or call ${BUSINESS_CONTACT.phoneNumeric}.\n\nWont Stop Moving`,
     });
   } catch (error) {
     console.error('Resolution email failed', opts.kind, opts.id, error);

@@ -1,4 +1,5 @@
 'use client';
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -30,7 +31,7 @@ export default function UnsubscribePage() {
           <Button asChild><Link href="/">Back to Wont Stop Moving</Link></Button>
         </> : state === 'error' ? <>
           <p className="text-lg" role="status">That link didn’t work. It may be incomplete or expired.</p>
-          <p className="text-sm text-muted-foreground">Reply to any of our emails or call (415) 214-5474 and we’ll stop the reminders for you.</p>
+          <p className="text-sm text-muted-foreground">Reply to any of our emails or call {BUSINESS_CONTACT.phoneDisplay} and we’ll stop the reminders for you.</p>
         </> : <>
           <p className="text-lg">Stop reminder emails about your moving quote?</p>
           <Button onClick={() => void confirm()} disabled={!params?.q || !params?.t || state === 'working'} className="bg-accent hover:bg-accent/90 text-white">{state === 'working' ? 'Unsubscribing…' : 'Unsubscribe'}</Button>

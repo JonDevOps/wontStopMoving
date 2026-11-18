@@ -1,4 +1,7 @@
-"use client";
+'use client';
+import { SmsConsent } from '@/components/forms/sms-consent';
+import { SMS_DISCLOSURE_VERSION } from '@/lib/sms-consent';
+import { apiFetch } from '@/lib/api-client';
 
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -76,6 +79,7 @@ export default function ProviderSignUpPage() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [termsOpened, setTermsOpened] = useState(false);
+  const [smsConsent, setSmsConsent] = useState(false);
   const [termsError, setTermsError] = useState<string | null>(null);
   const [existingAccountError, setExistingAccountError] = useState(false);
 
@@ -188,6 +192,8 @@ export default function ProviderSignUpPage() {
         } }),
       }, { merge: true });
 
+      await apiFetch(auth,'/api/sms/preferences',{phone:data.phone,smsConsent,smsDisclosureVersion:SMS_DISCLOSURE_VERSION,smsSourcePage:window.location.pathname}).catch(()=>toast({title:'Application saved',description:'Manage text preferences later in Services & Pricing.'}));
+
       toast({
         title: googleUser ? "Application Saved" : "Account Created",
         description: googleUser ? 'Moving to Phase 2: Your Details.' : await sendSignupVerification(user)
@@ -288,6 +294,7 @@ export default function ProviderSignUpPage() {
                   <div className="space-y-2">
                     <Label htmlFor="phone" className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400">Phone Number</Label>
                     <Input id="phone" {...register("phone")} placeholder="(555) 000-0000" className="h-14 border-gray-100 bg-gray-50/50 rounded-xl focus:ring-accent focus:border-accent font-medium" />
+                    <SmsConsent id="provider-application-sms" checked={smsConsent} onChange={setSmsConsent} provider disabled={isLoading}/>
                     {errors.phone && <p className="text-xs text-destructive font-bold">{errors.phone.message}</p>}
                   </div>
   

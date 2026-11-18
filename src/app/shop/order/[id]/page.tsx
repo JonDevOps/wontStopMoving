@@ -1,4 +1,5 @@
 'use client';
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -42,7 +43,7 @@ export default function ShopOrderPage({ params }: { params: Promise<{ id: string
               <p className="flex justify-between"><span>Sales tax</span><span>{money(order.tax)}</span></p>
               <p className="flex justify-between font-black text-lg"><span>Total</span><span>{money(order.total)}</span></p>
             </div>
-            <p className="text-sm">Questions? Call <a className="underline" href="tel:+14152145474">(415) 214-5474</a>. <Link className="underline ml-2" href="/shop">Back to the shop</Link></p>
+            <p className="text-sm">Questions? Call <a className="underline" href={BUSINESS_CONTACT.phoneHref}>{BUSINESS_CONTACT.phoneDisplay}</a>. <Link className="underline ml-2" href="/shop">Back to the shop</Link></p>
           </div>}
       </div>
     </div>

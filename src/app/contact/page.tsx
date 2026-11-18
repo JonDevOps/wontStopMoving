@@ -1,4 +1,7 @@
-"use client";
+'use client';
+import { SmsConsent } from '@/components/forms/sms-consent';
+import { SMS_DISCLOSURE_VERSION } from '@/lib/sms-consent';
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 
 import { useState } from 'react';
 import { PublicLayout } from '@/components/layout/public-layout';
@@ -25,6 +28,7 @@ export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [ticketId, setTicketId] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [smsConsent, setSmsConsent] = useState(false);
 
   const handleInquirySubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -36,7 +40,7 @@ export default function ContactPage() {
     try {
       const response = await fetch('/api/support', { method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(Object.fromEntries(['name', 'email', 'phone', 'subject', 'message', 'website'].map(key => [key, field(key)]))),
+        body: JSON.stringify({...Object.fromEntries(['name', 'email', 'phone', 'subject', 'message', 'website'].map(key => [key, field(key)])), smsConsent, smsDisclosureVersion: SMS_DISCLOSURE_VERSION, smsSourcePage: window.location.pathname}),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Unable to send your message. Please try again.');
@@ -125,6 +129,7 @@ export default function ContactPage() {
                           <Label htmlFor="message">Message</Label>
                           <Textarea id="message" required minLength={10} maxLength={5000} placeholder="How can we help you today?" className="bg-white border-gray-200 min-h-[150px]" />
                         </div>
+                        <SmsConsent id="sms-consent" checked={smsConsent} onChange={setSmsConsent} disabled={isSubmitting}/>
                         {submitError && <p role="alert" className="text-sm text-red-700">{submitError}</p>}
                         <Button type="submit" disabled={isSubmitting} className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl h-14 font-bold uppercase tracking-widest">
                           {isSubmitting ? 'Sending…' : 'Submit Inquiry'}
@@ -147,7 +152,8 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">Call Us</p>
-                        <a href="tel:+14152145474" className="text-xl font-bold text-primary hover:text-accent">(415) 214-5474</a>
+                        <a href={BUSINESS_CONTACT.phoneHref} className="text-xl font-bold text-primary hover:text-accent">{BUSINESS_CONTACT.phoneDisplay}</a>
+                        <p className="text-sm text-muted-foreground">{BUSINESS_CONTACT.phoneNumeric}</p>
                         <a href="/contact.vcf" download className="block text-sm font-bold text-accent underline mt-1">Save our contact to your phone</a>
                       </div>
                     </div>

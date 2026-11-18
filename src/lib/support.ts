@@ -6,6 +6,9 @@ export const supportInquirySchema = z.object({
   phone: z.string().trim().max(40).default(''),
   subject: z.string().trim().min(2).max(200),
   message: z.string().trim().min(10).max(5000),
+  smsConsent: z.boolean().default(false),
+  smsDisclosureVersion: z.string().max(40).optional(),
+  smsSourcePage: z.string().max(500).optional(),
   website: z.string().max(200).default(''), // Honeypot; never stored with the ticket.
 }).strict();
 

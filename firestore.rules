@@ -59,8 +59,8 @@ service cloud.firestore {
       return acceptance is map &&
         acceptance.keys().hasOnly(['accepted', 'version', 'documentPath', 'acceptedBy', 'context', 'acceptedAt']) &&
         acceptance.get('accepted', false) == true &&
-        acceptance.get('version', '') == '2026-11-08' &&
-        acceptance.get('documentPath', '') == '/terms/2026-11-08' &&
+        acceptance.get('version', '') == '2026-11-18' &&
+        acceptance.get('documentPath', '') == '/terms/2026-11-18' &&
         acceptance.get('acceptedBy', '') == request.auth.uid &&
         acceptance.get('context', '') == context &&
         acceptance.get('acceptedAt', null) == request.time;
@@ -221,13 +221,8 @@ service cloud.firestore {
 
     match /providerSmsPreferences/{uid} {
       allow read: if isOwner(uid) || isAdmin();
-      allow create, update: if isOwner(uid) && hasRole('provider') &&
-        request.resource.data.keys().hasOnly(['phone', 'enabled', 'consentedAt']) &&
-        request.resource.data.enabled is bool && request.resource.data.phone is string &&
-        request.resource.data.phone.size() <= 16 &&
-        (!request.resource.data.enabled || request.resource.data.phone.matches('^\\+[1-9][0-9]{7,14}$')) &&
-        request.resource.data.consentedAt == request.time;
-      allow delete: if isOwner(uid);
+      // Legacy booleans cannot authorize sending. Consent changes use the server API.
+      allow write: if false;
     }
 
     // Default deny fallback

@@ -15,6 +15,19 @@ env:
   - variable: NEXT_PUBLIC_MARKETPLACE_SMS_ENABLED
     value: "false"
     availability: [BUILD, RUNTIME]
+  # Independent server-side gate: only set true after approved toll-free verification.
+  - variable: TWILIO_TOLL_FREE_VERIFIED
+    value: "false"
+    availability: [RUNTIME]
+  - variable: TWILIO_FROM_NUMBER
+    value: "+18887416683"
+    availability: [RUNTIME]
+  - variable: TWILIO_VOICE_ENABLED
+    value: "false"
+    availability: [RUNTIME]
+  - variable: TWILIO_VOICEMAIL_ENABLED
+    value: "false"
+    availability: [RUNTIME]
   - variable: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
     secret: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
     availability:
@@ -95,3 +108,9 @@ env:
     secret: GOOGLE_CLOUD_API_KEY
     availability:
       - RUNTIME
+  - variable: TWILIO_AUTH_TOKEN
+    secret: TWILIO_AUTH_TOKEN
+    availability: [RUNTIME]
+  - variable: TWILIO_ACCOUNT_SID
+    secret: TWILIO_ACCOUNT_SID
+    availability: [RUNTIME]

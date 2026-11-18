@@ -1,3 +1,4 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/server/firebase-admin';
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
         if (a.email && status !== a.status && status !== 'pending') {
           const text = status === 'approved'
             ? `Hi ${a.contactName || 'there'},\n\nWelcome to the Wont Stop Moving agent network. ${a.companyName} is approved. Sign in to see shipments assigned to you and the network directory of other agents:\nhttps://wontstopmoving.com/login?role=agent\n\nWont Stop Moving`
-            : `Hi ${a.contactName || 'there'},\n\nYour Wont Stop Moving agent network status for ${a.companyName} is now: ${status}.${note ? `\n\nNote from our team: ${note}` : ''}\n\nQuestions? Call (415) 214-5474.\n\nWont Stop Moving`;
+            : `Hi ${a.contactName || 'there'},\n\nYour Wont Stop Moving agent network status for ${a.companyName} is now: ${status}.${note ? `\n\nNote from our team: ${note}` : ''}\n\nQuestions? Call ${BUSINESS_CONTACT.phoneNumeric}.\n\nWont Stop Moving`;
           try { await enqueueEmail(`agent-status:${body.uid}:${status}:${Date.now()}`, { category: 'agent', referenceId: body.uid, to: a.email, subject: status === 'approved' ? 'You’re approved: Wont Stop Moving agent network' : 'Your agent network status changed', text }); }
           catch (error) { console.error('Agent status email failed', body.uid, error); }
         }

@@ -1,4 +1,5 @@
 'use client';
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -129,7 +130,7 @@ export default function ReviewCustomQuotePage({ params }: { params: Promise<{ id
               <span className="hidden sm:inline text-muted-foreground">·</span>
               <Link className="underline font-semibold text-primary" href="/contact">Questions or changes?</Link>
               <span className="hidden sm:inline text-muted-foreground">·</span>
-              <a className="underline font-semibold text-primary inline-flex items-center gap-1 justify-center" href="tel:+14152145474"><Phone className="h-3.5 w-3.5" />(415) 214-5474</a>
+              <a className="underline font-semibold text-primary inline-flex items-center gap-1 justify-center" href={BUSINESS_CONTACT.phoneHref}><Phone className="h-3.5 w-3.5" />{BUSINESS_CONTACT.phoneDisplay}</a>
             </div>
           </>}
       </div>

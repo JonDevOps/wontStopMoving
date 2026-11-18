@@ -1,5 +1,4 @@
-"use client";
-
+'use client';
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -44,6 +43,8 @@ import { TermsConfirmation } from '@/components/legal/terms-confirmation';
 import { apiFetch } from '@/lib/api-client';
 import { ZipHint } from '@/components/forms/zip-hint';
 import { readLeadSource } from '@/components/analytics/attribution-capture';
+import { SmsConsent } from './sms-consent';
+import { normalizeSmsPhone, SMS_DISCLOSURE_VERSION } from '@/lib/sms-consent';
 
 const formSchema = z.object({
   pickupZip: z.string().min(5, "Invalid Zip"),
@@ -79,6 +80,7 @@ export function QuoteForm({ providerId, initialSize }: { providerId?: string; in
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [smsConsent, setSmsConsent] = useState(false);
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [startingCheckout, setStartingCheckout] = useState(false);
@@ -152,6 +154,7 @@ export function QuoteForm({ providerId, initialSize }: { providerId?: string; in
   }, [user, isUserLoading, setValue, firestore]);
 
   const onSubmit = async (data: FormValues) => {
+    if (smsConsent && !normalizeSmsPhone(data.phone)) { toast({variant:'destructive',title:'Check your mobile number',description:'Enter a valid number or leave SMS unchecked to continue.'}); return; }
     if (!termsAccepted) {
       toast({ variant: 'destructive', title: 'Accept the Terms of Service', description: 'Review the terms and check the agreement box before submitting your request.' });
       return;
@@ -247,7 +250,9 @@ export function QuoteForm({ providerId, initialSize }: { providerId?: string; in
 
       setSavedQuoteId(savedQuote.id);
       // Instant estimate email to the customer and a lead alert to the team.
-      void apiFetch(auth, "/api/leads/new", { quoteId: savedQuote.id }).catch(() => {});
+      await apiFetch(auth, "/api/leads/new", { quoteId: savedQuote.id, smsConsent, smsDisclosureVersion: SMS_DISCLOSURE_VERSION, smsSourcePage: window.location.pathname }).catch(() => {
+        toast({title:'Quote saved',description:'Text preference could not be saved. Manage it in your profile. Your quote is still available.'});
+      });
       setStep(6); // Success step
     } catch (error: any) {
       console.error("Quote submission failed:", error?.code || 'unknown');
@@ -577,6 +582,7 @@ export function QuoteForm({ providerId, initialSize }: { providerId?: string; in
                   )}
                 </div>
               </div>
+              <SmsConsent id="quote-sms-consent" checked={smsConsent} onChange={setSmsConsent} disabled={isSubmitting}/>
               <TermsAcceptance id="quote-terms" checked={termsAccepted} onChange={setTermsAccepted} disabled={isSubmitting}/>
             </div>
           )}

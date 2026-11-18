@@ -1,95 +1,17 @@
+import Link from 'next/link';
 import { PublicLayout } from '@/components/layout/public-layout';
+import { BUSINESS_CONTACT as contact } from '@/lib/business-contact';
 
 export default function PrivacyPolicyPage() {
-  const lastUpdated = "March 10, 2026";
-
-  return (
-    <PublicLayout>
-      <div className="min-h-screen bg-gray-50 pt-32 pb-24">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto bg-white rounded-3xl p-8 md:p-16 shadow-sm border border-gray-100">
-            <header className="mb-12 border-b pb-8">
-              <h1 className="text-4xl md:text-5xl font-black text-primary uppercase tracking-tighter mb-4">
-                PRIVACY <span className="text-accent">POLICY</span>
-              </h1>
-              <p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">
-                Last Updated: {lastUpdated}
-              </p>
-            </header>
-
-            <div className="prose prose-primary max-w-none space-y-8">
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">1. Introduction</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  Wont Stop Moving, Inc. ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website, use our mobile application, or engage our nationwide moving and logistics services across our 51 service regions.
-                </p>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">2. Information We Collect</h2>
-                <div className="grid md:grid-cols-2 gap-6 mt-4">
-                  <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                    <h3 className="font-bold text-primary mb-2">Personal Data</h3>
-                    <p className="text-sm text-muted-foreground">Name, email address, telephone number, and physical addresses (pickup and dropoff locations) provided when requesting a quote or booking a move.</p>
-                  </div>
-                  <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                    <h3 className="font-bold text-primary mb-2">Technical Data</h3>
-                    <p className="text-sm text-muted-foreground">IP address, browser type and operating system.</p>
-                  </div>
-                </div>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">3. How We Use Your Information</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  We use the information we collect to provide and maintain our services, including:
-                </p>
-                <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-                  <li>Generating accurate AI-driven moving quotes.</li>
-                  <li>Scheduling and coordinating your relocation with our professional movers.</li>
-                  <li>Sending you updates about your move's status.</li>
-                  <li>Processing payments and managing account history.</li>
-                  <li>Communicating updates, safety alerts, and promotional offers.</li>
-                </ul>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">4. Information Sharing</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  We do not sell your personal data. We may share information with third-party service providers (such as payment processors or regional logistics partners) who perform services for us and are bound by confidentiality agreements. We may also disclose information to comply with legal obligations or protect our rights and safety.
-                </p>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">5. Data Security</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  We implement industry-standard security measures, including encryption and secure socket layer (SSL) technology, to protect your personal information. However, no method of transmission over the Internet is 100% secure, and we cannot guarantee absolute security.
-                </p>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">6. Your Rights</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  Depending on your location, you may have the right to access, correct, or delete your personal information. You can manage your preferences or request data deletion by contacting our support team at privacy@wontstopmoving.com.
-                </p>
-              </section>
-
-              <section className="space-y-4">
-                <h2 className="text-2xl font-black text-primary uppercase tracking-tight">7. Changes to This Policy</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the "Last Updated" date.
-                </p>
-              </section>
-
-              <footer className="pt-8 border-t">
-                <p className="text-sm text-primary font-bold">
-                  Questions? Contact us at <span className="text-accent">support@wontstopmoving.com</span> or call (415) 214-5474.
-                </p>
-              </footer>
-            </div>
-          </div>
-        </div>
-      </div>
-    </PublicLayout>
-  );
+  return <PublicLayout><main className="min-h-screen bg-gray-50 pt-32 pb-24"><article className="mx-auto max-w-4xl rounded-3xl border bg-white p-6 md:p-12 space-y-8">
+    <header><h1 className="text-4xl font-black text-primary">Privacy Policy</h1><p className="mt-3 text-muted-foreground">Updated November 18, 2026</p></header>
+    <section className="space-y-3"><h2 className="text-2xl font-bold">Who operates this website</h2><p>WontStopMoving is the moving-services brand operated by {contact.legalBusiness}. This policy covers wontstopmoving.com and its quote, booking, marketplace, account and support features. We do not represent that WontStopMoving is a separately incorporated company or a registered DBA.</p></section>
+    <section className="space-y-3"><h2 className="text-2xl font-bold">Information we collect</h2><p>You may provide your name, email, phone number, pickup and delivery addresses or ZIP codes, move dates, inventory, access details, service preferences, support messages and uploaded documents. Accounts contain login and role information. Providers supply business, service-area, availability, pricing, onboarding and verification information.</p><p>We keep quote and reservation records, payment references, job status, private payment codes, reviews, refunds, tips and communication preferences. Stripe collects payment-card and provider payout information through its payment and onboarding services; our application stores payment references and status rather than full card numbers.</p><p>Our hosting and security services may process request information such as IP addresses, browser details and logs. Avoid including unnecessary sensitive information in messages, inventory notes or uploads.</p></section>
+    <section className="space-y-3"><h2 className="text-2xl font-bold">Estimates, bookings and support</h2><p>We use information to prepare estimates, process reservations and payments, coordinate selected moving services, communicate with you, prevent abuse and resolve requests. An estimate request does not itself confirm a paid booking. Marketplace and direct-booking options remain available.</p><p>Authorized staff and the providers or crew assigned to a job can access operational information needed to coordinate it. Private payment codes are available to the customer and authorized administrators; the provider receives a code from the customer after work is complete. SMS consent records are separate from provider-accessible job information.</p></section>
+    <section id="sms" className="space-y-3 scroll-mt-28"><h2 className="text-2xl font-bold">Phone numbers, email and SMS consent</h2><p>We use contact information to respond to enquiries and communicate about estimates, bookings, payment codes, appointments, moving-day updates and support. Email and dashboard information remain available if you decline texts.</p><p>Informational SMS is optional. Enrollment uses a separate, unchecked checkbox with links to these policies. We record the number in international format, consent choice, server timestamp, source page, purpose and disclosure version, and maintain a history of changes. Existing customers are not automatically enrolled. Provider job alerts require the provider’s separate opt-in. This program does not enroll you in promotional SMS.</p><p>Reply STOP to opt out or HELP for assistance. You can also turn texts off in account text preferences or contact support. STOP suppresses automated messages to that number. To resume after STOP, reply START and enroll again on the website. Changing a profile phone number alone does not transfer consent.</p><p className="rounded-xl border p-4 font-semibold">All the above categories exclude text messaging originator opt-in data and consent; this information won’t be shared with any third parties.</p><p>SMS consent is a direct agreement with WontStopMoving. We do not sell, rent or pass SMS consent to movers, affiliates, lead buyers or other businesses for their own messaging. The number and message must be processed by Twilio and telecommunications carriers to deliver a requested text; they are not given permission to use your consent for their own campaigns.</p><p>See our <Link className="underline" href="/terms#sms">SMS Terms and Conditions</Link>. Sending is disabled until toll-free verification is approved.</p></section>
+    <section className="space-y-3"><h2 className="text-2xl font-bold">Service providers and disclosures</h2><p>We use Google Firebase and Google Cloud for hosting, authentication, databases, file storage and server operations; Stripe for payments, refunds and connected-provider payouts; Zoho Mail for application email; Cloudflare for domain and DNS services; and Twilio for configured phone and messaging functions. Google services also provide website fonts, selected mapping or business lookups and assisted planning features. Information entered into an assisted planning feature may be processed by the AI service used for that feature. Vendors process information needed for the functions you use.</p><p>Necessary records may be disclosed when required by applicable law or to investigate fraud, protect people or resolve a transaction or service dispute. These provisions do not authorize sharing SMS opt-in data or consent for another party’s messaging or marketing. The SMS-specific exclusion above applies to broader sharing descriptions.</p></section>
+    <section className="space-y-3"><h2 className="text-2xl font-bold">Cookies, local storage and analytics</h2><p>Authentication uses browser storage to maintain your session. The site stores cart and search choices in session storage and may cache public assets for offline use. It uses saved referral codes, campaign tags and referring websites within a 30-day attribution window when you request a quote. Browser storage may remain until replaced or cleared. The current website configuration does not enable Google Analytics. External fonts, maps and payment pages make requests to their respective providers. Clearing or restricting browser storage may affect login and saved choices.</p></section>
+    <section className="space-y-3"><h2 className="text-2xl font-bold">Protection and retention</h2><p>We use HTTPS, account authorization and database access controls. Credentials are kept on the server in secure configuration. No system can guarantee absolute security. Access depends on the feature and account role.</p><p>We retain account, quote, booking, payment, support and consent records as needed to operate the service, support transactions, handle disputes and meet applicable recordkeeping obligations. There is no single automatic deletion period across these record types. You can request deletion or correction; some transaction, fraud-prevention and suppression records may need to be retained. We may retain a limited opt-out record to avoid contacting you again.</p></section>
+    <section className="space-y-3"><h2 className="text-2xl font-bold">Your choices and contact</h2><p>Update available profile fields in your dashboard and request access, correction or deletion at <a className="underline" href={`mailto:${contact.email}`}>{contact.email}</a>. We may need to verify your identity before acting. Rights and exceptions depend on applicable law. Email follow-ups with an unsubscribe link can be stopped through that link; SMS preferences are separate.</p><p>Contact {contact.legalBusiness}, WontStopMoving: <a className="underline" href={contact.phoneHref}>{contact.phoneDisplay} ({contact.phoneNumeric})</a> or <Link className="underline" href="/contact">our contact form</Link>. We update the date on this page when this policy changes.</p></section>
+  </article></main></PublicLayout>;
 }

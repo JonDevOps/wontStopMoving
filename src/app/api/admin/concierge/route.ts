@@ -1,3 +1,4 @@
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/server/firebase-admin';
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
       await enqueueEmail(`concierge-intro:${body.id}`, {
         category: 'concierge', referenceId: body.id, to: current.customerEmail,
         subject: `Your ${label.toLowerCase()} partner: ${partner.name}`,
-        text: `Hi ${current.customerName || 'there'},\n\nFor ${label.toLowerCase()} with your move, we recommend ${partner.name}.${partner.phone ? `\nPhone: ${partner.phone}` : ''}${partner.email ? `\nEmail: ${partner.email}` : ''}${partner.website ? `\nWebsite: ${partner.website}` : ''}\n\nMention Wont Stop Moving when you contact them. They know you're coming.\n\nQuestions? Reply to this email or call (415) 214-5474.\n\nWont Stop Moving`,
+        text: `Hi ${current.customerName || 'there'},\n\nFor ${label.toLowerCase()} with your move, we recommend ${partner.name}.${partner.phone ? `\nPhone: ${partner.phone}` : ''}${partner.email ? `\nEmail: ${partner.email}` : ''}${partner.website ? `\nWebsite: ${partner.website}` : ''}\n\nMention Wont Stop Moving when you contact them. They know you're coming.\n\nQuestions? Reply to this email or call ${BUSINESS_CONTACT.phoneNumeric}.\n\nWont Stop Moving`,
       }).catch(error => console.error('Concierge intro email failed', body.id, error));
     }
     return NextResponse.json({ ok: true });

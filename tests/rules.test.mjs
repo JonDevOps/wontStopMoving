@@ -32,15 +32,16 @@ beforeEach(async () => {
 
 const as = (uid, token = {}) => env.authenticatedContext(uid, token).firestore();
 
-test('provider text consent and mobile numbers stay private and owner managed', async () => {
+test('legacy provider text preferences stay private and cannot bypass server consent', async () => {
   const ref=doc(as('prov'),'providerSmsPreferences/prov');
-  await assertSucceeds(setDoc(ref,{phone:'+15555550123',enabled:true,consentedAt:serverTimestamp()}));
+  await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),'providerSmsPreferences/prov'),{phone:'+15555550123',enabled:true,consentedAt:Timestamp.now()}));
+  await assertFails(setDoc(ref,{phone:'+15555550123',enabled:true,consentedAt:serverTimestamp()}));
   await assertSucceeds(getDoc(ref));
   await assertFails(getDoc(doc(as('cust'),'providerSmsPreferences/prov')));
   await assertFails(setDoc(doc(as('cust'),'providerSmsPreferences/cust'),{phone:'+15555550123',enabled:true,consentedAt:serverTimestamp()}));
   await assertFails(setDoc(ref,{phone:'bad',enabled:true,consentedAt:serverTimestamp()}));
   await assertFails(setDoc(ref,{phone:'+15555550123',enabled:true,consentedAt:Timestamp.fromMillis(0)}));
-  await assertSucceeds(setDoc(ref,{phone:'',enabled:false,consentedAt:serverTimestamp()}));
+  await assertFails(setDoc(ref,{phone:'',enabled:false,consentedAt:serverTimestamp()}));
 });
 
 test('provider pricing cannot be saved below $45/hour or a two-hour minimum, including by browser admins', async () => {
@@ -213,7 +214,7 @@ test('reviews and incentive eligibility can only be recorded by the server', asy
 });
 
 test('cart allocations, money operations, tips and delivery queues are private and server-managed', async () => {
-  for (const path of ['moverOrders/private', 'moneyOperations/private', 'moveTips/private', 'smsOutbox/private']) {
+  for (const path of ['moverOrders/private', 'moneyOperations/private', 'moveTips/private', 'smsOutbox/private','smsConsentProfiles/private','smsConsentProfiles/private/history/private','smsSuppressions/private','twilioWebhookEvents/private','phoneInbox/private','phoneRecordings/private']) {
     await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(),path),{customerId:'cust',amount:500,body:'private'}));
     for (const uid of ['cust','prov','crew','boss']) {
       await assertFails(getDoc(doc(as(uid),path)));
