@@ -1,3 +1,5 @@
+import { applyCredit, verifyJobCredit } from './rewards';
+import { refundTenderSplit } from '../rewards';
 import type Stripe from 'stripe';
 import { createHash } from 'node:crypto';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
@@ -15,34 +17,55 @@ export async function refundReviewedMove(jobId: string) {
   if (job.paymentHold) { await ref.update({ reviewRefundStatus: 'needs_review' }); return 'needs_review'; }
   if (!stripeConfigured()) { await ref.update({ reviewRefundStatus: 'pending_configuration' }); return 'pending_configuration'; }
   try {
+    await verifyJobCredit(job);
+    if (!(job.platformFeeCents >= REVIEW_REFUND_CENTS)) throw new Error('REFUND_REQUIRES_REVIEW');
+    const giftCents = Math.round(Number(job.giftApplied || 0) * 100);
+    const cardCents = Math.round(Number(job.amountPaid ?? ((job.allocatedCents || 0) / 100)) * 100);
+    const split = refundTenderSplit(REVIEW_REFUND_CENTS, giftCents, cardCents);
+    if (split.cardCents === 0) {
+      await finishReviewGiftRefund(jobId, split.giftCents, null);
+      return 'refunded';
+    }
     if (job.reviewRefundId) {
       await updateReviewRefund(await stripe.refunds.retrieve(job.reviewRefundId));
       return (await ref.get()).data()?.reviewRefundStatus || 'processing';
     }
-    const result = await moneyOperation(db, `review-refund-${jobId}`, { payment_intent: job.paymentIntentId, amount: REVIEW_REFUND_CENTS, metadata: { jobId, kind: 'review_refund' } }, async (request, key) => {
+    const result = await moneyOperation(db, `review-refund-${jobId}`, { payment_intent: job.paymentIntentId, amount: split.cardCents, metadata: { jobId, kind: 'review_refund', reviewRefundTotal: String(REVIEW_REFUND_CENTS), giftRefundCents: String(split.giftCents) } }, async (request, key) => {
       const pi = await stripe.paymentIntents.retrieve(String(request.payment_intent), { expand: ['latest_charge'] });
       const charge = typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
-      if (pi.status !== 'succeeded' || pi.currency !== 'usd' || !charge || charge.disputed || charge.amount - charge.amount_refunded < REVIEW_REFUND_CENTS || job.platformFeeCents < REVIEW_REFUND_CENTS) throw new Error('REFUND_REQUIRES_REVIEW');
+      if (pi.status !== 'succeeded' || pi.currency !== 'usd' || !charge || charge.disputed || charge.amount - charge.amount_refunded < Number(request.amount) || job.platformFeeCents < REVIEW_REFUND_CENTS) throw new Error('REFUND_REQUIRES_REVIEW');
       return stripe.refunds.create(request as unknown as Stripe.RefundCreateParams, { idempotencyKey: key });
     });
     const status = result.status === 'succeeded' ? 'refunded' : ['failed', 'canceled'].includes(result.status || '') ? 'needs_review' : 'processing';
-    await ref.update({ reviewRefundId: result.id, reviewRefundStatus: status, reviewRefundCents: REVIEW_REFUND_CENTS });
+    await ref.update({ reviewRefundId: result.id, reviewRefundStatus: status === 'refunded' && split.giftCents ? 'processing' : status, reviewRefundCents: split.cardCents, reviewRefundGiftCents: split.giftCents });
+    if (status === 'refunded') await finishReviewGiftRefund(jobId, split.giftCents, result.id);
     return status;
   } catch { await ref.update({ reviewRefundStatus: 'needs_review' }); return 'needs_review'; }
+}
+
+async function finishReviewGiftRefund(jobId: string, giftCents: number, refundId: string | null) {
+  const db = adminDb(), ref = db.doc(`jobs/${jobId}`);
+  await db.runTransaction(async tx => {
+    const job = (await tx.get(ref)).data();
+    if (!job || job.reviewRefundStatus === 'refunded') return;
+    if (job.paymentHold || !job.reviewed || !job.reviewRefundEligible || !job.releaseConfirmedAt) throw new Error('REFUND_REQUIRES_REVIEW');
+    if (giftCents) await applyCredit(tx, job.customerId, giftCents / 100, 'review-gift-refund', `review-refund-${jobId}`, { jobId });
+    tx.update(ref, { reviewRefundStatus: 'refunded', reviewRefundId: refundId, reviewRefundGiftCents: giftCents, reviewRefundCents: REVIEW_REFUND_CENTS - giftCents });
+  });
 }
 
 export async function updateReviewRefund(refund: Stripe.Refund) {
   const jobId = refund.metadata?.kind === 'review_refund' && refund.metadata.jobId;
   if (!jobId) return;
-  const db = adminDb(), ref = db.doc(`jobs/${jobId}`);
-  await db.runTransaction(async tx => {
-    const job = (await tx.get(ref)).data();
-    if (job?.reviewRefundStatus === 'refunded') return;
-    if (!job?.reviewRefundEligible || refund.amount !== REVIEW_REFUND_CENTS || refund.currency !== 'usd' || (job.reviewRefundId && job.reviewRefundId !== refund.id)) return;
-    const intent = typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
-    if (intent !== job.paymentIntentId) return;
-    tx.update(ref, { reviewRefundId: refund.id, reviewRefundCents: REVIEW_REFUND_CENTS, reviewRefundStatus: refund.status === 'succeeded' ? 'refunded' : ['failed', 'canceled'].includes(refund.status || '') ? 'needs_review' : 'processing' });
-  });
+  const db = adminDb(), ref = db.doc(`jobs/${jobId}`), job = (await ref.get()).data();
+  if (!job || !job.reviewRefundEligible || (job.reviewRefundId && job.reviewRefundId !== refund.id)) return;
+  const split = refundTenderSplit(REVIEW_REFUND_CENTS, Math.round(Number(job.giftApplied || 0) * 100), Math.round(Number(job.amountPaid ?? (job.allocatedCents || 0) / 100) * 100));
+  const intent = typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
+  if (intent !== job.paymentIntentId || refund.currency !== 'usd' || refund.amount !== split.cardCents) return;
+  if (job.reviewRefundStatus === 'refunded' && !['failed','canceled'].includes(refund.status || '')) return;
+  await verifyJobCredit(job);
+  if (refund.status === 'succeeded') await finishReviewGiftRefund(jobId, split.giftCents, refund.id);
+  else await ref.update({ reviewRefundId: refund.id, reviewRefundCents: split.cardCents, reviewRefundGiftCents: split.giftCents, reviewRefundStatus: ['failed','canceled'].includes(refund.status || '') ? 'needs_review' : 'processing' });
 }
 
 export async function createTipCheckout(uid: string, email: string | undefined, jobId: string, cents: unknown, origin: string) {

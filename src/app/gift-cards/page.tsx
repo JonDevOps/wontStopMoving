@@ -75,7 +75,7 @@ function GiftCards() {
               ) : (
                 <Button asChild className="w-full h-12 font-black uppercase"><Link href="/login?role=customer&redirect=/gift-cards">Sign in to buy</Link></Button>
               )}
-              <p className="text-xs text-muted-foreground">Gift cards are redeemed as move credit in the recipient&apos;s account and never expire. Credit can pay up to 15% of each move, and any balance carries over to the next one. Not redeemable for cash except where the law requires it.</p>
+              <p className="text-xs text-muted-foreground">Gift cards are redeemed as move credit in the recipient&apos;s account and never expire. Gift-card value can pay up to the full booking price, and any unused balance carries over. Approved refunds return to the original payment types; gift-card amounts return to gift-card balance. Promotional reward credit has a separate 15% limit. Not redeemable for cash except where the law requires it.</p>
             </form>
           )}
         </div>

@@ -1,10 +1,11 @@
 "use client";
 
+import { apiFetch } from "@/lib/api-client";
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useDoc, useMemoFirebase, useFirestore } from "@/firebase";
+import { useDoc, useMemoFirebase, useFirestore, useAuth } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { DispatchSuggestions } from "@/components/admin/dispatch-suggestions";
 import { MoveDetailsEditor } from "@/components/jobs/move-details-editor";
@@ -21,6 +22,7 @@ export default function AdminJobDetailsPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const firestore = useFirestore();
+  const auth = useAuth();
   const { toast } = useToast();
   const [updating, setUpdating] = useState(false);
 
@@ -52,12 +54,13 @@ export default function AdminJobDetailsPage() {
 
   const handleRefundJob = async () => {
     if (!jobRef || !job) return;
+    if (!window.confirm('Cancel this move and refund its full payment? Gift-card value returns to gift-card balance, promotional rewards return as rewards, and card payments return to the original card. This is available only before funds are released.')) return;
     setUpdating(true);
     try {
-      await updateDoc(jobRef, { status: "cancelled" });
-      toast({ title: "Job Cancelled & Refunded", description: "Payment hold cancelled and marked for customer refund." });
+      const result = await apiFetch<{status:string}>(auth, `/api/admin/jobs/${id}/refund`, {confirmFullRefund:true});
+      toast({ title: result.status === 'refunded' ? 'Booking refunded' : 'Refund needs follow-up', description: result.status === 'refunded' ? 'The refund was issued to the original payment types. Card refunds may take time to appear.' : 'The move is cancelled and funds remain held. Review its refund status before retrying.' });
     } catch (error) {
-      toast({ variant: "destructive", title: "Action Failed", description: "Could not refund job." });
+      toast({ variant: "destructive", title: "Action Failed", description: error instanceof Error ? error.message : "Could not refund job." });
     } finally {
       setUpdating(false);
     }

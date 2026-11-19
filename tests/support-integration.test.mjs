@@ -762,7 +762,7 @@ test('creating a custom quote queues one email to the customer with the private 
 
 test('failed delayed booking is recorded once and a late failure never downgrades a paid booking', async () => {
   const ref = db.doc('jobs/delayed-failure');
-  await ref.set({ customerId: 'test-buyer', status: 'pending_payment', paymentStatus: 'unpaid', checkoutSessionId: 'cs_delayed_failure' });
+  await ref.set({ customerId: 'test-buyer', status: 'pending_payment', paymentStatus: 'unpaid', checkoutSessionId: 'cs_delayed_failure', price: 50 });
   const event = { id: 'evt_failed', type: 'checkout.session.async_payment_failed', data: { object: {
     id: 'cs_delayed_failure', payment_status: 'unpaid', metadata: { flow: 'booking', jobId: ref.id, customerId: 'test-buyer' },
   } } };
@@ -2093,4 +2093,22 @@ test('road record is saved per company and shown on the company and Legends', as
   const board = await (await fetch(`${base}/api/admin/legends?refresh=1`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
   const row = Object.values(board.groups).flat().find(r => r.dot === '1234567');
   if (row) { assert.equal(row.safety.grade, 'A'); assert.equal(row.safety.trouble, 1); }
+});
+
+test('booking cancellation refunds are admin-only and require explicit full-refund confirmation', async () => {
+  const path=`${base}/api/admin/jobs/demo-refund-permissions/refund`;
+  assert.equal((await fetch(path,json({confirmFullRefund:true}))).status,401);
+  assert.equal((await fetch(path,authorized(customerToken,{confirmFullRefund:true}))).status,403);
+  assert.equal((await fetch(path,authorized(adminToken,{}))).status,400);
+  assert.equal((await fetch(path,authorized(adminToken,{confirmFullRefund:true}))).status,404);
+});
+
+test('a matching cancellation callback can arrive before the refund API saves its ID without freezing another crew', async () => {
+  const id='callback-race-cancellation',other='callback-race-other',intent='pi_callback_race';
+  await db.doc(`jobs/${id}`).set({customerId:auth.currentUser.uid,status:'cancelled',paymentStatus:'paid',paymentIntentId:intent,bookingRefundStatus:'processing',bookingRefundCardCents:5000,paymentHold:true,paymentHoldReason:'cancellation_refund'});
+  await db.doc(`jobs/${other}`).set({customerId:auth.currentUser.uid,status:'confirmed',paymentStatus:'paid',paymentIntentId:intent});
+  const event={id:'evt_cancel_callback_race',type:'charge.refunded',request:{id:'req_test_race',idempotency_key:`cancel-refund-${id}`},data:{object:{id:'ch_callback_race',payment_intent:intent,amount:10000,amount_refunded:5000,refunded:false,refunds:{has_more:false,data:[{id:'re_callback_race',amount:5000,metadata:{kind:'booking_cancellation',jobId:id}}]}}}};
+  assert.equal((await webhook(event)).status,200);
+  assert.equal((await db.doc(`jobs/${id}`).get()).data().paymentHoldReason,'cancellation_refund');
+  assert.notEqual((await db.doc(`jobs/${other}`).get()).data().paymentHold,true);
 });

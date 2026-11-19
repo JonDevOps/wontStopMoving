@@ -8,8 +8,8 @@ import { errorResponse, HttpError, isId, readJson, requireRole, requireStripe, s
 import { requireCurrentTerms, bookingTermsAcceptance } from '@/lib/server/terms';
 import { TERMS_VERSION } from '@/lib/terms';
 import { customQuoteSchema } from '@/lib/custom-quotes';
-import { usableCredit } from '@/lib/rewards';
-import { applyCredit } from '@/lib/server/rewards';
+import { creditBreakdown } from '@/lib/rewards';
+import { applyCredit, getWallet, releaseCheckoutCredit } from '@/lib/server/rewards';
 
 /**
  * Pays for a quote. The move size, add-ons and discounts are read from the
@@ -32,6 +32,15 @@ export async function POST(req: Request) {
     if (q.isCustomQuote && q.pricing?.type !== 'fixed') throw new HttpError(409, 'Hourly estimates need a finalized fixed-price quote before payment.');
     if (q.isCustomQuote && !customQuoteSchema.safeParse({ name: q.name, email: q.email, description: q.description, pickupAddress: q.pickupAddress, dropoffAddress: q.dropoffAddress, moveDate: q.moveDate, expiresAt: q.expiresAt.toDate().toISOString(), pricing: q.pricing }).success) throw new HttpError(409, 'This quote needs review before payment.');
 
+    if (q.checkoutSessionId && q.paymentStatus === 'pending') {
+      requireStripe();
+      const existing = await stripe.checkout.sessions.retrieve(q.checkoutSessionId);
+      if (existing.status === 'open' && existing.url) return NextResponse.json({url:existing.url});
+      if (existing.payment_status === 'paid' || existing.payment_status === 'no_payment_required') throw new HttpError(409,'This quote has already been paid. Open your moves dashboard.');
+      if (existing.status !== 'expired') throw new HttpError(409,'Your payment is still processing. Please wait before retrying.');
+      await releaseCheckoutCredit(existing);
+    }
+
     let details: Record<string, any> = {};
     try {
       details = typeof q.details === "string" ? JSON.parse(q.details) : q.details || {};
@@ -51,10 +60,10 @@ export async function POST(req: Request) {
       miles: zipRoadMiles(q.pickupZip || details.pickupZip, q.dropoffZip || details.dropoffZip),
     });
 
-    // Move credit (rewards and gift cards) covers up to the platform's share of the price.
     const db = adminDb();
-    const balance = body.useCredit === true ? Number((await db.doc(`rewardWallets/${user.uid}`).get()).data()?.balance || 0) : 0;
-    const credit = usableCredit(total, balance);
+    const balance = body.useCredit === true ? await getWallet(user.uid) : { balance: 0, giftBalance: 0 };
+    const funding = creditBreakdown(total, balance.balance, balance.giftBalance);
+    const credit = funding.credit;
     const charge = Math.round((total - credit) * 100);
 
     const origin = siteOrigin(req);
@@ -81,14 +90,17 @@ export async function POST(req: Request) {
       success_url: `${origin}/dashboard/customer/moves?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/dashboard/customer/quotes?cancelled=true`,
     });
+    try {
     await db.runTransaction(async tx => {
       const current = (await tx.get(quote.ref)).data();
       if (!current || current.status === 'processed' || current.status === 'expired' || current.paymentStatus === 'paid' || (current.isCustomQuote && current.expiresAt.toMillis() <= Date.now())) throw new HttpError(409, 'This quote is no longer available.');
-      if (credit) await applyCredit(tx, user.uid, -credit, 'checkout', `checkout-${session.id}`, { quoteId, sessionId: session.id });
+      if (current.paymentStatus === 'pending' && current.checkoutSessionId && current.checkoutSessionId !== q.checkoutSessionId) throw new HttpError(409, 'Another checkout already exists. Try again to open it.');
+      if (credit) await applyCredit(tx, user.uid, -credit, 'checkout', `checkout-${session.id}`, { quoteId, sessionId: session.id, giftApplied: funding.gift });
       const acceptance = bookingTermsAcceptance(user.uid);
-      tx.set(db.doc(`checkoutTerms/${session.id}`), { customerId: user.uid, quoteId, termsAcceptance: acceptance });
+      tx.set(db.doc(`checkoutTerms/${session.id}`), { customerId: user.uid, quoteId, termsAcceptance: acceptance, totalCents: Math.round(total * 100), creditApplied: credit, giftApplied: funding.gift });
       tx.update(quote.ref, { checkoutSessionId: session.id, paymentStatus: 'pending', paymentFailedAt: FieldValue.delete(), bookingTermsAcceptance: acceptance });
     });
+    } catch(error) { await stripe.checkout.sessions.expire(session.id).catch(() => {}); throw error; }
     return NextResponse.json({ url: session.url });
   } catch (error) {
     return errorResponse(error);
