@@ -1,11 +1,11 @@
 "use client";
 
 import { EmployeeLayout } from "@/components/layout/employee-layout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useAuth, useCollection, useFirestore } from "@/firebase";
+import { Card, CardContent } from "@/components/ui/card";
+import { useAuth, useFirestore } from "@/firebase";
 import { updateApproval, approvalEmailNote } from "@/lib/api-client";
-import { collection, query, orderBy } from "firebase/firestore";
-import { useMemoFirebase } from "@/firebase";
+import { useAdminProviders } from "@/hooks/use-admin-providers";
+import { isPendingProvider } from "@/lib/provider-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserCheck, ShieldAlert, FileText, CheckCircle2, Clock, MapPin } from "lucide-react";
@@ -17,20 +17,14 @@ function ProviderManagementContent() {
   const { toast } = useToast();
   const auth = useAuth();
 
-  const providersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "providers"), orderBy("createdAt", "desc"));
-  }, [firestore]);
-
-  const { data: allProviders, isLoading } = useCollection(providersQuery);
+  const { providers: allProviders, isLoading, error } = useAdminProviders();
   // Links like /dashboard/admin/providers?status=pending open on that filter.
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "suspended">("all");
   useEffect(() => {
     const s = new URLSearchParams(window.location.search).get("status");
     if (s === "pending" || s === "approved" || s === "suspended") setStatusFilter(s);
   }, []);
-  const isPending = (s?: string) => !s || s === "pending" || s === "pending_approval";
-  const matches = (p: { status?: string }, f: typeof statusFilter) => f === "all" || (f === "pending" ? isPending(p.status) : p.status === f);
+  const matches = (p: { status?: string }, f: typeof statusFilter) => f === "all" || (f === "pending" ? isPendingProvider(p.status) : p.status === f);
   const providers = (allProviders || []).filter(p => matches(p, statusFilter));
   const count = (f: typeof statusFilter) => (allProviders || []).filter(p => matches(p, f)).length;
 
@@ -66,7 +60,9 @@ function ProviderManagementContent() {
         </div>
       </header>
 
-      {isLoading ? (
+      {error ? (
+        <p role="alert" className="text-red-700">Could not load provider applications. Please refresh and try again.</p>
+      ) : isLoading ? (
         <div className="text-center p-12 text-muted-foreground animate-pulse font-bold tracking-widest uppercase text-sm">
           Loading Registry...
         </div>
@@ -86,7 +82,7 @@ function ProviderManagementContent() {
                     </div>
                     <div>
                       {provider.status === "approved" && <Badge className="bg-green-500 hover:bg-green-600 text-white gap-1"><CheckCircle2 className="w-3 h-3" /> APPROVED</Badge>}
-                      {(provider.status === "pending" || provider.status === "pending_approval") && <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1"><Clock className="w-3 h-3" /> PENDING</Badge>}
+                      {isPendingProvider(provider.status) && <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1"><Clock className="w-3 h-3" /> PENDING</Badge>}
                       {provider.status === "suspended" && <Badge variant="destructive" className="gap-1"><ShieldAlert className="w-3 h-3" /> SUSPENDED</Badge>}
                     </div>
                   </div>
@@ -172,7 +168,7 @@ function ProviderManagementContent() {
           <CardContent className="flex flex-col items-center justify-center py-20 text-center">
             <UserCheck className="w-12 h-12 text-slate-300 mb-4" />
             <h3 className="text-lg font-black uppercase tracking-widest text-slate-800">No Providers Found</h3>
-            <p className="text-sm text-slate-500 mt-2">The provider database is currently empty.</p>
+            <p className="text-sm text-slate-500 mt-2">{statusFilter === "all" ? "No provider applications yet." : `No ${statusFilter} providers found.`}</p>
           </CardContent>
         </Card>
       )}

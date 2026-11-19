@@ -24,7 +24,7 @@ try {
     await new Promise(resolve => setTimeout(resolve, 200));
   }
   if (!ready) throw new Error(`Local test server did not start. ${logs}`);
-  const tests = spawn(process.execPath, ['--import', './tests/register-paths.mjs', '--test', '--test-concurrency=1', 'tests/rules.test.mjs', 'tests/support-integration.test.mjs', 'tests/marketplace-payments.test.mjs', 'tests/sms-integration.test.mjs'], {
+  const tests = spawn(process.execPath, ['--import', './tests/register-paths.mjs', '--test', '--test-concurrency=1', 'tests/rules.test.mjs', 'tests/support-integration.test.mjs', 'tests/marketplace-payments.test.mjs', 'tests/sms-integration.test.mjs', 'tests/admin-providers.test.mjs'], {
     env: { ...process.env, GCLOUD_PROJECT: 'demo-wsm', SUPPORT_TEST_BASE_URL: base, REGISTRY_LOCAL_DIR: registryDir }, stdio: 'inherit',
   });
   process.exitCode = await new Promise(resolve => tests.on('exit', code => resolve(code ?? 1)));
