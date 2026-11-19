@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { isPendingProvider, providerCreatedMillis } from '../src/lib/provider-status.ts';
 
 test('admin list includes undated legacy applications and shares pending totals with overview', async () => {
-  const env = await initializeTestEnvironment({ projectId: 'demo-wsm-admin-regression', firestore: {host:'127.0.0.1',port:8180,rules:readFileSync('firestore.rules','utf8')} });
+  const env = await initializeTestEnvironment({ projectId: 'demo-wsm-admin-regression', firestore: {host:'127.0.0.1',port:Number((process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8180').split(':').pop()),rules:readFileSync('firestore.rules','utf8')} });
   try {
     await env.clearFirestore();
     await env.withSecurityRulesDisabled(async ctx => {
