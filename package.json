@@ -79,5 +79,8 @@
   },
   "overrides": {
     "@grpc/grpc-js": "^1.13.6"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }
