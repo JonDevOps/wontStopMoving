@@ -54,10 +54,10 @@ function AdminQuotesContent() {
   }, [quotes, search, activeTab]);
 
   const stats = [
-    { label: "Total Estimates", value: quotes?.length || 0, icon: Calculator, color: "text-blue-500", bg: "bg-blue-50" },
-    { label: "New Requests", value: quotes?.filter(q => q.status === 'new').length || 0, icon: Clock, color: "text-orange-500", bg: "bg-orange-50" },
-    { label: "Processed", value: quotes?.filter(q => q.status === 'processed').length || 0, icon: CheckCircle2, color: "text-green-500", bg: "bg-green-50" },
-    { label: "Expired", value: quotes?.filter(q => q.status === 'expired').length || 0, icon: AlertCircle, color: "text-gray-500", bg: "bg-gray-100" },
+    { label: "Total Estimates", tab: "all", value: quotes?.length || 0, icon: Calculator, color: "text-blue-500", bg: "bg-blue-50" },
+    { label: "New Requests", tab: "new", value: quotes?.filter(q => q.status === 'new').length || 0, icon: Clock, color: "text-orange-500", bg: "bg-orange-50" },
+    { label: "Processed", tab: "processed", value: quotes?.filter(q => q.status === 'processed').length || 0, icon: CheckCircle2, color: "text-green-500", bg: "bg-green-50" },
+    { label: "Expired", tab: "expired", value: quotes?.filter(q => q.status === 'expired').length || 0, icon: AlertCircle, color: "text-gray-500", bg: "bg-gray-100" },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -80,7 +80,15 @@ function AdminQuotesContent() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {stats.map((stat, i) => (
-          <Card key={i} className="border-none shadow-sm h-full">
+          <Card
+            key={i}
+            role="button"
+            tabIndex={0}
+            aria-pressed={activeTab === stat.tab}
+            onClick={() => setActiveTab(stat.tab)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab(stat.tab); } }}
+            className={`border-none shadow-sm h-full cursor-pointer transition hover:shadow-md ${activeTab === stat.tab ? 'ring-2 ring-accent' : ''}`}
+          >
             <CardContent className="p-5 md:p-6">
               <div className="flex justify-between items-start mb-4">
                 <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
@@ -107,7 +115,7 @@ function AdminQuotesContent() {
           </div>
 
           <div className="w-full xl:w-auto overflow-x-auto pb-2 xl:pb-0 no-scrollbar">
-            <Tabs defaultValue="all" className="w-full xl:w-auto" onValueChange={setActiveTab}>
+            <Tabs value={activeTab} className="w-full xl:w-auto" onValueChange={setActiveTab}>
               <TabsList className="bg-gray-100 p-1 rounded-xl h-12 inline-flex w-fit min-w-full xl:min-w-0">
                 <TabsTrigger value="all" className="rounded-lg px-4 md:px-6 font-bold uppercase text-[10px] tracking-widest flex-1 xl:flex-none">All Requests</TabsTrigger>
                 <TabsTrigger value="new" className="rounded-lg px-4 md:px-6 font-bold uppercase text-[10px] tracking-widest flex-1 xl:flex-none">New</TabsTrigger>
