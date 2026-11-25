@@ -11,7 +11,20 @@ Prepared November 18, 2026. Do not submit until deployment verification below is
 - Support contact: **support@wontstopmoving.com**, **1-888-741-6683**.
 - Do not claim a registered DBA. The owner must use the exact legal name, registration/EIN, address and authorized representative matching the existing compliance profile. These private values are not reproduced here and must be verified by the owner before submission.
 
-## Copy-and-paste registration answers
+## Compliance review — November 18, 2026
+
+**Submission hold:** The registration answers below are a draft, not evidence of Twilio submission or approval. Do not submit them unchanged while the review-reward SMS classification remains unresolved. Automated SMS stays disabled (`NEXT_PUBLIC_MARKETPLACE_SMS_ENABLED=false`, `TWILIO_TOLL_FREE_VERIFIED=false`).
+
+- The actual completion SMS in `src/lib/server/notifications.ts` mentions the $5 review refund and optional tipping. Twilio distinguishes informational transaction notices from promotional messages, including discount announcements. My assessment is that this reward wording creates a promotional-classification risk; Twilio has not specifically ruled on this program. The current categorical “no promotional SMS” claim and instruction to avoid marketing must not be relied on without resolving this.
+- Conservative proposed SMS: “WontStopMoving: Your crew’s payment code was accepted. View your completed job and leave feedback at https://wontstopmoving.com/dashboard/customer/moves/[jobId]. Reply STOP to opt out.” Keep refund eligibility, the $5 refund offer and optional tipping in the authenticated dashboard and email. This is a proposed wording change only: the running template has not been changed by this review. Before submission, update and test the actual template and align the samples, or obtain Twilio guidance and accurately register the mixed content with appropriate consent.
+- Provider notification consent is separate: the application starts its checkbox unchecked and uses `PROVIDER_SMS_DISCLOSURE`, covering new jobs, appointments, job updates, accepted codes and payouts. The server records provider-specific disclosure and source evidence. Include https://wontstopmoving.com/provider-signup as additional opt-in proof, with an empty screenshot showing that checkbox and Terms/Privacy links. Customer consent never enrolls providers or authorizes their own marketing. Do not use this program for cold recruiting.
+- Provider consent is stored under the account subject with a provider marker; sending authorization currently checks consent/version/phone and suppression rather than a distinct purpose per event. Review dual-role or changed-role accounts before activation so customer-only consent cannot be reused for provider alerts.
+- Keep the existing honest-review refund independent of star rating. The review form discloses the incentive and the server labels incentivized reviews. FTC guidance requires clear incentive disclosure and prohibits making rewards conditional on positive sentiment. Marketplace payment, refund and tip code was left intact.
+- Before activation, obtain approved verification, resolve the content classification, verify provider opt-in proof and role scope, configure/verify STOP and HELP behavior, and perform owner-authorized delivery tests. A paid balance is not approval.
+
+Sources reviewed: [Twilio Messaging Policy](https://www.twilio.com/en-us/legal/messaging-policy), [Twilio consent-sharing rejection guidance](https://www.twilio.com/docs/api/errors/30477), [FTC review incentive guidance](https://www.ftc.gov/business-guidance/resources/soliciting-paying-online-reviews-guide-marketers).
+
+## Draft registration answers — resolve review above before use
 
 **Opt-in type:** Web Form.
 

@@ -56,7 +56,7 @@ test('minimum booking and separate tip allocation use integer cents', () => {
 
 test('job and review texts follow consent and lifecycle events without leaking payment codes', async () => {
   const sms=load('move-sms',{'./firebase-admin':{adminDb:()=>db}});
-  const notices=load('notifications',{'./firebase-admin':{adminDb:()=>db},'../custom-quotes':{},'./move-sms':sms});
+  const notices=load('notifications',{'./firebase-admin':{adminDb:()=>db},'../custom-quotes':{},'./move-sms':sms,'./email-provider':{emailProviderConfigured:()=>false},'./email-outbox':{deliverEmail:async()=> 'pending_configuration'}});
   const id='money-sms-job', uid='money-sms-provider', customerId='money-sms-customer';
   const consent=load('sms-consent',{'./firebase-admin':{adminDb:()=>db},'./auth':authMock});
   await consent.saveSmsConsent({subject:`user:${customerId}`,customerId,phone:'+15555550123',consent:true,version:consentShared.SMS_DISCLOSURE_VERSION,source:'test'});
