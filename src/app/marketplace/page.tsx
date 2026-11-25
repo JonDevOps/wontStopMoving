@@ -12,16 +12,16 @@ import Link from "next/link";
 
 type Provider = {
   id: string; businessName: string; bio: string; services: string[]; rating: number; reviewCount: number;
-  hourlyRate: number | null; verified: boolean; featured: boolean; distance: number | null;
+  hourlyRate: number | null; verified: boolean; featured: boolean; topRated: boolean; jobsCompleted: number; distance: number | null;
 };
-const ZIP_KEY = "wsm-marketplace-zip";
+const SEARCH_KEY = "wsm-marketplace-search";
 
 /**
  * Provider marketplace (#141): ask where the move is (ZIP code, or the
  * browser's location as an option) and list approved providers near it.
  */
 export default function MarketplacePage() {
-  const [zip, setZip] = useState("");
+  const [query, setQuery] = useState("");
   const [miles, setMiles] = useState(50);
   const [providers, setProviders] = useState<Provider[] | null>(null);
   const [place, setPlace] = useState<string | null>(null);
@@ -48,18 +48,18 @@ export default function MarketplacePage() {
   // Returning visitors see providers near their last ZIP right away.
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(ZIP_KEY);
-      if (saved && /^\d{5}$/.test(saved)) { setZip(saved); void search({ zip: saved }); }
+      const saved = localStorage.getItem(SEARCH_KEY);
+      if (saved && saved.trim().length >= 3) { setQuery(saved); void search({ q: saved }); }
     } catch { /* storage blocked */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const searchZip = (e: React.FormEvent) => {
+  const searchAddress = (e: React.FormEvent) => {
     e.preventDefault();
-    const z = zip.trim();
-    if (!/^\d{5}$/.test(z)) { setError("Enter a 5-digit ZIP code."); return; }
-    try { localStorage.setItem(ZIP_KEY, z); } catch { /* storage blocked */ }
-    void search({ zip: z });
+    const q = query.trim();
+    if (q.length < 3) { setError("Enter your address, city, or ZIP code."); return; }
+    try { localStorage.setItem(SEARCH_KEY, q); } catch { /* storage blocked */ }
+    void search({ q });
   };
 
   const useMyLocation = () => {
@@ -80,13 +80,13 @@ export default function MarketplacePage() {
             <h1 className="text-4xl md:text-5xl font-black text-slate-900 uppercase tracking-tight">
               Provider <span className="text-accent">Marketplace</span>
             </h1>
-            <p className="mt-4 text-slate-600 text-lg">Where are you moving from? We&apos;ll show independent moving pros near you, backed by the Wont Stop Moving guarantee.</p>
+            <p className="mt-4 text-slate-600 text-lg">Enter the address you&apos;re moving from and we&apos;ll show independent moving pros near you, backed by the Wont Stop Moving guarantee.</p>
           </header>
 
-          <form onSubmit={searchZip} className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 mb-10 grid gap-4 md:grid-cols-[1fr_auto_auto] items-end">
+          <form onSubmit={searchAddress} className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 mb-10 grid gap-4 md:grid-cols-[1fr_auto_auto] items-end">
             <div className="space-y-2">
-              <Label htmlFor="market-zip" className="text-sm font-bold text-slate-700 uppercase tracking-wider">Your ZIP code</Label>
-              <Input id="market-zip" inputMode="numeric" autoComplete="postal-code" maxLength={5} placeholder="e.g. 94110" value={zip} onChange={e => setZip(e.target.value.replace(/\D/g, ""))} className="h-12 border-slate-300 text-lg" autoFocus />
+              <Label htmlFor="market-address" className="text-sm font-bold text-slate-700 uppercase tracking-wider">Your address</Label>
+              <Input id="market-address" autoComplete="street-address" maxLength={200} placeholder="e.g. 123 Main St, San Francisco, CA (or just a ZIP)" value={query} onChange={e => setQuery(e.target.value)} className="h-12 border-slate-300 text-lg" autoFocus />
             </div>
             <div className="space-y-2">
               <Label htmlFor="market-miles" className="text-sm font-bold text-slate-700 uppercase tracking-wider">Within</Label>
@@ -110,7 +110,7 @@ export default function MarketplacePage() {
           ) : providers === null ? (
             <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center shadow-sm">
               <MapPin className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-600">Enter your ZIP code to see providers near you.</p>
+              <p className="text-slate-600">Enter your address to see providers near you.</p>
             </div>
           ) : providers.length === 0 ? (
             <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center shadow-sm space-y-4">
@@ -139,6 +139,8 @@ export default function MarketplacePage() {
                         <h3 className="text-xl font-bold text-slate-900 mb-1">{provider.businessName}</h3>
                         <div className="flex flex-wrap items-center gap-2 mb-4 text-sm font-medium">
                           <span className="flex items-center text-amber-500"><Star className="w-4 h-4 fill-current" /><span className="ml-1 text-slate-700">{provider.reviewCount ? `${provider.rating.toFixed(1)} (${provider.reviewCount})` : "New"}</span></span>
+                          {provider.topRated && <span className="text-amber-700 font-bold border-l border-slate-300 pl-2">Top rated</span>}
+                          {provider.jobsCompleted > 0 && <span className="text-slate-500 border-l border-slate-300 pl-2">{provider.jobsCompleted} jobs</span>}
                           {provider.distance !== null && <span className="flex items-center text-slate-500 border-l border-slate-300 pl-2"><MapPin className="w-3.5 h-3.5 mr-1" />{provider.distance.toFixed(1)} mi</span>}
                           {provider.hourlyRate && <span className="text-slate-500 border-l border-slate-300 pl-2">${provider.hourlyRate}/hr</span>}
                         </div>

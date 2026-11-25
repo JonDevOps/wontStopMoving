@@ -299,3 +299,20 @@ test('dispatcher requires verified sender, current consent and no STOP; stale qu
   assert.equal(await sms.deliverMoveText(staleId),'cancelled');assert.equal(sends,1);
  } finally {globalThis.fetch=originalFetch;for(const key of Object.keys(process.env))if(!(key in saved))delete process.env[key];Object.assign(process.env,saved);}
 });
+
+test('provider ranking: trusted ratings beat a single 5-star, top rated needs real history, featured is capped', async () => {
+  const { providerScore, isTopRated, rankProviders, trustedRating } = await import('../src/lib/provider-rank.ts');
+  const base = { rating: 0, reviewCount: 0, jobsCompleted: 0, cancellations: 0, verified: false, bioLength: 0, services: 1, monthsOnPlatform: 0, adminFeatured: false };
+  const oneReview = { ...base, rating: 5, reviewCount: 1, jobsCompleted: 1 };
+  const proven = { ...base, rating: 4.8, reviewCount: 30, jobsCompleted: 40, verified: true, bioLength: 120, services: 3, monthsOnPlatform: 14 };
+  assert.ok(trustedRating(5, 1) < trustedRating(4.8, 30));
+  assert.ok(providerScore(proven) > providerScore(oneReview));
+  assert.equal(isTopRated(oneReview), false); assert.equal(isTopRated(proven), true);
+  assert.ok(providerScore({ ...proven, cancellations: 20 }) < providerScore(proven));
+  const list = [1,2,3,4,5].map(i => ({ id: `p${i}`, rank: { ...proven, reviewCount: 30 + i } })).concat([{ id: 'pinned', rank: { ...base, adminFeatured: true } }, { id: 'new', rank: oneReview }]);
+  const ranked = rankProviders(list);
+  assert.equal(ranked.filter(p => p.featured).length, 4);
+  assert.ok(ranked.find(p => p.id === 'pinned').featured);
+  assert.equal(ranked.find(p => p.id === 'new').featured, false);
+  assert.ok(ranked.slice(0, 4).every(p => p.featured));
+});
