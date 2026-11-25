@@ -42,7 +42,9 @@ export async function POST(req: Request) {
     const addOns = Object.entries(details.addOns || {})
       .filter(([, active]) => active)
       .map(([key]) => key);
-    const total = q.isCustomQuote ? q.pricing.total : calculateMoveTotal(moveSize, addOns, {
+    // An admin-set price (#127) replaces the calculated one for standard quotes.
+    const adjusted = !q.isCustomQuote && typeof q.adjustedTotal === 'number' && q.adjustedTotal > 0 ? q.adjustedTotal : null;
+    const total = q.isCustomQuote ? q.pricing.total : adjusted ?? calculateMoveTotal(moveSize, addOns, {
       isStudent: !!details.isStudent,
       isMilitary: !!details.isMilitary,
       isSenior: !!details.isSenior,
