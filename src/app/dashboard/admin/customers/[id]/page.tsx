@@ -33,7 +33,7 @@ import {
   User
 } from "lucide-react";
 import Link from "next/link";
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
@@ -64,6 +64,16 @@ function CustomerDetailContent({ id }: { id: string }) {
   const { accounts } = useAccountActivity(id ? [id] : []);
   const [suspendOverride, setSuspendOverride] = useState<boolean | null>(null);
   const [savingStatus, setSavingStatus] = useState(false);
+  // Sales calls about this customer, with their answers to the script (#123).
+  const [calls, setCalls] = useState<{ id: string; createdAt: string | null; repName: string; disposition: string; notes: string; answers: Record<string, { label: string; answer: string }> }[] | null>(null);
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    apiFetch<{ calls: NonNullable<typeof calls> }>(auth, `/api/sales/calls?lookup=1&customerId=${encodeURIComponent(id)}`)
+      .then(r => { if (!cancelled) setCalls(r.calls); })
+      .catch(() => { if (!cancelled) setCalls([]); });
+    return () => { cancelled = true; };
+  }, [auth, id]);
 
   if (userLoading) return <div className="p-20 text-center font-bold text-primary animate-pulse uppercase tracking-widest">Accessing Customer Records...</div>;
   if (!customer) return <div className="p-20 text-center font-bold text-red-500 uppercase tracking-widest">Customer not found.</div>;
@@ -244,6 +254,23 @@ function CustomerDetailContent({ id }: { id: string }) {
                   <Calculator className="h-10 w-10 text-muted-foreground opacity-20 mx-auto mb-2" />
                   <p className="text-sm font-bold text-muted-foreground uppercase">No quotes requested.</p>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm overflow-hidden">
+            <CardHeader className="bg-gray-50 border-b">
+              <CardTitle className="text-sm font-black tracking-widest uppercase text-primary">Call notes ({calls?.length || 0})</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              {calls === null ? <p className="text-xs font-bold text-muted-foreground uppercase animate-pulse">Loading calls…</p> : calls.length === 0 ? <p className="text-sm text-muted-foreground">No sales calls logged for this customer yet.</p> : (
+                <ul className="space-y-4">{calls.map(c => (
+                  <li key={c.id} className="border-l-2 border-accent pl-3 space-y-1">
+                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">{c.createdAt ? format(new Date(c.createdAt), "MMM d, yyyy h:mm a") : ""} · {c.disposition} · {c.repName}</p>
+                    {c.notes && <p className="text-sm whitespace-pre-wrap">{c.notes}</p>}
+                    {Object.values(c.answers || {}).map((a, i) => <p key={i} className="text-sm"><span className="font-bold">{a.label}:</span> {a.answer}</p>)}
+                  </li>
+                ))}</ul>
               )}
             </CardContent>
           </Card>

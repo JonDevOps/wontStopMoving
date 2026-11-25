@@ -122,7 +122,7 @@ export default function MyQuotesPage() {
                 .filter(([_, active]) => active)
                 .map(([key]) => key);
 
-              const estimatedTotal = calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
+              const estimatedTotal = typeof quote.adjustedTotal === 'number' && quote.adjustedTotal > 0 ? quote.adjustedTotal : calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
                 isStudent: !!details?.isStudent,
                 isMilitary: !!details?.isMilitary,
                 isSenior: !!details?.isSenior,
