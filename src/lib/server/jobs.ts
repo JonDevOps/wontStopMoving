@@ -14,6 +14,7 @@ import { confirmMoverOrder } from './mover-orders';
 import { confirmTipCheckout } from './move-benefits';
 import { moneyOperation } from './money-operation';
 import { sendGuestPasswordEmail } from './guest-account';
+import { payExtraCharges } from './extra-hours';
 
 /**
  * Server-side job lifecycle. Jobs are created, confirmed and completed only
@@ -313,7 +314,11 @@ export async function releaseJobByCustomer(params: { jobId: string; uid: string 
 export async function payoutCompletedJob(jobId: string): Promise<CompletionResult> {
   const db = adminDb(), jobRef = db.doc(`jobs/${jobId}`), data = (await jobRef.get()).data();
   if (!data || data.status !== 'completed' || data.paymentStatus !== 'paid' || data.paymentHold || !data.releaseConfirmedAt) throw new HttpError(409, 'This move needs payment review before payout.');
-  if (data.payoutTransferId) return { payoutStatus: 'paid', transferId: data.payoutTransferId };
+  if (data.payoutTransferId) {
+    // Extra hours accepted on this job are paid from their own charges (#153).
+    if (Array.isArray(data.extraCharges) && data.extraCharges.length && data.payoutAccountId) await payExtraCharges(jobId, data.payoutAccountId);
+    return { payoutStatus: 'paid', transferId: data.payoutTransferId };
+  }
   let transferId: string | null = null;
   try {
     const payeeUid = data.payeeProviderId;
@@ -341,6 +346,7 @@ export async function payoutCompletedJob(jobId: string): Promise<CompletionResul
           return stripe.transfers.create({ ...request, source_transaction: charge.id } as unknown as Stripe.TransferCreateParams, { idempotencyKey: key });
         });
       transferId = transfer.id;
+      if (Array.isArray(data.extraCharges) && data.extraCharges.length) await payExtraCharges(jobId, data.payoutAccountId || accountId);
     }
   } catch {
     console.error(`Payout for job ${jobId} needs manual review.`);

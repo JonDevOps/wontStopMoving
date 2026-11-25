@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { RequestExtraHours } from "@/components/jobs/extra-hours";
 
 interface JobDetails {
   id: string;
@@ -168,6 +169,10 @@ export default function ProviderJobDetailsPage() {
               </CardContent>
             </Card>
 
+
+            {(job.status === 'confirmed' || job.status === 'in-progress') && job.orderId && typeof job.hoursReserved === 'number' && typeof job.hourlyRate === 'number' && (
+              <RequestExtraHours jobId={job.id} hoursReserved={job.hoursReserved} hourlyRate={job.hourlyRate} request={job.hoursRequest || null} />
+            )}
 
             {(job.status === 'confirmed' || job.status === 'in-progress') && (
               <Card className="border-2 border-accent shadow-lg bg-accent/5 mt-6">
