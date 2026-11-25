@@ -2,8 +2,8 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { connectAuthEmulator, getAuth } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
@@ -33,11 +33,27 @@ export function initializeFirebase() {
   return getSdks(getApp());
 }
 
+// Local development against the Firebase emulators (`npm run dev:local`).
+// Never set in production, so live builds always talk to the real project.
+const USE_EMULATORS = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+let emulatorsConnected = false;
+
 export function getSdks(firebaseApp: FirebaseApp) {
+  const auth = getAuth(firebaseApp);
+  const connectNow = USE_EMULATORS && !emulatorsConnected && typeof window !== 'undefined';
+  // Long polling works through the dev server's proxy; streaming may not.
+  const firestore = connectNow ? initializeFirestore(firebaseApp, { experimentalForceLongPolling: true }) : getFirestore(firebaseApp);
+  if (connectNow) {
+    emulatorsConnected = true;
+    // Same origin as the page; next.config.ts forwards these to the emulators.
+    const { protocol, hostname, port } = window.location;
+    connectAuthEmulator(auth, `${protocol}//${hostname}:${port}`, { disableWarnings: true });
+    connectFirestoreEmulator(firestore, hostname, Number(port));
+  }
   return {
     firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp),
+    auth,
+    firestore,
     storage: getStorage(firebaseApp)
   };
 }

@@ -46,3 +46,5 @@ firestore-debug.log
 
 # android builds & keys
 /android-builds/
+# Local Firebase emulator data (npm run emulators)
+.emulator-data/
