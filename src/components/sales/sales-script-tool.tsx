@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { PhoneCall, PhoneIncoming, PhoneOutgoing, CheckCircle2, RotateCcw, Calculator, Copy, Sparkles, ShieldCheck, MessageSquareWarning, Save, CalendarClock, Target } from "lucide-react";
+import { UserRound, History, PhoneCall, PhoneIncoming, PhoneOutgoing, CheckCircle2, RotateCcw, Calculator, Copy, Sparkles, ShieldCheck, MessageSquareWarning, Save, CalendarClock, Target } from "lucide-react";
 import { MOVE_PRICING, ADDON_PRICING, MILEAGE, calculateMoveTotal } from "@/lib/pricing";
 import { useAuth } from "@/firebase";
 import { apiFetch } from "@/lib/api-client";
@@ -54,6 +54,11 @@ export function SalesScriptTool() {
   const [followUpAt, setFollowUpAt] = useState("");
   const [saving, setSaving] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
+  // Their answer to each script question, saved with the call and the customer's account (#123).
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  type OnFile = { customer: { id: string; name: string; email: string; phone: string; state: string; role: string; quotes: number; jobs: number } | null; calls: { id: string; createdAt: string | null; repName: string; disposition: string; notes: string; answers: Record<string, { label: string; answer: string }> }[] };
+  const [onFile, setOnFile] = useState<OnFile | null>(null);
+  const isAdminView = typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard/admin");
 
   // Opened from the lead inbox: prefill the lead's details.
   useEffect(() => {
@@ -65,6 +70,21 @@ export function SalesScriptTool() {
     if (type && CALL_TYPES.some(t => t.id === type)) setCallType(type as CallTypeId);
     setCustomerName(p.get("name") || ""); setCustomerPhone(p.get("phone") || ""); setCustomerEmail(p.get("email") || ""); setMoveDate(p.get("date") || "");
   }, []);
+
+  // Look up who we're talking to once there's a lead, email or phone number.
+  useEffect(() => {
+    const email = customerEmail.trim(), phone = customerPhone.trim();
+    if (!leadId && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && phone.replace(/\D/g, "").length < 10) { setOnFile(null); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const q = new URLSearchParams({ lookup: "1", ...(leadId ? { leadId } : {}), ...(email ? { email } : {}), ...(phone ? { phone } : {}) });
+        const r = await apiFetch<OnFile>(auth, `/api/sales/calls?${q}`);
+        if (!cancelled) setOnFile(r);
+      } catch { if (!cancelled) setOnFile(null); }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [auth, leadId, customerEmail, customerPhone]);
 
   const [followUps, setFollowUps] = useState<FollowUp[] | null>(null);
   const [followUpError, setFollowUpError] = useState("");
@@ -113,7 +133,7 @@ export function SalesScriptTool() {
   const reset = () => {
     setChecked({}); setCustomerName(""); setCustomerEmail(""); setCustomerPhone(""); setPickup(""); setDropoff("");
     setMoveDate(""); setMoveSize("2br"); setAddOns([]); setIsStudent(false); setIsMilitary(false); setIsExpress(false);
-    setNotes(""); setDisposition(""); setFollowUpAt(""); setLeadId(null);
+    setNotes(""); setDisposition(""); setFollowUpAt(""); setLeadId(null); setAnswers({}); setOnFile(null);
     if (window.location.search) window.history.replaceState(null, "", window.location.pathname);
   };
 
@@ -139,7 +159,8 @@ Your mover is paid only after you confirm the job is done.`;
       await apiFetch(auth, "/api/sales/calls", {
         action: "log", callType, service, disposition, customerName, customerPhone, customerEmail, pickup, dropoff, moveDate,
         moveSize: showsQuote ? moveSize : undefined, addOns: showsQuote ? addOns : [], isStudent, isMilitary, isExpress,
-        notes, checklistProgress: `${doneCount}/${totalItems}`, leadId: leadId || undefined, followUpAt: followUpAt ? new Date(followUpAt).toISOString() : undefined,
+        notes, checklistProgress: `${doneCount}/${totalItems}`, leadId: leadId || undefined,
+        answers: Object.fromEntries(Object.entries(answers).filter(([, v]) => v.trim()).map(([id, answer]) => [id, { label: phases.flatMap(ph => ph.items).find(i => i.id === id)?.label || id, answer }])), followUpAt: followUpAt ? new Date(followUpAt).toISOString() : undefined,
       });
       toast({ title: "Call logged", description: followUpAt && dispositionInfo?.needsFollowUp ? `Follow-up set for ${new Date(followUpAt).toLocaleString()}.` : "Saved to the call log." });
       reset();
@@ -268,6 +289,17 @@ Your mover is paid only after you confirm the job is done.`;
                             </div>
                             <p className="text-sm text-slate-700 bg-white p-3.5 rounded-xl border border-slate-100 italic leading-relaxed font-medium">{fill(item.script)}</p>
                             {item.tip && <p className="text-[11px] font-bold text-accent flex items-start gap-1.5"><Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5" /> {item.tip}</p>}
+                            <Textarea
+                              aria-label={`Their answer: ${item.label}`}
+                              placeholder="Their answer (saved to their account)"
+                              value={answers[item.id] || ""}
+                              maxLength={1000}
+                              rows={answers[item.id] ? 2 : 1}
+                              onClick={e => e.stopPropagation()}
+                              onKeyDown={e => e.stopPropagation()}
+                              onChange={e => setAnswers(a => ({ ...a, [item.id]: e.target.value }))}
+                              className="min-h-0 text-sm bg-white rounded-xl"
+                            />
                           </div>
                         </div>
                       </div>
@@ -320,6 +352,26 @@ Your mover is paid only after you confirm the job is done.`;
               <p className="text-xs text-slate-400">The script fills in these details as you type.</p>
             </CardHeader>
             <CardContent className="p-6 space-y-5">
+              {onFile && (onFile.customer || onFile.calls.length > 0) && (
+                <div className="rounded-2xl border border-accent/30 bg-accent/5 p-4 space-y-3 text-sm">
+                  <p className="text-[11px] font-black uppercase tracking-widest text-accent flex items-center gap-1.5"><UserRound className="h-4 w-4" /> On file</p>
+                  {onFile.customer ? <div className="space-y-0.5">
+                    <p className="font-bold text-primary">{onFile.customer.name || "Unnamed account"} <span className="text-xs font-normal text-muted-foreground capitalize">({onFile.customer.role})</span></p>
+                    <p className="text-xs">{[onFile.customer.phone, onFile.customer.email, onFile.customer.state].filter(Boolean).join(" · ")}</p>
+                    <p className="text-xs text-muted-foreground">{onFile.customer.quotes} quote{onFile.customer.quotes === 1 ? "" : "s"} · {onFile.customer.jobs} move{onFile.customer.jobs === 1 ? "" : "s"}</p>
+                    {isAdminView && <a className="text-xs underline font-bold" href={`/dashboard/admin/customers/${onFile.customer.id}`} target="_blank" rel="noopener noreferrer">Open profile</a>}
+                    {(!customerName || !customerPhone || !customerEmail) && <Button size="sm" variant="outline" className="h-7 text-xs mt-1" onClick={() => { const c = onFile.customer!; if (!customerName) setCustomerName(c.name); if (!customerPhone) setCustomerPhone(c.phone); if (!customerEmail) setCustomerEmail(c.email); }}>Fill in from account</Button>}
+                  </div> : <p className="text-xs text-muted-foreground">No account yet. Past calls with this contact are below.</p>}
+                  {onFile.calls.length > 0 && <div className="space-y-2 border-t border-accent/20 pt-2">
+                    <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5"><History className="h-3.5 w-3.5" /> Past calls ({onFile.calls.length})</p>
+                    <ul className="space-y-2 max-h-56 overflow-y-auto pr-1">{onFile.calls.map(c => <li key={c.id} className="bg-white rounded-lg p-2">
+                      <p className="text-xs font-bold">{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ""} · {DISPOSITIONS.find(d => d.id === c.disposition)?.label || c.disposition} · {c.repName}</p>
+                      {c.notes && <p className="text-xs whitespace-pre-wrap">{c.notes}</p>}
+                      {Object.values(c.answers || {}).map((a, i) => <p key={i} className="text-xs"><span className="font-bold">{a.label}:</span> {a.answer}</p>)}
+                    </li>)}</ul>
+                  </div>}
+                </div>
+              )}
               <div className="space-y-3">
                 <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Contact</Label>
                 <Input placeholder="Customer or company name" value={customerName} onChange={e => setCustomerName(e.target.value)} className="h-11 rounded-xl" />

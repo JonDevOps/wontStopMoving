@@ -34,6 +34,13 @@ export async function GET(req: Request) {
         lostReason: q.lostReason || null, createdAt: created, firstContactAt: first, lastContactAt: ms(q.lastContactAt),
         responseMinutes: created && first ? Math.max(0, Math.round((first - created) / 60000)) : null,
         channel: classifyChannel(q.leadSource), referred: typeof q.referralCode === 'string',
+        customerId: typeof q.customerId === 'string' ? q.customerId : null,
+        source: {
+          landingPath: q.leadSource?.landingPath || null, referrerHost: q.leadSource?.referrerHost || null,
+          utmSource: q.leadSource?.utmSource || null, utmMedium: q.leadSource?.utmMedium || null, utmCampaign: q.leadSource?.utmCampaign || null,
+          refCode: q.leadSource?.refCode || null, pagesVisited: Array.isArray(q.leadSource?.pagesVisited) ? q.leadSource.pagesVisited.slice(-25) : [],
+        },
+        notes: (Array.isArray(q.leadNotes) ? q.leadNotes : []).map((n: any) => ({ text: String(n.text || ''), byName: String(n.byName || 'Staff'), at: Number(n.at || 0) })),
         followUpStep: Number(q.followUpStep || 0), followUpsStopped: q.followUpsStopped === true ? (q.followUpsStoppedReason || 'stopped') : null,
       };
     });
@@ -70,7 +77,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const { user } = await requireRole(req, ['employee', 'admin']);
-    const { action, id, reason } = await readJson(req);
+    const { action, id, reason, text } = await readJson(req);
     if (!isId(id)) throw new HttpError(400, 'Choose a lead.');
     const db = adminDb(), ref = db.doc(`quotes/${id}`);
     const q = (await ref.get()).data();
@@ -87,6 +94,14 @@ export async function POST(req: Request) {
         if (q.status === 'processed' || q.paymentStatus === 'paid') throw new HttpError(409, 'This lead already booked.');
         await ref.update({ leadStatus: 'lost', lostReason: reason, lostBy: user.uid, lostAt: FieldValue.serverTimestamp() });
         break;
+      case 'note': {
+        // Shared call notes on a lead (#122).
+        const note = typeof text === 'string' ? text.trim() : '';
+        if (!note || note.length > 2000) throw new HttpError(400, 'Write a note up to 2,000 characters.');
+        const byName = ((await db.doc(`users/${user.uid}`).get()).data()?.name as string) || user.email || 'Staff';
+        await ref.update({ leadNotes: FieldValue.arrayUnion({ text: note, by: user.uid, byName, at: Date.now() }) });
+        break;
+      }
       case 'reopen':
         await ref.update({ leadStatus: q.firstContactAt ? 'contacted' : FieldValue.delete(), lostReason: FieldValue.delete() });
         break;

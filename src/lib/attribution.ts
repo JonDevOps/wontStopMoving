@@ -7,6 +7,8 @@
 export type LeadSource = {
   utmSource?: string; utmMedium?: string; utmCampaign?: string;
   referrerHost?: string; landingPath?: string; refCode?: string; firstSeenAt?: number;
+  /** Site pages visited before the quote, oldest first (#166). */
+  pagesVisited?: string[];
 };
 
 export type Channel = 'Referral' | 'Paid search' | 'Paid social' | 'Organic search' | 'Social' | 'Email' | 'Other website' | 'Direct';
@@ -45,7 +47,11 @@ export function cleanLeadSource(raw: unknown): LeadSource | null {
     referrerHost: str(r.referrerHost, 120), landingPath: str(r.landingPath, 200),
     refCode: typeof r.refCode === 'string' && /^[A-Z0-9]{6,12}$/.test(r.refCode) ? r.refCode : undefined,
     firstSeenAt: typeof r.firstSeenAt === 'number' && Number.isFinite(r.firstSeenAt) ? r.firstSeenAt : undefined,
+    pagesVisited: Array.isArray(r.pagesVisited)
+      ? r.pagesVisited.filter((p): p is string => typeof p === 'string' && p.startsWith('/')).map(p => p.slice(0, 200)).slice(-25)
+      : undefined,
   };
+  if (out.pagesVisited && !out.pagesVisited.length) delete out.pagesVisited;
   for (const k of Object.keys(out) as (keyof LeadSource)[]) if (out[k] === undefined) delete out[k];
   return Object.keys(out).length ? out : null;
 }

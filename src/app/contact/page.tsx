@@ -181,7 +181,7 @@ export default function ContactPage() {
                 </div>
 
                 <div className="space-y-6">
-                  <h3 className="text-xl font-black text-primary uppercase">SERVICE AREAS</h3>
+                  <h3 className="text-xl font-black text-primary uppercase">REGIONAL HEADQUARTERS</h3>
                   <p className="text-muted-foreground">Contact us to confirm crew availability and scheduling for your route.</p>
                   <div className="grid gap-4 max-h-[600px] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-accent">
                     {serviceAreas.map((area) => (
@@ -189,7 +189,7 @@ export default function ContactPage() {
                         <MapPin className="h-5 w-5 text-accent shrink-0" />
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-primary">{area}</p>
-                          <span className="text-[10px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded uppercase">Service area</span>
+                          <span className="text-[10px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded uppercase">Regional HQ</span>
                         </div>
                       </div>
                     ))}

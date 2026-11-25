@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { calculateMoveTotal } from "@/lib/pricing";
+import { calculateMoveTotal, isMoveTier } from "@/lib/pricing";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 import { TermsConfirmation } from '@/components/legal/terms-confirmation';
@@ -122,10 +122,11 @@ export default function MyQuotesPage() {
                 .filter(([_, active]) => active)
                 .map(([key]) => key);
 
-              const estimatedTotal = calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
+              const estimatedTotal = typeof quote.adjustedTotal === 'number' && quote.adjustedTotal > 0 ? quote.adjustedTotal : calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
                 isStudent: !!details?.isStudent,
                 isMilitary: !!details?.isMilitary,
                 isSenior: !!details?.isSenior,
+                tier: isMoveTier(quote.tier) ? quote.tier : isMoveTier(details?.tier) ? details.tier : undefined,
                 isExpress: !!details?.addOns?.express,
                 miles: typeof quote.estimatedMiles === "number" ? quote.estimatedMiles : null,
               });

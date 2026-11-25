@@ -22,6 +22,7 @@ env:
   - variable: TWILIO_FROM_NUMBER
     value: "+18887416683"
     availability: [RUNTIME]
+  # Phone menu + hold queue live (#194). Calls ring TWILIO_VOICE_FORWARD_TO (secret).
   - variable: TWILIO_VOICE_ENABLED
     value: "true"
     availability: [RUNTIME]
@@ -146,7 +147,7 @@ env:
   - variable: TWILIO_ACCOUNT_SID
     secret: TWILIO_ACCOUNT_SID
     availability: [RUNTIME]
-
+  # Owner's phone for incoming business calls; kept as a secret so it isn't in the public repo.
   - variable: TWILIO_VOICE_FORWARD_TO
     secret: TWILIO_VOICE_FORWARD_TO
     availability: [RUNTIME]

@@ -7,6 +7,7 @@ import ts from 'typescript';
 import * as contact from '../src/lib/business-contact.ts';
 import * as consentShared from '../src/lib/sms-consent.ts';
 import { initializeApp, deleteApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { moneyOperation } from '../src/lib/server/money-operation.ts';
 import { providerShareCents, tipShareCents, moverCartSchema } from '../src/lib/mover-cart.ts';
@@ -42,6 +43,7 @@ function fakeStripe() {
     paymentIntents: { retrieve: async () => ({ status: 'succeeded', currency: 'usd', latest_charge: { id: 'ch_demo_shared', amount: 100000, amount_refunded: 0, refunded: false, disputed: false } }) },
     transfers: { create: (params, options) => { if (params.transfer_group) throw new Error('A source charge already has its order transfer group'); return record(transfers, 'tr', params, options); } },
     refunds: { create: (params, options) => record(refunds, 're', params, options) },
+    customers: { create: async () => ({ id: 'cus_demo_customer' }) },
     checkout: { sessions: { create: (params, options) => record(sessions, 'cs', params, options).then(result => ({...result,url:'https://checkout.stripe.com/c/pay/demo'})) } },
   };
 }
@@ -184,7 +186,7 @@ test('a refunded tip payment is never transferred to the provider', async () => 
 
 test('only the assigned crew can redeem its code; each allocation pays independently once', async () => {
   const stripe=fakeStripe();
-  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation} });
+  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation}, './guest-account':{sendGuestPasswordEmail:async()=>{}}, './extra-hours':{payExtraCharges:async()=>true} });
   for(const [id,uid,cents] of [['money-release-a','money-release-crew-a',9000],['money-release-b','money-release-crew-b',13000]]) {
     await db.doc(`providers/${uid}`).set({stripeAccountId:`acct_${uid}`,stripeOnboardingComplete:true});
     await db.doc(`jobs/${id}`).set({customerId:'money-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_shared_release',orderId:'money-shared-order',amountPaid:cents/100,providerPayoutCents:providerShareCents(cents),reviewRefundEligible:true});
@@ -200,6 +202,79 @@ test('only the assigned crew can redeem its code; each allocation pays independe
   assert.equal(stripe.transfersMade.size,2);
   assert.ok([...stripe.transfersMade.values()].every(item => !('transfer_group' in item.params)));
   assert.equal([...stripe.transfersMade.values()].reduce((sum,item)=>sum+item.params.amount,0),18700);
+});
+
+test('customer can release their own paid move from the app, once, on or after the move date', async () => {
+  const stripe=fakeStripe();
+  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation}, './guest-account':{sendGuestPasswordEmail:async()=>{}}, './extra-hours':{payExtraCharges:async()=>true} });
+  const uid='money-custrelease-crew', today=new Date().toISOString().slice(0,10), later=new Date(Date.now()+5*86400000).toISOString().slice(0,10);
+  await db.doc(`providers/${uid}`).set({stripeAccountId:`acct_${uid}`,stripeOnboardingComplete:true});
+  await db.doc('jobs/money-custrelease-now').set({customerId:'money-custrelease-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_custrelease',amountPaid:100,providerPayoutCents:providerShareCents(10000),reviewRefundEligible:true,moveDate:today});
+  await db.doc('jobs/money-custrelease-later').set({customerId:'money-custrelease-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_custrelease_later',amountPaid:100,providerPayoutCents:providerShareCents(10000),reviewRefundEligible:true,moveDate:later});
+  await assert.rejects(()=>lifecycle.releaseJobByCustomer({jobId:'money-custrelease-now',uid:'someone-else'}), /another account/);
+  await assert.rejects(()=>lifecycle.releaseJobByCustomer({jobId:'money-custrelease-later',uid:'money-custrelease-customer'}), /on or after/);
+  await lifecycle.releaseJobByCustomer({jobId:'money-custrelease-now',uid:'money-custrelease-customer'});
+  const done=(await db.doc('jobs/money-custrelease-now').get()).data();
+  assert.equal(done.status,'completed'); assert.equal(done.releasedByCustomer,true); assert.equal(done.payeeProviderId,uid);
+  await assert.rejects(()=>lifecycle.releaseJobByCustomer({jobId:'money-custrelease-now',uid:'money-custrelease-customer'}), /already completed/);
+  assert.equal(stripe.transfersMade.size,1);
+  assert.equal([...stripe.transfersMade.values()][0].params.amount,providerShareCents(10000));
+});
+
+test('guest checkout creates or reuses a passwordless guest, and sends existing accounts to sign in', async () => {
+  const auth=getAuth(app), sent=[];
+  const guest=load('guest-account', { './firebase-admin':{adminDb:()=>db,adminAuth:()=>auth}, './auth':authMock, './notifications':{enqueueEmail:async (key,msg)=>{sent.push(msg);return {id:key,status:'sent'};}} });
+  const stamp=Date.now(), email=`money-guest-${stamp}@example.com`, real=`money-real-${stamp}@example.com`;
+  await assert.rejects(()=>guest.guestCustomer({name:'G',email,phone:'4155550100'}), /name/);
+  await assert.rejects(()=>guest.guestCustomer({name:'Guest Person',email:'nope',phone:'4155550100'}), /email/);
+  const first=await guest.guestCustomer({name:'Guest Person',email,phone:'4155550100'});
+  const again=await guest.guestCustomer({name:'Guest Person',email,phone:'4155550100'});
+  assert.equal(again.uid, first.uid);
+  const profile=(await db.doc(`users/${first.uid}`).get()).data();
+  assert.equal(profile.role,'customer'); assert.equal(profile.guestCheckout,true);
+  const realUser=await auth.createUser({email:real,password:'password123'});
+  await db.doc(`users/${realUser.uid}`).set({role:'customer',email:real});
+  await assert.rejects(()=>guest.guestCustomer({name:'Real Person',email:real,phone:'4155550100'}), /Sign in/);
+  await guest.sendGuestPasswordEmail(first.uid,'https://example.test');
+  await guest.sendGuestPasswordEmail(first.uid,'https://example.test');
+  assert.equal(sent.length,1); assert.equal(sent[0].to,email);
+  await db.doc(`users/${first.uid}`).delete(); await db.doc(`users/${realUser.uid}`).delete();
+});
+
+test('extra hours: crew requests, customer accepts with the saved card, crew share pays out from that charge', async () => {
+  const created=[], transfers=[]; let decline=false;
+  const stripe={
+    paymentIntents:{
+      retrieve: async id => id==='pi_extra_orig' ? {id, customer:'cus_extra', payment_method:'pm_extra', setup_future_usage:'off_session'} : {id, latest_charge:'ch_extra_1', status:'succeeded'},
+      create: async (params, options) => { if (decline) { const e=new Error('declined'); e.code='card_declined'; throw e; } created.push({params, options}); return {id:'pi_extra_new', status:'succeeded'}; },
+    },
+    transfers:{ create: async (params, options) => { transfers.push({params, options}); return {id:`tr_extra_${transfers.length}`}; } },
+  };
+  const extra=load('extra-hours', { '@/lib/stripe':{stripe}, './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>({})}, './money-operation':{moneyOperation}, '../mover-cart':{providerShareCents} });
+  const base={customerId:'money-extra-customer',providerIds:['money-extra-crew'],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_extra_orig',orderId:'money-extra-order',hoursReserved:2,hourlyRate:65,amountPaid:130,price:130};
+  await db.doc('jobs/money-extra-a').set(base); await db.doc('jobs/money-extra-b').set(base);
+  await assert.rejects(()=>extra.requestExtraHours({jobId:'money-extra-a',uid:'someone-else',isAdmin:false,hours:3,reason:'more boxes'}), /not assigned/);
+  await assert.rejects(()=>extra.requestExtraHours({jobId:'money-extra-a',uid:'money-extra-crew',isAdmin:false,hours:2,reason:'x'}), /above 2/);
+  const req=await extra.requestExtraHours({jobId:'money-extra-a',uid:'money-extra-crew',isAdmin:false,hours:4,reason:'More boxes than listed'});
+  assert.equal(req.extraCents,13000);
+  await assert.rejects(()=>extra.respondExtraHours({jobId:'money-extra-a',uid:'money-extra-crew',accept:true}), /another account/);
+  const result=await extra.respondExtraHours({jobId:'money-extra-a',uid:'money-extra-customer',accept:true});
+  assert.equal(result.chargedCents,13000);
+  assert.equal(created.length,1); assert.equal(created[0].params.off_session,true); assert.equal(created[0].params.customer,'cus_extra'); assert.equal(created[0].params.amount,13000);
+  const job=(await db.doc('jobs/money-extra-a').get()).data();
+  assert.equal(job.hoursReserved,4); assert.equal(job.amountPaid,260); assert.equal(job.hoursRequest.status,'accepted');
+  assert.equal(job.extraCharges[0].providerCents,providerShareCents(13000));
+  await assert.rejects(()=>extra.respondExtraHours({jobId:'money-extra-a',uid:'money-extra-customer',accept:true}), /no hours change/);
+  assert.equal(await extra.payExtraCharges('money-extra-a','acct_money_extra'),true);
+  assert.equal(await extra.payExtraCharges('money-extra-a','acct_money_extra'),true);
+  assert.equal(transfers.length,1); assert.equal(transfers[0].params.source_transaction,'ch_extra_1'); assert.equal(transfers[0].params.amount,providerShareCents(13000));
+  await extra.requestExtraHours({jobId:'money-extra-b',uid:'money-extra-crew',isAdmin:false,hours:3,reason:'Long carry'});
+  decline=true;
+  await assert.rejects(()=>extra.respondExtraHours({jobId:'money-extra-b',uid:'money-extra-customer',accept:true}), /declined/);
+  const failed=(await db.doc('jobs/money-extra-b').get()).data();
+  assert.equal(failed.hoursRequest.status,'payment_failed'); assert.equal(failed.hoursReserved,2);
+  await extra.respondExtraHours({jobId:'money-extra-b',uid:'money-extra-customer',accept:false});
+  assert.equal((await db.doc('jobs/money-extra-b').get()).data().hoursRequest.status,'declined');
 });
 
 test('dispatcher requires verified sender, current consent and no STOP; stale queues and legacy booleans cannot send', async () => {
@@ -223,4 +298,21 @@ test('dispatcher requires verified sender, current consent and no STOP; stale qu
   const staleId='f'.repeat(64);await db.doc(`smsOutbox/${staleId}`).set({jobId,key:`stale:${jobId}`,to:phone,body:'Old message',status:'pending',createdAt:Timestamp.fromMillis(Date.now()-2*86400000)});
   assert.equal(await sms.deliverMoveText(staleId),'cancelled');assert.equal(sends,1);
  } finally {globalThis.fetch=originalFetch;for(const key of Object.keys(process.env))if(!(key in saved))delete process.env[key];Object.assign(process.env,saved);}
+});
+
+test('provider ranking: trusted ratings beat a single 5-star, top rated needs real history, featured is capped', async () => {
+  const { providerScore, isTopRated, rankProviders, trustedRating } = await import('../src/lib/provider-rank.ts');
+  const base = { rating: 0, reviewCount: 0, jobsCompleted: 0, cancellations: 0, verified: false, bioLength: 0, services: 1, monthsOnPlatform: 0, adminFeatured: false };
+  const oneReview = { ...base, rating: 5, reviewCount: 1, jobsCompleted: 1 };
+  const proven = { ...base, rating: 4.8, reviewCount: 30, jobsCompleted: 40, verified: true, bioLength: 120, services: 3, monthsOnPlatform: 14 };
+  assert.ok(trustedRating(5, 1) < trustedRating(4.8, 30));
+  assert.ok(providerScore(proven) > providerScore(oneReview));
+  assert.equal(isTopRated(oneReview), false); assert.equal(isTopRated(proven), true);
+  assert.ok(providerScore({ ...proven, cancellations: 20 }) < providerScore(proven));
+  const list = [1,2,3,4,5].map(i => ({ id: `p${i}`, rank: { ...proven, reviewCount: 30 + i } })).concat([{ id: 'pinned', rank: { ...base, adminFeatured: true } }, { id: 'new', rank: oneReview }]);
+  const ranked = rankProviders(list);
+  assert.equal(ranked.filter(p => p.featured).length, 4);
+  assert.ok(ranked.find(p => p.id === 'pinned').featured);
+  assert.equal(ranked.find(p => p.id === 'new').featured, false);
+  assert.ok(ranked.slice(0, 4).every(p => p.featured));
 });

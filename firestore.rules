@@ -59,8 +59,8 @@ service cloud.firestore {
       return acceptance is map &&
         acceptance.keys().hasOnly(['accepted', 'version', 'documentPath', 'acceptedBy', 'context', 'acceptedAt']) &&
         acceptance.get('accepted', false) == true &&
-        acceptance.get('version', '') == '2026-11-18' &&
-        acceptance.get('documentPath', '') == '/terms/2026-11-18' &&
+        acceptance.get('version', '') == '2026-11-25' &&
+        acceptance.get('documentPath', '') == '/terms/2026-11-25' &&
         acceptance.get('acceptedBy', '') == request.auth.uid &&
         acceptance.get('context', '') == context &&
         acceptance.get('acceptedAt', null) == request.time;
@@ -119,7 +119,7 @@ service cloud.firestore {
         data.get('minimumHours', 2) is int && data.get('minimumHours', 2) >= 2 && data.get('minimumHours', 2) <= 24;
     }
     function providerProtectedFields() {
-      return ['status', 'stripeAccountId', 'stripeOnboardingComplete', 'rating', 'reviewCount'];
+      return ['status', 'stripeAccountId', 'stripeOnboardingComplete', 'rating', 'reviewCount', 'featured'];
     }
 
     match /providers/{providerUid} {
@@ -173,7 +173,7 @@ service cloud.firestore {
         !request.resource.data.keys().hasAny(quotePaymentFields())));
       // Customers may edit their quote's details, but not reassign it or change its status.
       allow update: if (!resource.data.get('isCustomQuote', false) || (isAdmin() && changedOnly(['status']))) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isCustomQuote', 'pricing', 'expiresAt', 'createdBy', 'openedAt', 'termsAcceptance', 'bookingTermsAcceptance']) && (isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['customerId', 'status', 'checkoutSessionId', 'paymentStatus', 'paymentFailedAt', 'leadStatus', 'assignedTo', 'assignedAt', 'firstContactAt', 'lastContactAt', 'lostReason', 'lostBy', 'lostAt', 'leadNotifiedAt', 'followUpStep', 'followUpSentAt', 'followUpToken', 'followUpsStopped', 'followUpsStoppedReason', 'followUpsStoppedAt', 'leadSource', 'referralCode'])));
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['customerId', 'status', 'checkoutSessionId', 'paymentStatus', 'paymentFailedAt', 'leadStatus', 'assignedTo', 'assignedAt', 'firstContactAt', 'lastContactAt', 'lostReason', 'lostBy', 'lostAt', 'leadNotifiedAt', 'followUpStep', 'followUpSentAt', 'followUpToken', 'followUpsStopped', 'followUpsStoppedReason', 'followUpsStoppedAt', 'leadSource', 'referralCode', 'leadNotes', 'adjustedTotal', 'adjustedBy', 'adjustedAt', 'adjustments'])));
       allow delete: if isAdmin();
     }
 

@@ -198,7 +198,7 @@ test('the accepted terms revision has a permanent public page and unknown revisi
   assert.equal(versioned.status, 200);
   for (const html of [await current.text(), await versioned.text()]) {
     assert.match(html, /at least a two-hour minimum/);
-    assert.match(html, /Effective November 18, 2026/);
+    assert.match(html, /Effective November 25, 2026/);
     assert.doesNotMatch(html, /strict 3-hour minimum/);
   }
   assert.equal((await fetch(`${base}/terms/not-a-published-version`)).status, 404);

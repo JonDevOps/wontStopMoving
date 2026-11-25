@@ -15,6 +15,8 @@ import { MoveHelp } from "@/components/dashboard/move-help";
 import { MoveConcierge } from "@/components/dashboard/move-concierge";
 import { MoveDocuments } from "@/components/dashboard/move-documents";
 import { MoveBenefits } from '@/components/marketplace/move-benefits';
+import { ReleasePayment } from '@/components/dashboard/release-payment';
+import { ApproveExtraHours } from '@/components/jobs/extra-hours';
 
 interface JobDetails {
   id: string;
@@ -165,6 +167,10 @@ export default function CustomerJobDetailsPage() {
               </Card>
             )}
 
+            {job.status !== 'completed' && job.hoursRequest && (
+              <ApproveExtraHours jobId={job.id} crewName={job.providerName || 'Your crew'} request={job.hoursRequest} />
+            )}
+
             {job.status !== 'completed' && releaseCode && (
               <Card className="border-none shadow-xl bg-accent text-white mt-6">
                 <CardHeader className="pb-2">
@@ -178,6 +184,8 @@ export default function CustomerJobDetailsPage() {
                 <CardContent>
                   <div className="text-5xl font-black tracking-[0.2em]">{releaseCode}</div>
                   <p className="text-sm mt-4">Email: {job.codeEmailStatus || 'pending'}. Text: {job.codeSmsStatus || 'not requested'}. Your code remains available here if delivery is delayed.</p>
+                  <p className="text-sm mt-4 font-bold">Done? You can also pay your crew right here instead of reading them the code.</p>
+                  <ReleasePayment jobId={job.id} crewName={job.providerName || 'your crew'} moveDate={job.moveDate} />
                 </CardContent>
               </Card>
             )}

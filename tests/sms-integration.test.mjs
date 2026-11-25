@@ -24,7 +24,7 @@ after(async()=>{await deleteApp(app);await deleteAdmin(admin);});
 test('normalization and consent evidence exclude sensitive URL parameters',()=>{assert.equal(normalizeSmsPhone('(888) 741-6683'),'+18887416683');assert.equal(normalizeSmsPhone('+44 20 7946 0000'),'+442079460000');assert.equal(normalizeSmsPhone('5551234'),null);assert.equal(normalizeSmsPhone('4155550123 ext 5'),null);assert.equal(smsSourcePage('/contact?token=secret#code'),'https://wontstopmoving.com/contact');assert.equal(smsSourcePage('https://evil.example/a'), 'https://wontstopmoving.com/sms');});
 
 test('public legal and opt-in routes render an optional unchecked checkbox and correct contact links',async()=>{
- for(const path of ['/privacy','/terms','/terms/2026-11-08','/terms/2026-11-18','/sms','/contact','/contact.vcf'])assert.equal((await fetch(`${base}${path}`)).status,200,path);
+ for(const path of ['/privacy','/terms','/terms/2026-11-08','/terms/2026-11-18','/terms/2026-11-25','/sms','/contact','/contact.vcf'])assert.equal((await fetch(`${base}${path}`)).status,200,path);
  const privacy=await(await fetch(`${base}/privacy`)).text();assert.ok(privacy.includes('All the above categories exclude text messaging originator opt-in data and consent;'));
  const contact=await(await fetch(`${base}/contact`)).text();assert.ok(contact.includes('tel:+18887416683'));assert.ok(contact.includes('sms-consent-checkbox'));assert.ok(!/<input[^>]*id="sms-consent-checkbox"[^>]*checked/.test(contact));assert.ok(contact.includes('Consent is not a condition of purchase'));assert.ok(contact.includes('/terms#sms')&&contact.includes('/privacy#sms'));
  const vcard=await(await fetch(`${base}/contact.vcf`)).text();assert.ok(vcard.includes('TEL;TYPE=WORK,VOICE:+18887416683'));

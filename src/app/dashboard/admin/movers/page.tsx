@@ -23,6 +23,7 @@ const MoverMap = dynamic(() => import('@/components/registry/mover-map').then(m 
 
 type Row = {
   dot: string; mc: string; name: string; dba: string; street: string; city: string; state: string; zip: string; phone: string; email: string; site: string; officer: string; org: string;
+  lat?: number | null; lng?: number | null;
   units: number; drivers: number; miles: number; years: number; interstate: boolean; hhgAuth: boolean; broker: boolean; moverScore: number;
   kind: string | null; sosActive: boolean | null; competitorId: string | null; cats?: number; otherCargo?: string;
   partnerScore?: number; partnerReasons?: string[]; partnerFit?: string | null; partnerFitConfidence?: number | null;
@@ -65,7 +66,11 @@ function Registry() {
   const params = useMemo(() => {
     const p = new URLSearchParams({ sort: f.sort, rankBy: f.rankBy, page: String(page), pageSize: '50', map: '1', stats: '1' });
     // The list's area: a preset region, a state/province, the map view, or (otherwise) the whole country.
-    if (area === 'map' && bounds) for (const k of ['south', 'west', 'north', 'east'] as const) p.set(k, bounds[k].toFixed(4));
+    // A typed city searches every state unless a single state is picked (#86):
+    // otherwise "Seattle" inside the Bay Area preset returned an empty list.
+    const citySearch = !!f.city.trim() && !REGISTRY_AREAS.includes(area);
+    if (citySearch) { /* nationwide list, narrowed by the city filter */ }
+    else if (area === 'map' && bounds) for (const k of ['south', 'west', 'north', 'east'] as const) p.set(k, bounds[k].toFixed(4));
     else if (REGION_PRESETS[area]) p.set('region', area);
     else if (REGISTRY_AREAS.includes(area)) p.set('states', area);
     // Map pins always cover the visible map, whatever area the list uses.
@@ -84,6 +89,15 @@ function Registry() {
     finally { setLoading(false); }
   }, [auth, params, toast]);
   useEffect(() => { clearTimeout(timer.current); timer.current = setTimeout(() => void load(), 350); return () => clearTimeout(timer.current); }, [load]);
+
+  // Move the map to the searched city so its pins and the list agree (#86).
+  const focusedCity = useRef('');
+  useEffect(() => {
+    const city = f.city.trim().toLowerCase();
+    if (!city || REGISTRY_AREAS.includes(area) || focusedCity.current === city) return;
+    const hit = data?.rows.find(r => typeof r.lat === 'number' && typeof r.lng === 'number');
+    if (hit) { focusedCity.current = city; setFocus({ lat: hit.lat!, lng: hit.lng!, zoom: 10 }); }
+  }, [data, f.city, area]);
 
   const chooseArea = (a: string) => {
     setArea(a); setPage(1);
@@ -125,7 +139,7 @@ function Registry() {
     finally { setBusy(''); }
   };
 
-  const areaLabel = REGION_PRESETS[area]?.label || (area === 'national' ? 'Whole country' : area === 'map' ? 'Map view' : area);
+  const areaLabel = f.city.trim() && !REGISTRY_AREAS.includes(area) ? `every state, city “${f.city.trim()}”` : REGION_PRESETS[area]?.label || (area === 'national' ? 'Whole country' : area === 'map' ? 'Map view' : area);
   const pages = data ? Math.max(1, Math.ceil(data.total / 50)) : 1;
   const notSynced = data && data.synced === 0;
 

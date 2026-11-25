@@ -3,16 +3,27 @@ import { errorResponse, HttpError } from '@/lib/server/auth';
 import { BUSINESS_CONTACT } from '@/lib/business-contact';
 import { normalizeSmsPhone } from '@/lib/sms-consent';
 import { FieldValue } from 'firebase-admin/firestore';
-import { adminDb } from '@/lib/server/firebase-admin';
+import { GREETING, SITE, isBlocked, knownCaller, logCall, voiceEnabled } from '@/lib/server/phone';
 
-export async function POST(req:Request){try{
-  const p=await readTwilioWebhook(req,'/api/webhooks/twilio/voice');
-  if(p.To!==BUSINESS_CONTACT.phone || !/^CA[a-f0-9]{32}$/i.test(p.CallSid||''))throw new HttpError(400,'Invalid call.');
-  if(process.env.TWILIO_VOICE_ENABLED!=='true')throw new HttpError(503,'Voice routing is not activated.');
-  const ref=adminDb().doc(`phoneInbox/${p.CallSid}`);
-  await adminDb().runTransaction(async tx=>{if(!(await tx.get(ref)).exists)tx.create(ref,{kind:'call',callSid:p.CallSid,phone:normalizeSmsPhone(p.From)||'',status:'new',createdAt:FieldValue.serverTimestamp()});});
-  const forward=normalizeSmsPhone(process.env.TWILIO_VOICE_FORWARD_TO);
-  const greeting='<Say>Thank you for calling Won&apos;t Stop Moving.</Say>';
-  if(forward&&forward!==BUSINESS_CONTACT.phone)return twiml(`${greeting}<Dial callerId="${BUSINESS_CONTACT.phone}" timeout="20" timeLimit="1800" action="${BUSINESS_CONTACT.website}/api/webhooks/twilio/voice-complete" method="POST"><Number>${xml(forward)}</Number></Dial>`);
-  return twiml(`${greeting}<Redirect method="POST">${BUSINESS_CONTACT.website}/api/webhooks/twilio/voice-complete</Redirect>`);
-}catch(error){return errorResponse(error);}}
+/**
+ * Incoming calls (#182). Blocked numbers are rejected; customers and providers
+ * on file skip the menu; everyone else must press a key, which robocallers
+ * can't do. Every call is logged in phoneInbox for the call log (#159).
+ */
+export async function POST(req: Request) { try {
+  const p = await readTwilioWebhook(req, '/api/webhooks/twilio/voice');
+  if (p.To !== BUSINESS_CONTACT.phone || !/^CA[a-f0-9]{32}$/i.test(p.CallSid || '')) throw new HttpError(400, 'Invalid call.');
+  if (!voiceEnabled()) throw new HttpError(503, 'Voice routing is not activated.');
+  const phone = normalizeSmsPhone(p.From) || '';
+  const base = { kind: 'call', callSid: p.CallSid, phone, callerName: (p.CallerName || '').slice(0, 80), createdAt: FieldValue.serverTimestamp() };
+  if (await isBlocked(phone)) { await logCall(p.CallSid, { ...base, status: 'blocked' }); return twiml('<Reject reason="busy"/>'); }
+  const known = await knownCaller(phone);
+  if (known) {
+    const choice = known.role === 'provider' ? '2' : '0';
+    await logCall(p.CallSid, { ...base, status: 'menu', knownRole: known.role, knownName: known.name });
+    const hello = known.name ? `Welcome back, ${xml(known.name.split(' ')[0])}.` : 'Welcome back.';
+    return twiml(`<Say>${GREETING} ${hello}</Say><Redirect method="POST">${SITE}/api/webhooks/twilio/voice-menu?auto=${choice}</Redirect>`);
+  }
+  await logCall(p.CallSid, { ...base, status: 'menu' });
+  return twiml(`<Gather input="dtmf" numDigits="1" timeout="8" action="${SITE}/api/webhooks/twilio/voice-menu" method="POST"><Say>${GREETING} To book a move, press 1. For service provider dispatch, press 2. For customer support, press 0.</Say></Gather><Redirect method="POST">${SITE}/api/webhooks/twilio/voice-menu</Redirect>`);
+} catch (error) { return errorResponse(error); } }

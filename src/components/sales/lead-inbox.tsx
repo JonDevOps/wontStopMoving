@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth, useUser } from '@/firebase';
 import { apiFetch } from '@/lib/api-client';
 import { Inbox, Timer, PhoneCall, TrendingUp, DollarSign, Zap } from 'lucide-react';
@@ -15,6 +17,9 @@ type Lead = {
   moveDate: string; estimatedTotal: number; assignedTo: string | null; assignedName: string | null; lostReason: string | null;
   createdAt: number | null; firstContactAt: number | null; lastContactAt: number | null; responseMinutes: number | null;
   followUpStep: number; followUpsStopped: string | null; channel: string; referred: boolean;
+  customerId: string | null;
+  source: { landingPath: string | null; referrerHost: string | null; utmSource: string | null; utmMedium: string | null; utmCampaign: string | null; refCode: string | null; pagesVisited: string[] };
+  notes: { text: string; byName: string; at: number }[];
 };
 type Group = { name: string; leads: number; booked: number; lost: number; revenue: number; bookedPercent: number };
 type Metrics = { today: number; waiting: number; medianResponseMinutes: number | null; within5Percent: number | null; bookedPercent: number | null; bookedRevenue: number; pipelineValue: number };
@@ -30,7 +35,7 @@ function waitingFor(createdAt: number | null, now: number) {
   return { text: `waiting ${minutes(m)}`, urgent: m >= 5 };
 }
 
-export function LeadInbox({ playbookPath }: { playbookPath: string }) {
+export function LeadInbox({ playbookPath, adminLinks = playbookPath.startsWith('/dashboard/admin') }: { playbookPath: string; adminLinks?: boolean }) {
   const auth = useAuth();
   const { user } = useUser();
   const [leads, setLeads] = useState<Lead[] | null>(null);
@@ -44,6 +49,8 @@ export function LeadInbox({ playbookPath }: { playbookPath: string }) {
   const [losing, setLosing] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [now, setNow] = useState(() => Date.now());
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -57,7 +64,7 @@ export function LeadInbox({ playbookPath }: { playbookPath: string }) {
 
   async function act(id: string, action: string, extra: Record<string, unknown> = {}) {
     setBusy(id); setNotice('');
-    try { await apiFetch(auth, '/api/admin/leads', { action, id, ...extra }); setLosing(null); await load(); }
+    try { await apiFetch(auth, '/api/admin/leads', { action, id, ...extra }); setLosing(null); if (action === 'note') setNoteText(''); await load(); }
     catch (e) { setNotice(e instanceof Error ? e.message : 'That didn’t work.'); }
     finally { setBusy(null); }
   }
@@ -114,11 +121,14 @@ export function LeadInbox({ playbookPath }: { playbookPath: string }) {
     {leads === null ? <p>Loading leads…</p> : shown.length === 0 ? <p className="text-muted-foreground">{filter === 'new' ? 'No leads waiting. Nice work.' : 'No leads here.'}</p> :
       <div className="space-y-3">{shown.map(l => {
         const wait = l.status === 'new' ? waitingFor(l.createdAt, now) : null;
-        return <Card key={l.id} className={`bg-white ${wait?.urgent ? 'border-red-300' : ''}`}><CardContent className="p-4 space-y-3">
+        // Whole card opens the lead's details (#167); inner buttons and links keep working on their own.
+        const open = (e: React.SyntheticEvent) => { if ((e.target as HTMLElement).closest('a,button')) return; setOpenId(l.id); setNoteText(''); };
+        return <Card key={l.id} role="button" tabIndex={0} aria-label={`Open lead ${l.name || 'details'}`} onClick={open} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); } }} className={`bg-white cursor-pointer hover:shadow-md hover:border-accent/40 transition ${wait?.urgent ? 'border-red-300' : ''}`}><CardContent className="p-4 space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="font-bold text-primary">{l.name || 'Unnamed lead'}</p>
+                <button type="button" onClick={() => { setOpenId(l.id); setNoteText(''); }} className="font-bold text-primary hover:underline text-left">{l.name || 'Unnamed lead'}</button>
+                {l.notes.length > 0 && <span className="text-xs text-muted-foreground">{l.notes.length} note{l.notes.length === 1 ? '' : 's'}</span>}
                 <Badge className={`${STATUS_STYLE[l.status]} border-none capitalize`}>{l.status}</Badge>
                 {wait && <span className={`text-xs font-bold ${wait.urgent ? 'text-red-700' : 'text-amber-700'}`}>{wait.text}</span>}
               </div>
@@ -148,5 +158,60 @@ export function LeadInbox({ playbookPath }: { playbookPath: string }) {
           </div>}
         </CardContent></Card>;
       })}</div>}
+
+    <LeadDetails lead={leads?.find(l => l.id === openId) || null} adminLinks={adminLinks} busy={busy !== null} noteText={noteText} setNoteText={setNoteText}
+      onClose={() => setOpenId(null)} onSaveNote={(id) => void act(id, 'note', { text: noteText })} playbookHref={playbookHref} />
   </div>;
+}
+
+function LeadDetails({ lead, adminLinks, busy, noteText, setNoteText, onClose, onSaveNote, playbookHref }: {
+  lead: Lead | null; adminLinks: boolean; busy: boolean; noteText: string; setNoteText: (v: string) => void;
+  onClose: () => void; onSaveNote: (id: string) => void; playbookHref: (l: Lead) => string;
+}) {
+  const s = lead?.source;
+  const campaign = s ? [s.utmSource, s.utmMedium, s.utmCampaign].filter(Boolean).join(' / ') : '';
+  return <Dialog open={!!lead} onOpenChange={o => { if (!o) onClose(); }}>
+    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {lead && <>
+        <DialogHeader>
+          <DialogTitle className="flex flex-wrap items-center gap-2">{lead.name || 'Unnamed lead'} <Badge className={`${STATUS_STYLE[lead.status]} border-none capitalize`}>{lead.status}</Badge></DialogTitle>
+          <DialogDescription>{lead.moveSize} · {lead.pickup || '?'} → {lead.dropoff || '?'} · {lead.moveDate || 'no date'} · {money(lead.estimatedTotal)}</DialogDescription>
+        </DialogHeader>
+        <div className="grid sm:grid-cols-2 gap-4 text-sm">
+          <div className="space-y-1">
+            <p className="font-bold">Contact</p>
+            {lead.phone ? <a className="underline block" href={`tel:${lead.phone}`}>{lead.phone}</a> : <p className="text-muted-foreground">No phone</p>}
+            {lead.email ? <a className="underline block" href={`mailto:${lead.email}`}>{lead.email}</a> : <p className="text-muted-foreground">No email</p>}
+            <p className="text-muted-foreground">{lead.assignedName ? `Assigned to ${lead.assignedName}` : 'Unassigned'}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="font-bold">Where they came from</p>
+            <p>{lead.channel}{lead.referred ? ' (referral link)' : ''}</p>
+            {s?.referrerHost && <p>Referring site: {s.referrerHost}</p>}
+            {campaign && <p>Campaign: {campaign}</p>}
+            {s?.landingPath && <p>Landed on: <code>{s.landingPath}</code></p>}
+          </div>
+        </div>
+        {s && s.pagesVisited.length > 0 && <div className="text-sm">
+          <p className="font-bold mb-1">Pages visited before requesting a quote</p>
+          <ol className="list-decimal pl-5 space-y-0.5">{s.pagesVisited.map((p, i) => <li key={i}><code>{p}</code></li>)}</ol>
+        </div>}
+        <div className="flex flex-wrap gap-2">
+          {(lead.status === 'new' || lead.status === 'contacted') && <Button asChild size="sm"><Link href={playbookHref(lead)}>Start call</Link></Button>}
+          {adminLinks && <Button asChild size="sm" variant="outline"><Link href={`/dashboard/admin/quotes/${lead.id}`}>Open quote</Link></Button>}
+          {adminLinks && lead.customerId && <Button asChild size="sm" variant="outline"><Link href={`/dashboard/admin/customers/${lead.customerId}`}>Customer profile</Link></Button>}
+        </div>
+        <div className="space-y-2 border-t pt-4">
+          <p className="font-bold text-sm">Notes ({lead.notes.length})</p>
+          {lead.notes.length === 0 ? <p className="text-sm text-muted-foreground">No notes yet.</p> :
+            <ul className="space-y-2">{[...lead.notes].sort((a, b) => b.at - a.at).map((n, i) => <li key={i} className="bg-gray-50 rounded-md p-3 text-sm">
+              <p className="whitespace-pre-wrap">{n.text}</p>
+              <p className="text-xs text-muted-foreground mt-1">{n.byName}{n.at ? ` · ${new Date(n.at).toLocaleString()}` : ''}</p>
+            </li>)}</ul>}
+          <Textarea aria-label="Add a note" placeholder="What did they say? Next steps?" value={noteText} maxLength={2000} onChange={e => setNoteText(e.target.value)} />
+          <Button size="sm" disabled={busy || !noteText.trim()} onClick={() => onSaveNote(lead.id)}>Save note</Button>
+        </div>
+      </>}
+    </DialogContent>
+  </Dialog>;
 }

@@ -2,8 +2,10 @@
 "use client";
 
 import { useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
-import { idTokenOf } from "@/lib/api-client";
-import { doc, updateDoc } from "firebase/firestore";
+import { apiFetch, idTokenOf } from "@/lib/api-client";
+import { doc } from "firebase/firestore";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +16,7 @@ import { generateQuoteDescription } from "@/ai/flows/ai-quote-description-genera
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { calculateMoveTotal } from "@/lib/pricing";
+import { calculateMoveTotal, isMoveTier, MOVE_TIERS, type MoveTier } from "@/lib/pricing";
 import { customQuoteTotal, customQuotePricingText } from '@/lib/custom-quotes';
 
 function QuoteReviewContent({ id }: { id: string }) {
@@ -32,13 +34,28 @@ function QuoteReviewContent({ id }: { id: string }) {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [priceInput, setPriceInput] = useState("");
+  const [priceReason, setPriceReason] = useState("");
+  const [savingPrice, setSavingPrice] = useState(false);
+
+  const savePrice = async (total: number | null) => {
+    setSavingPrice(true);
+    try {
+      await apiFetch(auth, `/api/admin/quotes/${id}`, { action: 'price', total, reason: priceReason });
+      setPriceInput(""); setPriceReason("");
+      toast({ title: total === null ? "Price reset" : "Price updated", description: total === null ? "The quote uses the calculated price again." : `Customer will now pay $${total.toLocaleString()}.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Could not change the price", description: error instanceof Error ? error.message : "Try again." });
+    } finally {
+      setSavingPrice(false);
+    }
+  };
 
   const handleUpdateStatus = async (newStatus: 'processed' | 'expired' | 'new') => {
     setIsProcessing(true);
     try {
-      await updateDoc(doc(firestore, "quotes", id), {
-        status: newStatus
-      });
+      // Server records who changed the status and when (#127).
+      await apiFetch(auth, `/api/admin/quotes/${id}`, { action: 'status', status: newStatus });
 
       toast({
         title: "Status Updated",
@@ -49,7 +66,7 @@ function QuoteReviewContent({ id }: { id: string }) {
       toast({
         variant: "destructive",
         title: "Update Failed",
-        description: "You may not have permission to perform this action.",
+        description: error instanceof Error ? error.message : "You may not have permission to perform this action.",
       });
     } finally {
       setIsProcessing(false);
@@ -97,12 +114,19 @@ function QuoteReviewContent({ id }: { id: string }) {
     .filter(([_, active]) => active)
     .map(([key]) => key);
 
-  const price = quote.isCustomQuote ? customQuoteTotal(quote.pricing) : calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
+  const adjustedTotal = !quote.isCustomQuote && typeof quote.adjustedTotal === "number" ? quote.adjustedTotal : null;
+  const history: { type: string; from: unknown; to: unknown; reason?: string; byName: string; at: number }[] =
+    Array.isArray(quote.adjustments) ? [...quote.adjustments].sort((a, b) => (b.at || 0) - (a.at || 0)) : [];
+  const fmtValue = (type: string, v: unknown) => type === "price" ? (typeof v === "number" ? `$${v.toLocaleString()}` : "calculated price") : String(v || "new");
+  const calculatedPrice = quote.isCustomQuote ? customQuoteTotal(quote.pricing) : calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
     isStudent: !!details?.isStudent,
     isMilitary: !!details?.isMilitary,
+    isSenior: !!details?.isSenior,
+    tier: isMoveTier(quote.tier) ? quote.tier : undefined,
     isExpress: !!details?.addOns?.express,
     miles: typeof quote.estimatedMiles === "number" ? quote.estimatedMiles : null,
   });
+  const price = adjustedTotal ?? calculatedPrice;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
@@ -134,6 +158,8 @@ function QuoteReviewContent({ id }: { id: string }) {
         <div className="text-right">
           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">{quote.isCustomQuote && quote.pricing.type === 'fixed' ? 'Quoted total' : 'Estimated total'}</p>
           <p className="text-4xl font-black text-primary">${price.toLocaleString()}</p>
+          {!quote.isCustomQuote && <p className="text-xs font-bold text-accent uppercase tracking-widest mt-1">{MOVE_TIERS[(isMoveTier(quote.tier) ? quote.tier : "standard") as MoveTier].name} tier</p>}
+          {adjustedTotal !== null && <p className="text-xs text-muted-foreground mt-1">Set by an admin · calculated ${calculatedPrice.toLocaleString()}</p>}
         </div>
       </header>
 
@@ -292,6 +318,49 @@ function QuoteReviewContent({ id }: { id: string }) {
                 >
                   Reset to Pending
                 </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {!quote.isCustomQuote && quote.paymentStatus !== "paid" && (
+            <Card className="border-none shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xs font-black tracking-widest uppercase text-primary">Adjust price</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="adjust-total">New total (USD)</Label>
+                  <Input id="adjust-total" type="number" min="1" step="0.01" inputMode="decimal" placeholder={String(price)} value={priceInput} onChange={e => setPriceInput(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="adjust-reason">Reason</Label>
+                  <Input id="adjust-reason" maxLength={500} placeholder="e.g. extra stairs, matched competitor" value={priceReason} onChange={e => setPriceReason(e.target.value)} />
+                </div>
+                <Button className="w-full rounded-xl font-bold" disabled={savingPrice || !priceInput || !priceReason.trim()} onClick={() => savePrice(Number(priceInput))}>
+                  {savingPrice ? "Saving…" : "Save new price"}
+                </Button>
+                {adjustedTotal !== null && (
+                  <Button variant="link" className="w-full text-xs" disabled={savingPrice} onClick={() => savePrice(null)}>Reset to calculated price</Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xs font-black tracking-widest uppercase text-primary">Change history</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {history.length === 0 ? <p className="text-sm text-muted-foreground">No admin changes yet.</p> : (
+                <ul className="space-y-3 text-sm">
+                  {history.map((h, i) => (
+                    <li key={i} className="border-l-2 border-accent pl-3">
+                      <p className="font-bold">{h.type === "price" ? "Price" : "Status"}: {fmtValue(h.type, h.from)} → {fmtValue(h.type, h.to)}</p>
+                      {h.reason && <p className="text-muted-foreground">{h.reason}</p>}
+                      <p className="text-xs text-muted-foreground">{h.byName} · {h.at ? format(new Date(h.at), "MMM d, yyyy h:mm a") : ""}</p>
+                    </li>
+                  ))}
+                </ul>
               )}
             </CardContent>
           </Card>
