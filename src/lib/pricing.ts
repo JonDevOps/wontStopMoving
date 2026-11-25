@@ -45,7 +45,23 @@ export function mileageFee(miles: number | null | undefined): number {
 }
 export const isLongDistance = (miles: number | null | undefined) => typeof miles === 'number' && miles > MILEAGE.longDistanceMiles;
 
+/**
+ * Service tiers (#144), Uber-style: the same move at three levels of service.
+ * The multiplier applies to the move's base (labor) fee only; add-ons, mileage
+ * and discounts are unchanged. Names, perks and multipliers are a business
+ * setting: edit them here and every price (quote form, checkout) follows.
+ */
+export type MoveTier = 'saver' | 'standard' | 'premium';
+export const MOVE_TIERS: Record<MoveTier, { name: string; tagline: string; multiplier: number; perks: string[] }> = {
+  saver: { name: 'Saver', tagline: 'Lowest price, flexible timing', multiplier: 0.85, perks: ['Flexible arrival window', 'You pack, we load and move', 'Standard valuation coverage'] },
+  standard: { name: 'Standard', tagline: 'Our most popular move', multiplier: 1, perks: ['Scheduled arrival window', 'Furniture blankets and wrapping', 'Standard valuation coverage'] },
+  premium: { name: 'Premium', tagline: 'Priority, hands-off move', multiplier: 1.35, perks: ['Priority scheduling and our top-rated crews', 'Furniture wrapping and disassembly/reassembly', 'Dedicated move coordinator'] },
+};
+export const isMoveTier = (v: unknown): v is MoveTier => typeof v === 'string' && v in MOVE_TIERS;
+
 export interface PriceCalculationOptions {
+  /** Service tier; defaults to standard. */
+  tier?: MoveTier;
   isStudent?: boolean;
   isMilitary?: boolean;
   /** 62 or older. */
@@ -64,7 +80,8 @@ export function calculateMoveTotal(
   options: PriceCalculationOptions = {}
 ): number {
   const plan = MOVE_PRICING[moveSize] || MOVE_PRICING['studio'];
-  let total = plan.baseFee;
+  const tier = MOVE_TIERS[options.tier && isMoveTier(options.tier) ? options.tier : 'standard'];
+  let total = plan.baseFee * tier.multiplier;
 
   // Add-ons
   addOns.forEach(addon => {

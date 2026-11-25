@@ -35,7 +35,7 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "fire
 import { sendSignupVerification } from '@/lib/email-verification';
 import { useToast } from "@/hooks/use-toast";
 import { FinancingNote } from '@/components/dashboard/financing-note';
-import { calculateMoveTotal, MILEAGE } from "@/lib/pricing";
+import { calculateMoveTotal, MILEAGE, MOVE_TIERS, type MoveTier } from "@/lib/pricing";
 import Link from "next/link";
 import { TermsAcceptance } from '@/components/legal/terms-acceptance';
 import { termsAcceptance, TERMS_VERSION } from '@/lib/terms';
@@ -65,6 +65,8 @@ const formSchema = z.object({
   isStudent: z.boolean().default(false),
   isMilitary: z.boolean().default(false),
   isSenior: z.boolean().default(false),
+  // Service tier (#144)
+  tier: z.enum(["saver", "standard", "premium"]).default("standard"),
   // Contact
   name: z.string().min(2, "Name required"),
   email: z.string().email("Invalid email"),
@@ -97,6 +99,7 @@ export function QuoteForm({ providerId, initialSize }: { providerId?: string; in
     resolver: zodResolver(formSchema),
     defaultValues: {
       moveSize: initialSize && QUOTE_SIZES.includes(initialSize) ? initialSize : "studio",
+      tier: "standard",
       packingService: false,
       cratingService: false,
       cleaningService: false,
@@ -131,13 +134,16 @@ export function QuoteForm({ providerId, initialSize }: { providerId?: string; in
     return () => { cancelled = true; };
   }, [pickupZipValue, dropoffZipValue]);
 
-  const estimatedTotal = calculateMoveTotal(watch("moveSize") || "studio", selectedAddOnKeys, {
+  const priceFor = (tier: MoveTier) => calculateMoveTotal(watch("moveSize") || "studio", selectedAddOnKeys, {
+    tier,
     isStudent: !!watch("isStudent"),
     isMilitary: !!watch("isMilitary"),
     isSenior: !!watch("isSenior"),
     isExpress: !!watch("expressMoving"),
     miles: distance?.miles ?? null,
   });
+  const selectedTier: MoveTier = watch("tier") || "standard";
+  const estimatedTotal = priceFor(selectedTier);
 
   // Pre-fill fields if user is logged in
   useEffect(() => {
@@ -223,6 +229,7 @@ export function QuoteForm({ providerId, initialSize }: { providerId?: string; in
         specialItems: data.specialItems || "",
         estimatedTotal,
         estimatedMiles: distance?.miles ?? null,
+        tier: data.tier,
         customerId: currentUserId,
         preferredProviderId: providerId || null,
         // Where this customer came from (ads, search, referral link) for marketing reports.
@@ -239,6 +246,7 @@ export function QuoteForm({ providerId, initialSize }: { providerId?: string; in
           isStudent: data.isStudent,
           isMilitary: data.isMilitary,
           isSenior: data.isSenior,
+          tier: data.tier,
           estimatedTotal,
           addOns: {
             packing: data.packingService,
@@ -556,6 +564,23 @@ export function QuoteForm({ providerId, initialSize }: { providerId?: string; in
                   <p className="text-2xl font-black text-primary">${estimatedTotal.toLocaleString()}</p>
                 </div>
               </div>
+              {/* Three levels of service for the same move (#144). */}
+              <fieldset className="grid sm:grid-cols-3 gap-3">
+                <legend className="text-sm font-bold mb-2">Choose your service level</legend>
+                {(Object.keys(MOVE_TIERS) as MoveTier[]).map(key => {
+                  const t = MOVE_TIERS[key], active = selectedTier === key;
+                  return (
+                    <label key={key} className={`relative cursor-pointer rounded-2xl border-2 p-4 transition-all ${active ? "border-accent bg-accent/5 shadow-md" : "border-gray-200 hover:border-accent/50"}`}>
+                      <input type="radio" value={key} {...register("tier")} className="sr-only" />
+                      {key === "standard" && <span className="absolute -top-2.5 left-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">Most popular</span>}
+                      <p className="font-black text-primary uppercase tracking-tight">{t.name}</p>
+                      <p className="text-xs text-muted-foreground">{t.tagline}</p>
+                      <p className="text-2xl font-black text-primary mt-2">${priceFor(key).toLocaleString()}</p>
+                      <ul className="mt-2 space-y-1 text-xs text-slate-700">{t.perks.map(p => <li key={p}>✓ {p}</li>)}</ul>
+                    </label>
+                  );
+                })}
+              </fieldset>
               <div className="grid grid-cols-2 gap-x-4 gap-y-6 text-sm">
                 <div className="space-y-1">
                   <p className="text-muted-foreground uppercase text-[10px] font-bold tracking-widest">From</p>

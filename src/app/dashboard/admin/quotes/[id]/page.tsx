@@ -16,7 +16,7 @@ import { generateQuoteDescription } from "@/ai/flows/ai-quote-description-genera
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { calculateMoveTotal } from "@/lib/pricing";
+import { calculateMoveTotal, isMoveTier, MOVE_TIERS, type MoveTier } from "@/lib/pricing";
 import { customQuoteTotal, customQuotePricingText } from '@/lib/custom-quotes';
 
 function QuoteReviewContent({ id }: { id: string }) {
@@ -121,6 +121,8 @@ function QuoteReviewContent({ id }: { id: string }) {
   const calculatedPrice = quote.isCustomQuote ? customQuoteTotal(quote.pricing) : calculateMoveTotal(quote.moveSize || details?.moveSize || "studio", selectedAddOns, {
     isStudent: !!details?.isStudent,
     isMilitary: !!details?.isMilitary,
+    isSenior: !!details?.isSenior,
+    tier: isMoveTier(quote.tier) ? quote.tier : undefined,
     isExpress: !!details?.addOns?.express,
     miles: typeof quote.estimatedMiles === "number" ? quote.estimatedMiles : null,
   });
@@ -156,6 +158,7 @@ function QuoteReviewContent({ id }: { id: string }) {
         <div className="text-right">
           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">{quote.isCustomQuote && quote.pricing.type === 'fixed' ? 'Quoted total' : 'Estimated total'}</p>
           <p className="text-4xl font-black text-primary">${price.toLocaleString()}</p>
+          {!quote.isCustomQuote && <p className="text-xs font-bold text-accent uppercase tracking-widest mt-1">{MOVE_TIERS[(isMoveTier(quote.tier) ? quote.tier : "standard") as MoveTier].name} tier</p>}
           {adjustedTotal !== null && <p className="text-xs text-muted-foreground mt-1">Set by an admin · calculated ${calculatedPrice.toLocaleString()}</p>}
         </div>
       </header>

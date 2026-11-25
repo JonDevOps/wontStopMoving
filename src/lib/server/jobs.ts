@@ -262,6 +262,44 @@ export async function completeJobWithCode(params: {
   return payoutCompletedJob(jobId);
 }
 
+/**
+ * The customer releases payment to their crew from the app (#152), instead of
+ * reading the release code to them. Same checks and payout as the code path;
+ * only the job's own customer can do it, and not before the move date.
+ */
+export async function releaseJobByCustomer(params: { jobId: string; uid: string }): Promise<CompletionResult> {
+  const { jobId, uid } = params;
+  const db = adminDb();
+  const jobRef = db.doc(`jobs/${jobId}`);
+  await db.runTransaction(async (tx) => {
+    const job = await tx.get(jobRef);
+    if (!job.exists) throw new HttpError(404, "Job not found.");
+    const data = job.data()!;
+    if (data.customerId !== uid) throw new HttpError(403, "This move belongs to another account.");
+    if (data.paymentStatus !== "paid" || data.paymentHold) throw new HttpError(409, "This move isn't available for release. Contact support.");
+    if (data.status === "completed" || data.status === "cancelled") throw new HttpError(409, `This move is already ${data.status}.`);
+    const providerIds: string[] = Array.isArray(data.providerIds) ? data.providerIds : [];
+    if (!providerIds[0]) throw new HttpError(409, "No crew is assigned to this move yet.");
+    const today = new Date().toISOString().slice(0, 10);
+    if (typeof data.moveDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.moveDate) && data.moveDate > today) {
+      throw new HttpError(409, "You can release payment on or after your move date.");
+    }
+    tx.update(jobRef, {
+      status: "completed",
+      completedAt: FieldValue.serverTimestamp(),
+      completedBy: uid,
+      releasedByCustomer: true,
+      payoutStatus: "processing",
+      payeeProviderId: providerIds[0],
+      releaseConfirmedAt: FieldValue.serverTimestamp(),
+      completionTextsPending: true,
+    });
+  });
+  await requestReview(jobId);
+  if (!(await jobRef.get()).data()?.reviewRefundEligible) await grantMoveCredit(jobId);
+  return payoutCompletedJob(jobId);
+}
+
 /** Safe recovery for interrupted transfers. A stale ambiguous operation is held for manual reconciliation. */
 export async function payoutCompletedJob(jobId: string): Promise<CompletionResult> {
   const db = adminDb(), jobRef = db.doc(`jobs/${jobId}`), data = (await jobRef.get()).data();

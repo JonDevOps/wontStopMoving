@@ -202,6 +202,23 @@ test('only the assigned crew can redeem its code; each allocation pays independe
   assert.equal([...stripe.transfersMade.values()].reduce((sum,item)=>sum+item.params.amount,0),18700);
 });
 
+test('customer can release their own paid move from the app, once, on or after the move date', async () => {
+  const stripe=fakeStripe();
+  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation} });
+  const uid='money-custrelease-crew', today=new Date().toISOString().slice(0,10), later=new Date(Date.now()+5*86400000).toISOString().slice(0,10);
+  await db.doc(`providers/${uid}`).set({stripeAccountId:`acct_${uid}`,stripeOnboardingComplete:true});
+  await db.doc('jobs/money-custrelease-now').set({customerId:'money-custrelease-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_custrelease',amountPaid:100,providerPayoutCents:providerShareCents(10000),reviewRefundEligible:true,moveDate:today});
+  await db.doc('jobs/money-custrelease-later').set({customerId:'money-custrelease-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_custrelease_later',amountPaid:100,providerPayoutCents:providerShareCents(10000),reviewRefundEligible:true,moveDate:later});
+  await assert.rejects(()=>lifecycle.releaseJobByCustomer({jobId:'money-custrelease-now',uid:'someone-else'}), /another account/);
+  await assert.rejects(()=>lifecycle.releaseJobByCustomer({jobId:'money-custrelease-later',uid:'money-custrelease-customer'}), /on or after/);
+  await lifecycle.releaseJobByCustomer({jobId:'money-custrelease-now',uid:'money-custrelease-customer'});
+  const done=(await db.doc('jobs/money-custrelease-now').get()).data();
+  assert.equal(done.status,'completed'); assert.equal(done.releasedByCustomer,true); assert.equal(done.payeeProviderId,uid);
+  await assert.rejects(()=>lifecycle.releaseJobByCustomer({jobId:'money-custrelease-now',uid:'money-custrelease-customer'}), /already completed/);
+  assert.equal(stripe.transfersMade.size,1);
+  assert.equal([...stripe.transfersMade.values()][0].params.amount,providerShareCents(10000));
+});
+
 test('dispatcher requires verified sender, current consent and no STOP; stale queues and legacy booleans cannot send', async () => {
  const saved={...process.env},originalFetch=globalThis.fetch;let sends=0;
  try {
