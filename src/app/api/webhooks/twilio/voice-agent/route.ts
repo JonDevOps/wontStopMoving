@@ -16,5 +16,5 @@ export async function POST(req: Request) { try {
   if (!voiceEnabled() || p.From !== BUSINESS_CONTACT.phone || !/^CA[a-f0-9]{32}$/i.test(call)) throw new HttpError(503, 'Voice routing is not activated.');
   const log = (await adminDb().doc(`phoneInbox/${call}`).get()).data();
   const who = log?.knownName ? `${log.knownName}, ` : '';
-  return twiml(`<Gather input="dtmf" numDigits="1" timeout="10" action="${SITE}/api/webhooks/twilio/voice-agent-accept?call=${call}" method="POST"><Say>Wont Stop Moving call from ${who}${spokenNumber(log?.phone || '')}, for ${MENU[choice]?.spoken || 'support'}. Press 1 to connect.</Say></Gather><Say>Call not connected. It is in your call log.</Say><Hangup/>`);
+  return twiml(`<Gather input="dtmf" numDigits="1" timeout="10" action="${SITE}/api/webhooks/twilio/voice-agent-accept?call=${call}" method="POST"><Say>Won&apos;t Stop Moving call from ${who}${spokenNumber(log?.phone || '')}, for ${MENU[choice]?.spoken || 'support'}. Press 1 to connect.</Say></Gather><Say>Call not connected. It is in your call log.</Say><Hangup/>`);
 } catch (error) { return errorResponse(error); } }

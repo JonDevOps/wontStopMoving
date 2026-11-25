@@ -5,7 +5,9 @@ import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, applyActi
 import { initializeApp as initializeAdmin, deleteApp as deleteAdmin } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { SESv2Client } from '@aws-sdk/client-sesv2';
+import nodemailer from 'nodemailer';
 import { SMS_DISCLOSURE_VERSION } from '../src/lib/sms-consent.ts';
 import { geohashForLocation } from 'geofire-common';
 import { supportInquirySchema } from '../src/lib/support.ts';
@@ -45,6 +47,9 @@ import { gzipSync } from 'node:zlib';
 import { validProviderPricing } from '../src/lib/mover-pricing.ts';
 import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { emailDeliveryProvider, safeTransientEmailError } from '../src/lib/server/email-provider.ts';
+import { processSesNotification, validateSnsMessage } from '../src/lib/server/ses-feedback.ts';
+import { deliverEmail, processEmailQueue } from '../src/lib/server/email-outbox.ts';
 
 const base = process.env.SUPPORT_TEST_BASE_URL;
 if (!base?.startsWith('http://127.0.0.1:') || !process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -382,6 +387,186 @@ test('admins can review failed emails: retry or dismiss unsent ones, never resen
   await sent.set({ to: 'someone@example.com', subject: 'Test', text: 'Test', status: 'sent', createdAt: Timestamp.now() });
   assert.equal((await send(adminToken, { kind: 'retry', id: 'test-sent-email' })).status, 409);
   assert.equal((await sent.get()).data().status, 'sent');
+});
+
+test('SES feedback requires an allowlisted topic and a valid AWS signature', async () => {
+  const allowed = 'arn:aws:sns:us-east-2:454005357454:wontstopmoving-ses-events';
+  process.env.SES_ALLOWED_SNS_TOPIC_ARNS = allowed;
+  const message = { Type: 'Notification', TopicArn: allowed, MessageId: 'sns-gate', Message: '{}', Timestamp: new Date().toISOString(), Signature: 'fixture', SignatureVersion: '2', SigningCertURL: 'https://sns.us-east-2.amazonaws.com/SimpleNotificationService-aabb.pem' };
+  const valid = { validate(_message, callback) { callback(null); } };
+  const invalid = { validate(_message, callback) { callback(new Error('bad signature')); } };
+  assert.equal((await validateSnsMessage(message, valid)).TopicArn, allowed);
+  await assert.rejects(validateSnsMessage({ ...message, TopicArn: `${allowed}-wrong` }, valid), /SNS_TOPIC_NOT_ALLOWED/);
+  await assert.rejects(validateSnsMessage(message, invalid), /SNS_SIGNATURE_INVALID/);
+  await assert.rejects(validateSnsMessage({ ...message, Type: 'UnsubscribeConfirmation' }, valid), /SNS_MESSAGE_TYPE_NOT_ALLOWED/);
+  await assert.rejects(validateSnsMessage({ ...message, SignatureVersion: '1' }, valid), /SNS_SIGNATURE_VERSION_INVALID/);
+  await assert.rejects(validateSnsMessage({ ...message, SigningCertURL: message.SigningCertURL.replace('east-2', 'east-1') }, valid), /SNS_SIGNING_CERT_INVALID/);
+  const response = await fetch(`${base}/api/webhooks/aws/ses`, json({ ...message, TopicArn: `${allowed}-wrong` }));
+  assert.equal(response.status, 400);
+});
+
+const sesTopicArn = 'arn:aws:sns:us-east-2:454005357454:wontstopmoving-ses-events';
+const sesConfig = 'wontstopmoving-transactional';
+const notification = (messageId, event) => ({ Type: 'Notification', TopicArn: sesTopicArn, MessageId: messageId, Message: JSON.stringify(event) });
+
+test('SES delivery feedback is deduplicated; hard bounces and complaints suppress hashed recipients', async () => {
+  const outboxId = createHash('sha256').update('ses-feedback-fixture').digest('hex');
+  const attemptId = randomUUID();
+  const outbox = db.doc(`emailOutbox/${outboxId}`);
+  const tags = { outboxId: [outboxId], attemptId: [attemptId], business: ['wontstopmoving'], 'ses:configuration-set': [sesConfig] };
+  const sesEvent = (kind, extra = {}) => ({ eventType: kind, mail: { messageId: 'ses-provider-fixture', destination: ['feedback-test@example.com'], tags }, ...extra });
+  await outbox.set({ to: 'feedback-test@example.com', subject: 'Fixture', text: 'No private code', status: 'accepted', provider: 'ses', providerMessageId: 'ses-provider-fixture', attemptId, sesConfigurationSet: sesConfig, createdAt: Timestamp.now() });
+
+  const delivered = notification('sns-delivery-fixture', sesEvent('Delivery', { delivery: { recipients: ['feedback-test@example.com'] } }));
+  assert.equal((await processSesNotification(delivered)).duplicate, false);
+  assert.equal((await processSesNotification(delivered)).duplicate, true);
+  assert.equal((await outbox.get()).data().status, 'delivered');
+  const deliveryEventId = createHash('sha256').update(`${sesTopicArn}:sns-delivery-fixture`).digest('hex');
+  const savedDelivery = (await db.doc(`sesWebhookEvents/${deliveryEventId}`).get()).data();
+  assert.deepEqual(savedDelivery.recipientHashes, [createHash('sha256').update('feedback-test@example.com').digest('hex')]);
+  assert.equal(JSON.stringify(savedDelivery).includes('feedback-test@example.com'), false);
+  await processSesNotification(notification('sns-late-delay', sesEvent('DeliveryDelay', { deliveryDelay: { delayedRecipients: [{ emailAddress: 'feedback-test@example.com' }] } })));
+  assert.equal((await outbox.get()).data().status, 'delivered');
+
+  const incorrectRecipient = sesEvent('Bounce', { bounce: { bounceType: 'Permanent', bouncedRecipients: [{ emailAddress: 'innocent@example.com' }] } });
+  await assert.rejects(processSesNotification(notification('sns-wrong-recipient', incorrectRecipient)), /SES_RECIPIENT_INVALID/);
+  const correctSend = sesEvent('Send');
+  for (const [key, value, error] of [['business', ['different-business'], /SES_EVENT_METADATA_INVALID/], ['ses:configuration-set', ['wrong-config'], /SES_OUTBOX_MISMATCH/], ['attemptId', [randomUUID()], /SES_OUTBOX_MISMATCH/]]) {
+    await assert.rejects(processSesNotification(notification(`sns-wrong-${key}`, { ...correctSend, mail: { ...correctSend.mail, tags: { ...tags, [key]: value } } })), error);
+  }
+  await assert.rejects(processSesNotification(notification('sns-wrong-provider-id', { ...correctSend, mail: { ...correctSend.mail, messageId: 'wrong-ses-id' } })), /SES_OUTBOX_MISMATCH/);
+
+  const bounced = notification('sns-bounce-fixture', sesEvent('Bounce', { bounce: { bounceType: 'Permanent', bouncedRecipients: [{ emailAddress: 'feedback-test@example.com' }] } }));
+  assert.equal((await processSesNotification(bounced)).suppressed, 1);
+  assert.equal((await outbox.get()).data().status, 'bounced');
+  const suppressionId = createHash('sha256').update('feedback-test@example.com').digest('hex');
+  assert.equal((await db.doc(`emailSuppressions/${suppressionId}`).get()).data().reason, 'ses_hard_bounce');
+
+  await processSesNotification(notification('sns-complaint-fixture', sesEvent('Complaint', { complaint: { complainedRecipients: [{ emailAddress: 'feedback-test@example.com' }] } })));
+  assert.equal((await outbox.get()).data().status, 'complained');
+  assert.equal((await db.doc(`emailSuppressions/${suppressionId}`).get()).data().reason, 'ses_complaint');
+
+  await outbox.update({ status: 'accepted' });
+  await processSesNotification(notification('sns-delay-fixture', sesEvent('DeliveryDelay', { deliveryDelay: { delayedRecipients: [{ emailAddress: 'feedback-test@example.com' }] } })));
+  assert.equal((await outbox.get()).data().status, 'delayed');
+  await processSesNotification(notification('sns-reject-fixture', sesEvent('Reject')));
+  assert.equal((await outbox.get()).data().status, 'rejected');
+});
+
+test('suppressed recipients never reach Zoho or SES, and only safe SES failures are retried automatically', async () => {
+  assert.equal(emailDeliveryProvider(), 'zoho');
+  assert.equal(safeTransientEmailError({ name: 'ThrottlingException', $metadata: { httpStatusCode: 400 } }), true);
+  assert.equal(safeTransientEmailError({ $metadata: { httpStatusCode: 429 } }), true);
+  assert.equal(safeTransientEmailError({ name: 'ServiceUnavailableException' }), false);
+  assert.equal(safeTransientEmailError({ $metadata: { httpStatusCode: 503 } }), false);
+  assert.equal(safeTransientEmailError({ $metadata: { httpStatusCode: 500 } }), false);
+  assert.equal(safeTransientEmailError(new Error('socket closed after provider acceptance')), false);
+
+  const to = 'already-suppressed@example.com';
+  const id = createHash('sha256').update('suppression-send-fixture').digest('hex');
+  const suppressionId = createHash('sha256').update(to).digest('hex');
+  await db.doc(`emailSuppressions/${suppressionId}`).set({ reason: 'ses_complaint', createdAt: Timestamp.now() });
+  await db.doc(`emailOutbox/${id}`).set({ to, subject: 'Do not send', text: 'Do not send', status: 'pending', createdAt: Timestamp.now() });
+  const response = await fetch(`${base}/api/admin/notifications`, authorized(adminToken, { kind: 'pending', id }));
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).status, 'suppressed');
+  const saved = (await db.doc(`emailOutbox/${id}`).get()).data();
+  assert.equal(saved.status, 'suppressed');
+  assert.equal(saved.attempts, undefined);
+});
+
+test('email outbox keeps early feedback, single claims, held failures, isolated pilot events and Zoho routing', async t => {
+  const settings = db.doc('emailDeliveryControls/settings'), usage = db.doc('emailDeliveryControls/aws-us-east-2');
+  const savedEnv = {
+    EMAIL_DELIVERY_PROVIDER: 'ses', SES_EMAIL_CATEGORIES: 'job,release_code,review', SES_CONFIGURATION_SET: sesConfig,
+    SES_ASSUME_ROLE_ARN: 'test-role', SES_WEB_IDENTITY_AUDIENCE: 'test-audience', SES_GOOGLE_SERVICE_ACCOUNT: 'test-worker',
+    ZOHO_SMTP_PASS: 'sample-integration-password',
+  };
+  const beforeEnv = Object.fromEntries(Object.keys(savedEnv).map(key => [key, process.env[key]]));
+  Object.assign(process.env, savedEnv);
+  const draft = { to: 'send-fixture@example.com', subject: 'Fixture', text: 'Fixture only', status: 'pending', createdAt: Timestamp.now(), category: 'job' };
+  let sesCalls = 0;
+  const create = (key, pilot = false) => db.doc(`${pilot ? 'sesPilotOutbox' : 'emailOutbox'}/${createHash('sha256').update(key).digest('hex')}`);
+  const failures = new Map();
+  let earlyCallbackDone = false;
+  t.mock.method(SESv2Client.prototype, 'send', async function (command) {
+    sesCalls++;
+    assert.equal(await this.config.maxAttempts(), 1);
+    const tags = Object.fromEntries(command.input.EmailTags.map(({ Name, Value }) => [Name, [Value]]));
+    const [to] = command.input.Destination.ToAddresses;
+    const messageId = `message-${sesCalls}`;
+    const failure = failures.get(command.input.Content.Simple.Subject.Data);
+    if (failure) throw { $metadata: { httpStatusCode: failure } };
+    if (to === draft.to || to === 'bounce@simulator.amazonses.com') {
+      const pilot = to !== draft.to;
+      await processSesNotification(notification(`early-${messageId}`, {
+        eventType: pilot ? 'Bounce' : 'Delivery', mail: { messageId, destination: [to], tags: { ...tags, 'ses:configuration-set': [sesConfig] } },
+        ...(pilot ? { bounce: { bounceType: 'Permanent', bouncedRecipients: [{ emailAddress: to }] } } : { delivery: { recipients: [to] } }),
+      }));
+      earlyCallbackDone = true;
+    }
+    return { MessageId: messageId };
+  });
+  const zoho = t.mock.method(nodemailer, 'createTransport', () => ({
+    sendMail: async () => ({ accepted: ['test@example.com'], messageId: 'local-smtp-fixture' }), close() {},
+  }));
+  try {
+    const delivered = create('early-ses-delivery'), ambiguous = create('ambiguous-ses-503'), throttled = create('ses-429'), expired = create('old-lease');
+    await delivered.set(draft);
+    await Promise.all([deliverEmail(delivered.id), deliverEmail(delivered.id)]);
+    assert.equal(earlyCallbackDone, true);
+    assert.equal(sesCalls, 1);
+    assert.equal((await delivered.get()).data().status, 'delivered');
+
+    failures.set('503', 503);
+    failures.set('429', 429);
+    await ambiguous.set({ ...draft, subject: '503' });
+    assert.equal(await deliverEmail(ambiguous.id), 'needs_review');
+    assert.equal(await deliverEmail(ambiguous.id), 'needs_review');
+    assert.equal((await ambiguous.get()).data().nextAttemptAt, undefined);
+    assert.equal((await fetch(`${base}/api/admin/notifications`, authorized(adminToken, { kind: 'retry', id: ambiguous.id }))).status, 409);
+
+    await throttled.set({ ...draft, subject: '429' });
+    assert.equal(await deliverEmail(throttled.id), 'retry');
+    assert.equal(await deliverEmail(throttled.id), 'retry');
+    await throttled.update({ nextAttemptAt: Timestamp.fromMillis(Date.now() - 1) });
+    process.env.EMAIL_DELIVERY_PROVIDER = 'zoho';
+    assert.equal(await deliverEmail(throttled.id), 'needs_review');
+    assert.equal(zoho.mock.callCount(), 0);
+
+    await expired.set({ ...draft, provider: 'ses', status: 'sending', attemptId: randomUUID(), leaseUntil: Timestamp.fromMillis(Date.now() - 1000) });
+    await processEmailQueue();
+    assert.equal((await expired.get()).data().failureCode, 'EMAIL_SEND_LEASE_EXPIRED');
+
+    process.env.EMAIL_DELIVERY_PROVIDER = 'ses';
+    const quote = create('zoho-quote');
+    await quote.set({ ...draft, category: 'quote' });
+    assert.equal(await deliverEmail(quote.id), 'sent');
+    assert.ok(zoho.mock.calls.some(call => call.arguments[0].host === '127.0.0.1'));
+
+    const pilot = create('pilot-hard-bounce', true);
+    await pilot.set({ ...draft, category: 'ses_pilot', to: 'bounce@simulator.amazonses.com' });
+    await usage.delete();
+    await settings.set({ sesPaused: true });
+    const list = await (await fetch(`${base}/api/admin/notifications`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+    assert.equal(list.ses.paused, true);
+    assert.equal(await deliverEmail(pilot.id, true), 'paused');
+    await settings.set({ sesAccountLimit: 1 });
+    assert.equal(await deliverEmail(pilot.id, true), 'bounced');
+    const capped = create('pilot-usage-cap', true);
+    await capped.set({ ...draft, category: 'ses_pilot' });
+    assert.equal(await deliverEmail(capped.id, true), 'rate_limited');
+    assert.equal((await db.collection('sesPilotSuppressions').where('outboxId', '==', pilot.id).get()).size, 1);
+    const simulatorHash = createHash('sha256').update('bounce@simulator.amazonses.com').digest('hex');
+    assert.equal((await db.doc(`emailSuppressions/${simulatorHash}`).get()).exists, false);
+  } finally {
+    for (const [key, value] of Object.entries(beforeEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    await settings.delete();
+    await usage.delete();
+  }
 });
 
 test('the weekly draft job rejects calls without a valid Google-signed scheduler token', async () => {

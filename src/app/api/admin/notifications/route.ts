@@ -3,13 +3,20 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/server/firebase-admin';
 import { errorResponse, HttpError, isId, readJson, requireRole } from '@/lib/server/auth';
 import { queueAccountApproval, queueJobEmails, queueQuoteEmail, deliverEmail, mailConfigured } from '@/lib/server/notifications';
+import { SES_SETTINGS_PATH } from '@/lib/server/email-outbox';
+import { emailProviderConfigured } from '@/lib/server/email-provider';
 
 export async function GET(req: Request) {
   try {
     await requireRole(req, ['admin']);
     const iso = (value: any) => value?.toDate?.().toISOString() || null;
-    const outbox = await adminDb().collection('emailOutbox').orderBy('createdAt', 'desc').limit(100).get();
-    return NextResponse.json({ configured: mailConfigured(), messages: outbox.docs.map(doc => { const d = doc.data(); return { id: doc.id, to: d.to, subject: d.subject, category: d.category || null, referenceId: d.referenceId || null, status: d.status, failureCode: d.failureCode || null, createdAt: iso(d.createdAt), attemptedAt: iso(d.attemptedAt), sentAt: iso(d.sentAt) }; }) }, { headers: { 'Cache-Control': 'private, no-store' } });
+    const db = adminDb();
+    const [outbox, settings] = await Promise.all([db.collection('emailOutbox').orderBy('createdAt', 'desc').limit(100).get(), db.doc(SES_SETTINGS_PATH).get()]);
+    return NextResponse.json({
+      configured: mailConfigured(),
+      ses: { configured: emailProviderConfigured('ses'), selected: process.env.EMAIL_DELIVERY_PROVIDER === 'ses', paused: settings.data()?.sesPaused === true },
+      messages: outbox.docs.map(doc => { const d = doc.data(); return { id: doc.id, to: d.to, subject: d.subject, category: d.category || null, referenceId: d.referenceId || null, status: d.status, provider: d.provider || null, providerMessageId: d.providerMessageId || null, failureCode: d.failureCode || null, lastSesEvent: d.lastSesEvent || null, createdAt: iso(d.createdAt), attemptedAt: iso(d.attemptedAt), acceptedAt: iso(d.acceptedAt), deliveredAt: iso(d.deliveredAt), sentAt: iso(d.sentAt), nextAttemptAt: iso(d.nextAttemptAt), leaseUntil: iso(d.leaseUntil) }; }),
+    }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) { return errorResponse(error); }
 }
 
@@ -20,7 +27,7 @@ const STUCK_SENDING_MS = 10 * 60 * 1000;
 export async function POST(req: Request) {
   try {
     const { user } = await requireRole(req, ['admin']);
-    const { kind, id } = await readJson(req);
+    const { kind, id, confirmNoDelivery } = await readJson(req);
     if (!isId(id)) throw new HttpError(400, 'Choose a valid record.');
     if (kind === 'pending') {
       const status = await deliverEmail(id);
@@ -33,10 +40,13 @@ export async function POST(req: Request) {
       await db.runTransaction(async tx => {
         const d = (await tx.get(ref)).data();
         if (!d) throw new HttpError(404, 'That email no longer exists.');
-        const stuck = d.status === 'sending' && (d.attemptedAt?.toMillis?.() || 0) < Date.now() - STUCK_SENDING_MS;
-        if (!['needs_review', 'pending', 'dismissed'].includes(d.status) && !stuck) throw new HttpError(409, d.status === 'sent' ? 'That email was already sent.' : 'That email is being sent right now.');
+        const stuck = d.status === 'sending' && (d.leaseUntil?.toMillis?.() ?? ((d.attemptedAt?.toMillis?.() || 0) + STUCK_SENDING_MS)) <= Date.now();
+        if (!['needs_review', 'pending', 'dismissed'].includes(d.status) && !stuck) throw new HttpError(409, ['sent', 'accepted', 'delivered'].includes(d.status) ? 'That email was already accepted for delivery.' : 'That email is being sent right now.');
+        if (kind === 'retry' && (stuck || (d.provider === 'ses' && d.failureCode !== 'SES_THROTTLED' && ['needs_review', 'dismissed'].includes(d.status))) && confirmNoDelivery !== true) {
+          throw new HttpError(409, 'Confirm that the original email was not delivered before retrying.');
+        }
         tx.update(ref, kind === 'retry'
-          ? { status: 'pending', failureCode: FieldValue.delete(), retriedBy: user.uid, retriedAt: FieldValue.serverTimestamp() }
+          ? { status: 'pending', failureCode: FieldValue.delete(), attemptId: FieldValue.delete(), leaseUntil: FieldValue.delete(), nextAttemptAt: FieldValue.delete(), retriedBy: user.uid, retriedAt: FieldValue.serverTimestamp() }
           : { status: 'dismissed', dismissedBy: user.uid, dismissedAt: FieldValue.serverTimestamp() });
       });
       return NextResponse.json({ status: kind === 'retry' ? await deliverEmail(id) : 'dismissed' });
