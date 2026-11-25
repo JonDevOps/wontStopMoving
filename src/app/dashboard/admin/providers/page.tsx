@@ -4,11 +4,11 @@ import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth, useCollection, useFirestore } from "@/firebase";
 import { updateApproval, approvalEmailNote } from "@/lib/api-client";
-import { collection, query, orderBy } from "firebase/firestore";
+import { collection, doc, query, orderBy, updateDoc } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { UserCheck, ShieldAlert, FileText, CheckCircle2, Clock, MapPin } from "lucide-react";
+import { UserCheck, ShieldAlert, FileText, CheckCircle2, Clock, MapPin, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 
@@ -150,6 +150,22 @@ function ProviderManagementContent() {
                       className="w-full font-black uppercase tracking-widest text-xs"
                     >
                       <ShieldAlert className="w-4 h-4 mr-2" /> Suspend
+                    </Button>
+                  )}
+
+                  {/* Featured providers sort first in search results (#147). */}
+                  {provider.status === "approved" && (
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          await updateDoc(doc(firestore, "providers", provider.id), { featured: !provider.featured });
+                          toast({ title: provider.featured ? "No longer featured" : "Featured", description: provider.featured ? "Sorted normally in search results." : "Shown first in search results." });
+                        } catch { toast({ variant: "destructive", title: "Could not update the provider" }); }
+                      }}
+                      className="w-full font-black uppercase tracking-widest text-xs border-accent/30 text-accent hover:bg-accent/5"
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" /> {provider.featured ? "Unfeature" : "Feature"}
                     </Button>
                   )}
 

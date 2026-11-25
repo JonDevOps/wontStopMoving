@@ -4,6 +4,7 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, Timestamp, getFirestore } from 'firebase-admin/firestore';
+import { geohashForLocation } from 'geofire-common';
 
 if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
   throw new Error('Emulator hosts are not set. Use `npm run seed:local`.');
@@ -28,6 +29,7 @@ await db.doc('providers/dev-provider').set({
   businessName: 'Golden Gate Test Movers', bio: 'Two-person crew for apartments and small homes.',
   status: 'approved', hourlyRate: 65, minimumHours: 2, services: ['loading', 'unloading', 'packing'],
   serviceAreaCities: ['ca/san-francisco', 'ca/oakland'], rating: 4.8, reviewCount: 12,
+  location: { lat: 37.7599, lng: -122.4148 }, geohash: geohashForLocation([37.7599, -122.4148]), featured: true,
   stripeAccountId: 'acct_devtestprovider', stripeOnboardingComplete: true,
   email: 'provider@wsm.test', phone: '4155550103', createdAt: FieldValue.serverTimestamp(),
 }, { merge: true });

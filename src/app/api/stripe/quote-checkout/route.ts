@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from 'firebase-admin/firestore';
 import { stripe } from "@/lib/stripe";
-import { calculateMoveTotal } from "@/lib/pricing";
+import { calculateMoveTotal, isMoveTier } from "@/lib/pricing";
 import { zipRoadMiles } from "@/lib/server/distance";
 import { adminDb } from "@/lib/server/firebase-admin";
 import { errorResponse, HttpError, isId, readJson, requireRole, requireStripe, siteOrigin } from "@/lib/server/auth";
@@ -48,6 +48,8 @@ export async function POST(req: Request) {
       isStudent: !!details.isStudent,
       isMilitary: !!details.isMilitary,
       isSenior: !!details.isSenior,
+      // Service tier the customer chose (#144); anything unknown prices as standard.
+      tier: isMoveTier(q.tier) ? q.tier : isMoveTier(details.tier) ? details.tier : undefined,
       isExpress: !!details.addOns?.express,
       // Distance from the quote's ZIP codes, worked out here (never trusted from the browser).
       miles: zipRoadMiles(q.pickupZip || details.pickupZip, q.dropoffZip || details.dropoffZip),

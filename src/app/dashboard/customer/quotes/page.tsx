@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { calculateMoveTotal } from "@/lib/pricing";
+import { calculateMoveTotal, isMoveTier } from "@/lib/pricing";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 import { TermsConfirmation } from '@/components/legal/terms-confirmation';
@@ -126,6 +126,7 @@ export default function MyQuotesPage() {
                 isStudent: !!details?.isStudent,
                 isMilitary: !!details?.isMilitary,
                 isSenior: !!details?.isSenior,
+                tier: isMoveTier(quote.tier) ? quote.tier : isMoveTier(details?.tier) ? details.tier : undefined,
                 isExpress: !!details?.addOns?.express,
                 miles: typeof quote.estimatedMiles === "number" ? quote.estimatedMiles : null,
               });
