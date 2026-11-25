@@ -46,9 +46,11 @@ Webhook verification uses the fixed public origin `https://wontstopmoving.com`, 
 - `twilioWebhookEvents` deduplicates inbound MessageSid. `phoneInbox` stores bounded inbound support text/call records; MMS media is counted but not fetched. `phoneRecordings` stores IDs/durations, not public audio URLs. Firestore default-deny rules keep these collections private; owner-only preference APIs and admin-only phone APIs provide access.
 - Message delivery callbacks match outbox ID, sender, recipient and MessageSid. Delivery progress cannot regress. Error 21610 also suppresses future sending.
 
-## Voice after messaging registration
+## Voice activation independent of pending SMS verification
 
-The same number supports voice. Voice stays off until `TWILIO_VOICE_ENABLED=true`.
+The same number supports voice independently of SMS verification. On November 18, 2026 the owner authorized voice activation and supplied a forwarding destination, stored only as the runtime secret `TWILIO_VOICE_FORWARD_TO`. The incoming voice webhook was verified as POST to the voice route; incoming SMS webhook was preserved. SMS verification is In Review per the owner. Voicemail and recording remain disabled. Firebase rollout `build-2026-11-18-002` succeeded and is serving. Live runtime confirms voice enabled, forwarding secret bound, SMS approval/sending gates false and voicemail false. A signed no-answer request returned 200 with Hangup and no Record; unauthenticated admin inbox API returned 401. The browser was not signed in as admin. Actual handset routing and the resulting admin inbox entry require the owner’s incoming-call test.
+
+**November 25, 2026:** the direct-dial flow above was replaced by the phone menu and hold queue described below (#194).
 
 1. Ask the owner for the forwarding destination. Do not assume the previous public number is still their preferred destination. Do not forward back to +18887416683 (loop).
 2. Put the destination in `TWILIO_VOICE_FORWARD_TO`, enable `TWILIO_VOICE_ENABLED`, deploy and set the number’s incoming Voice webhook to POST `https://wontstopmoving.com/api/webhooks/twilio/voice`.
@@ -73,7 +75,7 @@ Hermes is not connected or active. Add it behind the existing server authorizati
 
 `src/lib/business-contact.ts` is the source of truth. `SITE_PHONE` and JSON-LD derive from it. Public buttons, page metadata, vCard, support surfaces, operational email templates and future draft outreach use it. New application emails receive `BUSINESS_EMAIL_SIGNATURE` through `enqueueEmail`; existing sent messages or stored historical outbox content are not rewritten. Zoho SMTP sender/aliases, DNS and mailbox identity remain unchanged.
 
-No authorized Zoho mailbox-signature editor is available in this workspace. Manual steps: sign into Zoho Mail as the existing mailbox → Settings → Signatures → select the WontStopMoving signature (or add one) → paste the following → associate it with the existing WontStopMoving From aliases → save. Keep jonathan@w3develops.org as the primary mailbox and keep reply-from-receiving-alias behavior. Do not attach this brand signature to unrelated A Moving Service or W3Develops aliases.
+Completed in Zoho Mail on November 18, 2026: created WontStopMoving signature and associated both existing sender aliases (`contact@wontstopmoving.com`, `noreply@wontstopmoving.com`) for new messages and replies/forwards. Verified automatic insertion for both in a new unsent draft, including telephone, email and HTTPS links. Primary mailbox and other-business signature were preserved; no aliases, DNS or reply-address preferences were changed. `support@wontstopmoving.com` is the signature contact but was not listed as an existing sender alias; none was created. Reference steps: sign into Zoho Mail as the existing mailbox → Settings → Signatures → select the WontStopMoving signature (or add one) → paste the following → associate it with the existing WontStopMoving From aliases → save. Keep jonathan@w3develops.org as the primary mailbox and keep reply-from-receiving-alias behavior. Do not attach this brand signature to unrelated A Moving Service or W3Develops aliases.
 
 ```
 WontStopMoving

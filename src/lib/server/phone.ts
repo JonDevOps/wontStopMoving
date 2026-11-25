@@ -15,7 +15,8 @@ export const MENU: Record<string, { key: string; label: string; spoken: string }
   '2': { key: 'dispatch', label: 'Provider dispatch', spoken: 'provider dispatch' },
   '0': { key: 'support', label: 'Customer support', spoken: 'customer support' },
 };
-export const GREETING = 'Thank you for calling Wont Stop Moving.';
+// &apos; so text-to-speech says "won't" (inserted inside <Say>).
+export const GREETING = 'Thank you for calling Won&apos;t Stop Moving.';
 export const WAIT_MESSAGE = 'Your call is important to us. Please remain on the line for the next available representative.';
 
 export const voiceEnabled = () => process.env.TWILIO_VOICE_ENABLED === 'true';
