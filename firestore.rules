@@ -59,8 +59,8 @@ service cloud.firestore {
       return acceptance is map &&
         acceptance.keys().hasOnly(['accepted', 'version', 'documentPath', 'acceptedBy', 'context', 'acceptedAt']) &&
         acceptance.get('accepted', false) == true &&
-        acceptance.get('version', '') == '2026-11-18' &&
-        acceptance.get('documentPath', '') == '/terms/2026-11-18' &&
+        acceptance.get('version', '') == '2026-11-25' &&
+        acceptance.get('documentPath', '') == '/terms/2026-11-25' &&
         acceptance.get('acceptedBy', '') == request.auth.uid &&
         acceptance.get('context', '') == context &&
         acceptance.get('acceptedAt', null) == request.time;
