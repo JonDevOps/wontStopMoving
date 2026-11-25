@@ -11,7 +11,7 @@ import { validProviderPricing } from '../mover-pricing';
 import { moverCity } from './mover-locations';
 import { moverCityCenter, providerServesCity } from './mover-coverage';
 
-export async function createMoverCheckout(uid: string, email: string | undefined, body: Record<string, unknown>, origin: string) {
+export async function createMoverCheckout(uid: string, email: string | undefined, body: Record<string, unknown>, origin: string, opts: { guest?: boolean } = {}) {
   if (process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED !== 'true') throw new HttpError(503, 'Marketplace checkout is opening soon. Book our team directly or contact us for help.');
   requireCurrentTerms(body);
   const parsed = moverCartSchema.safeParse(body.items);
@@ -61,8 +61,9 @@ export async function createMoverCheckout(uid: string, email: string | undefined
     mode: 'payment', customer_email: email, integration_identifier: `wsm_cart_${tag}`,
     line_items: order.items.map((item: { providerName: string; service: string; hours: number; totalCents: number }) => ({ quantity: 1, price_data: { currency: 'usd', unit_amount: item.totalCents, product_data: { name: `${item.providerName} · ${item.service}`, description: `${item.hours} hours. Release this crew’s payment code after their work is complete.` } } })),
     payment_intent_data: { transfer_group: `ORDER_${id}` },
-    metadata: { flow: 'mover_cart', orderId: id, customerId: uid },
-    success_url: `${origin}/dashboard/customer/moves?session_id={CHECKOUT_SESSION_ID}`,
+    metadata: { flow: 'mover_cart', orderId: id, customerId: uid, ...(opts.guest ? { guest: 'true', origin } : {}) },
+    // Guests aren't signed in yet, so they land on a confirmation page instead of the dashboard.
+    success_url: opts.guest ? `${origin}/movers/booked?session_id={CHECKOUT_SESSION_ID}` : `${origin}/dashboard/customer/moves?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/movers/cart?canceled=true`,
   }, { idempotencyKey: `mover-checkout-${id}` });
   await ref.update({ checkoutSessionId: session.id });

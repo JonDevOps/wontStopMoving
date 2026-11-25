@@ -7,6 +7,7 @@ import ts from 'typescript';
 import * as contact from '../src/lib/business-contact.ts';
 import * as consentShared from '../src/lib/sms-consent.ts';
 import { initializeApp, deleteApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { moneyOperation } from '../src/lib/server/money-operation.ts';
 import { providerShareCents, tipShareCents, moverCartSchema } from '../src/lib/mover-cart.ts';
@@ -184,7 +185,7 @@ test('a refunded tip payment is never transferred to the provider', async () => 
 
 test('only the assigned crew can redeem its code; each allocation pays independently once', async () => {
   const stripe=fakeStripe();
-  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation} });
+  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation}, './guest-account':{sendGuestPasswordEmail:async()=>{}} });
   for(const [id,uid,cents] of [['money-release-a','money-release-crew-a',9000],['money-release-b','money-release-crew-b',13000]]) {
     await db.doc(`providers/${uid}`).set({stripeAccountId:`acct_${uid}`,stripeOnboardingComplete:true});
     await db.doc(`jobs/${id}`).set({customerId:'money-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_shared_release',orderId:'money-shared-order',amountPaid:cents/100,providerPayoutCents:providerShareCents(cents),reviewRefundEligible:true});
@@ -204,7 +205,7 @@ test('only the assigned crew can redeem its code; each allocation pays independe
 
 test('customer can release their own paid move from the app, once, on or after the move date', async () => {
   const stripe=fakeStripe();
-  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation} });
+  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation}, './guest-account':{sendGuestPasswordEmail:async()=>{}} });
   const uid='money-custrelease-crew', today=new Date().toISOString().slice(0,10), later=new Date(Date.now()+5*86400000).toISOString().slice(0,10);
   await db.doc(`providers/${uid}`).set({stripeAccountId:`acct_${uid}`,stripeOnboardingComplete:true});
   await db.doc('jobs/money-custrelease-now').set({customerId:'money-custrelease-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_custrelease',amountPaid:100,providerPayoutCents:providerShareCents(10000),reviewRefundEligible:true,moveDate:today});
@@ -217,6 +218,26 @@ test('customer can release their own paid move from the app, once, on or after t
   await assert.rejects(()=>lifecycle.releaseJobByCustomer({jobId:'money-custrelease-now',uid:'money-custrelease-customer'}), /already completed/);
   assert.equal(stripe.transfersMade.size,1);
   assert.equal([...stripe.transfersMade.values()][0].params.amount,providerShareCents(10000));
+});
+
+test('guest checkout creates or reuses a passwordless guest, and sends existing accounts to sign in', async () => {
+  const auth=getAuth(app), sent=[];
+  const guest=load('guest-account', { './firebase-admin':{adminDb:()=>db,adminAuth:()=>auth}, './auth':authMock, './notifications':{enqueueEmail:async (key,msg)=>{sent.push(msg);return {id:key,status:'sent'};}} });
+  const stamp=Date.now(), email=`money-guest-${stamp}@example.com`, real=`money-real-${stamp}@example.com`;
+  await assert.rejects(()=>guest.guestCustomer({name:'G',email,phone:'4155550100'}), /name/);
+  await assert.rejects(()=>guest.guestCustomer({name:'Guest Person',email:'nope',phone:'4155550100'}), /email/);
+  const first=await guest.guestCustomer({name:'Guest Person',email,phone:'4155550100'});
+  const again=await guest.guestCustomer({name:'Guest Person',email,phone:'4155550100'});
+  assert.equal(again.uid, first.uid);
+  const profile=(await db.doc(`users/${first.uid}`).get()).data();
+  assert.equal(profile.role,'customer'); assert.equal(profile.guestCheckout,true);
+  const realUser=await auth.createUser({email:real,password:'password123'});
+  await db.doc(`users/${realUser.uid}`).set({role:'customer',email:real});
+  await assert.rejects(()=>guest.guestCustomer({name:'Real Person',email:real,phone:'4155550100'}), /Sign in/);
+  await guest.sendGuestPasswordEmail(first.uid,'https://example.test');
+  await guest.sendGuestPasswordEmail(first.uid,'https://example.test');
+  assert.equal(sent.length,1); assert.equal(sent[0].to,email);
+  await db.doc(`users/${first.uid}`).delete(); await db.doc(`users/${realUser.uid}`).delete();
 });
 
 test('dispatcher requires verified sender, current consent and no STOP; stale queues and legacy booleans cannot send', async () => {
