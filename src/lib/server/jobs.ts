@@ -13,6 +13,7 @@ import { stripe } from "@/lib/stripe";
 import { confirmMoverOrder } from './mover-orders';
 import { confirmTipCheckout } from './move-benefits';
 import { moneyOperation } from './money-operation';
+import { sendGuestPasswordEmail } from './guest-account';
 
 /**
  * Server-side job lifecycle. Jobs are created, confirmed and completed only
@@ -41,7 +42,15 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
   if (session.metadata?.type === "giftcard") { await confirmGiftCardOrder(session); return { jobId: null }; }
   if (session.payment_status !== "paid") return { jobId: null };
   if (session.metadata?.flow === 'move_tip') { await confirmTipCheckout(session); return { jobId: session.metadata.jobId || null }; }
-  if (session.metadata?.flow === 'mover_cart') return confirmMoverOrder(session);
+  if (session.metadata?.flow === 'mover_cart') {
+    const result = await confirmMoverOrder(session);
+    // Guest checkout (#151): invite them to set a password for their new account.
+    if (session.metadata.guest === 'true' && session.metadata.customerId) {
+      try { await sendGuestPasswordEmail(session.metadata.customerId, session.metadata.origin || undefined); }
+      catch (error) { console.error('Guest password email failed', session.metadata.customerId, error); }
+    }
+    return result;
+  }
   const md = session.metadata || {};
   const customerId = md.customerId;
   if (!customerId) throw new HttpError(400, "Payment is missing its customer.");
