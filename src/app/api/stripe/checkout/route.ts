@@ -7,6 +7,7 @@ import { errorResponse, HttpError, isId, readJson, requireRole, requireStripe, s
 import { requireCurrentTerms, bookingTermsAcceptance } from '@/lib/server/terms';
 import { TERMS_VERSION } from '@/lib/terms';
 import { validProviderPricing } from '@/lib/mover-pricing';
+import { savedCardCustomer, SAVED_CARD_NOTE } from '@/lib/server/stripe-customer';
 
 /**
  * Starts a provider booking. The job and its price are created here on the
@@ -54,6 +55,7 @@ export async function POST(req: Request) {
       id: jobRef.id,
       customerId: user.uid,
       providerIds: [providerId],
+      providerName: String(p.businessName || "Your crew").slice(0, 80),
       employeeIds: [],
       status: "pending_payment",
       paymentStatus: "unpaid",
@@ -61,6 +63,7 @@ export async function POST(req: Request) {
       pickupAddress: (pickupAddress as string).trim(),
       dropoffAddress: (dropoffAddress as string).trim(),
       hoursReserved: hours,
+      hourlyRate: rate,
       service,
       preferredStartTime,
       price,
@@ -69,9 +72,13 @@ export async function POST(req: Request) {
     });
 
     const origin = siteOrigin(req);
+    // Save the card so the customer can approve extra hours later (#153).
+    const stripeCustomerId = await savedCardCustomer(user.uid, user.email);
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      customer_email: user.email,
+      customer: stripeCustomerId,
+      custom_text: { submit: { message: SAVED_CARD_NOTE } },
+      payment_intent_data: { setup_future_usage: "off_session", transfer_group: `JOB_${jobRef.id}` },
       line_items: [
         {
           price_data: {

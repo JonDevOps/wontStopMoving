@@ -1,5 +1,5 @@
-
 "use client";
+import { moveDay } from "@/lib/move-details";
 
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -107,7 +107,7 @@ function EmployeeJobsContent() {
                   <div className="flex flex-wrap gap-4 text-xs text-muted-foreground font-bold">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5 text-accent" />
-                      {job.moveDate ? format(new Date(job.moveDate), "MMM d, yyyy") : "TBD"}
+                      {job.moveDate ? format(moveDay(job.moveDate), "MMM d, yyyy") : "TBD"}
                     </span>
                     <span className="flex items-center gap-1 capitalize">
                       <Package className="h-3.5 w-3.5 text-accent" />

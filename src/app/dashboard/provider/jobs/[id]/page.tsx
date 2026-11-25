@@ -1,4 +1,5 @@
 "use client";
+import { moveDay } from "@/lib/move-details";
 
 import { ProviderLayout } from "@/components/layout/provider-layout";
 import { JobTeamPanel } from "@/components/jobs/job-team-panel";
@@ -135,7 +136,7 @@ export default function ProviderJobDetailsPage() {
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Move Date</h4>
-                    <p className="font-bold text-slate-900">{job.moveDate ? format(new Date(job.moveDate), "MMM d, yyyy") : "TBD"}</p>
+                    <p className="font-bold text-slate-900">{job.moveDate ? format(moveDay(job.moveDate), "MMM d, yyyy") : "TBD"}</p>
                   </div>
                   {job.hoursReserved && (
                     <div>
@@ -170,8 +171,8 @@ export default function ProviderJobDetailsPage() {
             </Card>
 
 
-            {(job.status === 'confirmed' || job.status === 'in-progress') && job.orderId && typeof job.hoursReserved === 'number' && typeof job.hourlyRate === 'number' && (
-              <RequestExtraHours jobId={job.id} hoursReserved={job.hoursReserved} hourlyRate={job.hourlyRate} request={job.hoursRequest || null} />
+            {(job.status === 'confirmed' || job.status === 'in-progress') && job.paymentStatus === 'paid' && typeof job.hoursReserved === 'number' && (typeof job.hourlyRate === 'number' || typeof job.price === 'number') && (
+              <RequestExtraHours jobId={job.id} hoursReserved={job.hoursReserved} hourlyRate={job.hourlyRate ?? Number(job.price) / job.hoursReserved} request={job.hoursRequest || null} />
             )}
 
             {(job.status === 'confirmed' || job.status === 'in-progress') && (

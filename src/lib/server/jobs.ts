@@ -324,7 +324,10 @@ export async function payoutCompletedJob(jobId: string): Promise<CompletionResul
     const payeeUid = data.payeeProviderId;
     const provider = payeeUid ? await db.doc(`providers/${payeeUid}`).get() : null;
     const accountId = provider?.data()?.stripeAccountId as string | undefined;
-    const cents = data.providerPayoutCents ?? Math.round((Number(data.amountPaid || 0) + Number(data.creditApplied || 0)) * PROVIDER_SHARE * 100);
+    // Extra hours (#153) are charged and paid out separately from their own charges,
+    // so the base payout comes only from the original booking payment.
+    const extraCents = Array.isArray(data.extraCharges) ? data.extraCharges.reduce((sum: number, c: { cents?: number }) => sum + Number(c.cents || 0), 0) : 0;
+    const cents = data.providerPayoutCents ?? Math.round((Math.round((Number(data.amountPaid || 0) + Number(data.creditApplied || 0)) * 100) - extraCents) * PROVIDER_SHARE);
     if (accountId?.startsWith("acct_") && provider?.data()?.stripeOnboardingComplete && cents > 0) {
       const transfer = await moneyOperation(db, `payout-${jobId}`, {
           amount: cents,
