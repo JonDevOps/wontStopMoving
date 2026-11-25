@@ -14,7 +14,8 @@
     "dev:local": "NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true FIRESTORE_EMULATOR_HOST=127.0.0.1:8180 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9199 next dev -p 9002",
     "seed:local": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8180 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9199 node scripts/seed-emulators.mjs",
     "test:ses-infrastructure": "node --test tests/ses-infrastructure.test.mjs",
-    "test:ses-simulator": "node --import ./tests/register-paths.mjs scripts/run-ses-mailbox-simulator.mjs"
+    "test:ses-simulator": "node --import ./tests/register-paths.mjs scripts/run-ses-mailbox-simulator.mjs",
+    "test:smoke": "playwright test"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1173.0",
@@ -73,6 +74,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",
     "@firebase/rules-unit-testing": "^4.0.1",
+    "@playwright/test": "^1.65.1",
     "@types/leaflet": "^1.9.22",
     "@types/leaflet.markercluster": "^1.5.6",
     "@types/node": "^20",

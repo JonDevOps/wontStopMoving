@@ -48,3 +48,8 @@ firestore-debug.log
 /android-builds/
 # Local Firebase emulator data (npm run emulators)
 .emulator-data/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
