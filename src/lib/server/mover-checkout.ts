@@ -56,11 +56,20 @@ export async function createMoverCheckout(uid: string, email: string | undefined
     tx.create(ref, next);
     return next;
   });
+  // Save the card for extra hours the customer approves later (#153). The Stripe
+  // customer id lives server-only (stripeCustomers/{uid}), not on the user's profile.
+  const customerRef = db.doc(`stripeCustomers/${uid}`);
+  let stripeCustomerId = (await customerRef.get()).data()?.id as string | undefined;
+  if (!stripeCustomerId) {
+    stripeCustomerId = (await stripe.customers.create({ email, metadata: { uid } }, { idempotencyKey: `customer-${uid}` })).id;
+    await customerRef.set({ id: stripeCustomerId, createdAt: Timestamp.now() });
+  }
   const tag = id.slice(0, 8).replace(/[0-9a-f]/g, value => String.fromCharCode(97 + parseInt(value, 16)));
   const session = await stripe.checkout.sessions.create({
-    mode: 'payment', customer_email: email, integration_identifier: `wsm_cart_${tag}`,
+    mode: 'payment', customer: stripeCustomerId, integration_identifier: `wsm_cart_${tag}`,
+    custom_text: { submit: { message: 'Your card is saved securely so you can approve extra hours from the app if your crew needs more time. It is only charged when you tap Accept.' } },
     line_items: order.items.map((item: { providerName: string; service: string; hours: number; totalCents: number }) => ({ quantity: 1, price_data: { currency: 'usd', unit_amount: item.totalCents, product_data: { name: `${item.providerName} · ${item.service}`, description: `${item.hours} hours. Release this crew’s payment code after their work is complete.` } } })),
-    payment_intent_data: { transfer_group: `ORDER_${id}` },
+    payment_intent_data: { transfer_group: `ORDER_${id}`, setup_future_usage: 'off_session' },
     metadata: { flow: 'mover_cart', orderId: id, customerId: uid, ...(opts.guest ? { guest: 'true', origin } : {}) },
     // Guests aren't signed in yet, so they land on a confirmation page instead of the dashboard.
     success_url: opts.guest ? `${origin}/movers/booked?session_id={CHECKOUT_SESSION_ID}` : `${origin}/dashboard/customer/moves?session_id={CHECKOUT_SESSION_ID}`,

@@ -34,6 +34,13 @@ export function Notifications() {
   }, [storageKey]);
   const base = role === 'admin' ? '/dashboard/admin' : `/dashboard/${role}`;
   const items = (jobs || []).filter(job => job.paymentStatus === 'paid').sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)).slice(0, 20).map(job => ({ id: `job:${job.id}`, title: role === 'customer' ? 'Your move is confirmed' : role === 'admin' ? 'Paid booking received' : 'Job assigned to you', detail: `${job.moveDate || 'Date pending'} · ${job.pickupAddress || 'View job details'}`, href: `${base}/${role === 'customer' ? 'moves' : 'jobs'}/${job.id}` }));
+  // Extra-hours requests (#153): the customer is asked to approve; the crew hears the answer.
+  for (const job of jobs || []) {
+    const r = job.hoursRequest;
+    if (!r?.id) continue;
+    if (role === 'customer' && (r.status === 'pending' || r.status === 'payment_failed')) items.unshift({ id: `hours:${r.id}`, title: 'Your crew asked for more time', detail: `${r.fromHours} → ${r.hours} hours · tap to approve or decline`, href: `${base}/moves/${job.id}` });
+    if (role === 'provider' && (r.status === 'accepted' || r.status === 'declined')) items.unshift({ id: `hours:${r.id}:${r.status}`, title: r.status === 'accepted' ? 'Extra hours approved' : 'Extra hours declined', detail: `${job.moveDate || ''} · ${r.hours} hours requested`, href: `${base}/jobs/${job.id}` });
+  }
   if (provider?.status === 'approved' || employee?.status === 'active') items.unshift({ id: 'account-approved', title: 'Your account is approved', detail: 'Review your dashboard for your next steps.', href: base });
   const unread = storageReady ? items.filter(item => !seen.includes(item.id)).length : 0;
   function markRead() { const next = [...new Set([...seen, ...items.map(item => item.id)])].slice(-1000); setSeen(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {} }

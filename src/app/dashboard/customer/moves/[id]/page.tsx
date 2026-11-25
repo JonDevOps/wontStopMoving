@@ -16,6 +16,7 @@ import { MoveConcierge } from "@/components/dashboard/move-concierge";
 import { MoveDocuments } from "@/components/dashboard/move-documents";
 import { MoveBenefits } from '@/components/marketplace/move-benefits';
 import { ReleasePayment } from '@/components/dashboard/release-payment';
+import { ApproveExtraHours } from '@/components/jobs/extra-hours';
 
 interface JobDetails {
   id: string;
@@ -164,6 +165,10 @@ export default function CustomerJobDetailsPage() {
                   </div>
                 )}
               </Card>
+            )}
+
+            {job.status !== 'completed' && job.hoursRequest && (
+              <ApproveExtraHours jobId={job.id} crewName={job.providerName || 'Your crew'} request={job.hoursRequest} />
             )}
 
             {job.status !== 'completed' && releaseCode && (
