@@ -17,6 +17,18 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
+  // `npm run dev:local` only: send the browser's Firebase emulator traffic through
+  // this server, so the whole app runs on one origin (some browsers and embedded
+  // panes block a page from calling other localhost ports).
+  async rewrites() {
+    if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS !== 'true') return [];
+    return [
+      { source: '/identitytoolkit.googleapis.com/:path*', destination: 'http://127.0.0.1:9199/identitytoolkit.googleapis.com/:path*' },
+      { source: '/securetoken.googleapis.com/:path*', destination: 'http://127.0.0.1:9199/securetoken.googleapis.com/:path*' },
+      { source: '/emulator/:path*', destination: 'http://127.0.0.1:9199/emulator/:path*' },
+      { source: '/google.firestore.v1.Firestore/:path*', destination: 'http://127.0.0.1:8180/google.firestore.v1.Firestore/:path*' },
+    ];
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
