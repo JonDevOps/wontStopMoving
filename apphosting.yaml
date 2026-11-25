@@ -23,7 +23,7 @@ env:
     value: "+18887416683"
     availability: [RUNTIME]
   - variable: TWILIO_VOICE_ENABLED
-    value: "false"
+    value: "true"
     availability: [RUNTIME]
   - variable: TWILIO_VOICEMAIL_ENABLED
     value: "false"
@@ -78,6 +78,38 @@ env:
     value: support@wontstopmoving.com
     availability:
       - RUNTIME
+  - variable: EMAIL_DELIVERY_PROVIDER
+    value: ses
+    availability:
+      - RUNTIME
+  - variable: SES_EMAIL_CATEGORIES
+    value: 'job,release_code,review'
+    availability:
+      - RUNTIME
+  - variable: SES_AWS_REGION
+    value: us-east-2
+    availability:
+      - RUNTIME
+  - variable: SES_CONFIGURATION_SET
+    value: wontstopmoving-transactional
+    availability:
+      - RUNTIME
+  - variable: SES_ASSUME_ROLE_ARN
+    value: arn:aws:iam::454005357454:role/wontstopmoving-ses-email-worker
+    availability:
+      - RUNTIME
+  - variable: SES_WEB_IDENTITY_AUDIENCE
+    value: wontstopmoving-ses-email-worker
+    availability:
+      - RUNTIME
+  - variable: SES_GOOGLE_SERVICE_ACCOUNT
+    value: wsm-ses-email-worker@studio-6652665935-1850d.iam.gserviceaccount.com
+    availability:
+      - RUNTIME
+  - variable: SES_ALLOWED_SNS_TOPIC_ARNS
+    value: arn:aws:sns:us-east-2:454005357454:wontstopmoving-ses-events
+    availability:
+      - RUNTIME
   # Reward earned by a customer when someone they referred books a move.
   - variable: REFERRAL_REWARD_USD
     value: "25"
@@ -113,4 +145,8 @@ env:
     availability: [RUNTIME]
   - variable: TWILIO_ACCOUNT_SID
     secret: TWILIO_ACCOUNT_SID
+    availability: [RUNTIME]
+
+  - variable: TWILIO_VOICE_FORWARD_TO
+    secret: TWILIO_VOICE_FORWARD_TO
     availability: [RUNTIME]

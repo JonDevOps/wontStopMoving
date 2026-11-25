@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Optional SES reputation alarms and a free monthly SES cost budget. This stack
+  is separate so it cannot be enabled accidentally with the core email stack.
+
+Parameters:
+  OperationsAlertEmail:
+    Type: String
+    Description: Confirmed operations address that will receive alarm and budget notices.
+  MonthlySesBudgetUsd:
+    Type: Number
+    Default: 10
+    MinValue: 1
+
+Resources:
+  OperationsAlerts:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: ses-operations-alerts
+      SignatureVersion: '2'
+
+  OperationsAlertsPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref OperationsAlerts]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CloudWatchAlarmPublish
+            Effect: Allow
+            Principal: { Service: cloudwatch.amazonaws.com }
+            Action: sns:Publish
+            Resource: !Ref OperationsAlerts
+            Condition:
+              StringEquals:
+                AWS:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:*
+
+  OperationsEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      Endpoint: !Ref OperationsAlertEmail
+      TopicArn: !Ref OperationsAlerts
+
+  SesMonthlyCostBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: ses-monthly-cost
+        BudgetLimit:
+          Amount: !Ref MonthlySesBudgetUsd
+          Unit: USD
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        CostFilters:
+          Service:
+            - Amazon Simple Email Service
+      NotificationsWithSubscribers:
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: FORECASTED
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - Address: !Ref OperationsAlertEmail
+              SubscriptionType: EMAIL
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: ACTUAL
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - Address: !Ref OperationsAlertEmail
+              SubscriptionType: EMAIL
+
+  WontStopMovingBounceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: wontstopmoving-ses-bounce-rate
+      AlarmDescription: WontStopMoving SES hard-bounce rate reached the AWS-recommended 5 percent warning threshold.
+      Namespace: AWS/SES
+      MetricName: Reputation.BounceRate
+      Dimensions:
+        - Name: ses:configuration-set
+          Value: wontstopmoving-transactional
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 0.05
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+      AlarmActions: [!Ref OperationsAlerts]
+
+  WontStopMovingComplaintAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: wontstopmoving-ses-complaint-rate
+      AlarmDescription: WontStopMoving SES complaint rate reached the AWS-recommended 0.1 percent warning threshold.
+      Namespace: AWS/SES
+      MetricName: Reputation.ComplaintRate
+      Dimensions:
+        - Name: ses:configuration-set
+          Value: wontstopmoving-transactional
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 0.001
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+      AlarmActions: [!Ref OperationsAlerts]
+
+Outputs:
+  OperationsAlertTopicArn: { Value: !Ref OperationsAlerts }

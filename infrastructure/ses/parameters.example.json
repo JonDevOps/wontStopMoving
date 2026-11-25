@@ -1,0 +1,6 @@
+[
+  { "ParameterKey": "CreateWontStopMovingSubscription", "ParameterValue": "false" },
+  { "ParameterKey": "WontStopMovingGoogleSubject", "ParameterValue": "DEDICATED_GOOGLE_SERVICE_ACCOUNT_NUMERIC_ID" },
+  { "ParameterKey": "WontStopMovingGoogleAudience", "ParameterValue": "wontstopmoving-ses-email-worker" },
+  { "ParameterKey": "EnableWontStopMovingReputationMetrics", "ParameterValue": "false" }
+]

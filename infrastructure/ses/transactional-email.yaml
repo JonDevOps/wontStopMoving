@@ -1,0 +1,401 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Review-only SES event publishing and Google-federated email-worker roles for
+  WontStopMoving, A Moving Service, W3Develops and AgentGarden in us-east-2.
+
+Parameters:
+  CreateWontStopMovingSubscription:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Create the HTTPS SNS subscription only after the Firebase feedback route is deployed.
+  WontStopMovingGoogleSubject:
+    Type: String
+    AllowedPattern: '^[0-9]{15,30}$'
+    Description: Numeric sub claim of the WontStopMoving Google service account ID token.
+  WontStopMovingGoogleAudience:
+    Type: String
+    Default: wontstopmoving-ses-email-worker
+    MinLength: 4
+    Description: Exact audience requested by the WontStopMoving email worker.
+  AMovingServiceGoogleSubject:
+    Type: String
+    Default: ''
+    AllowedPattern: '^([0-9]{15,30})?$'
+  AMovingServiceGoogleAudience:
+    Type: String
+    Default: amovingservice-ses-email-worker
+    MinLength: 4
+  W3DevelopsGoogleSubject:
+    Type: String
+    Default: ''
+    AllowedPattern: '^([0-9]{15,30})?$'
+  W3DevelopsGoogleAudience:
+    Type: String
+    Default: w3develops-ses-email-worker
+    MinLength: 4
+  AgentGardenGoogleSubject:
+    Type: String
+    Default: ''
+    AllowedPattern: '^([0-9]{15,30})?$'
+  AgentGardenGoogleAudience:
+    Type: String
+    Default: agentgarden-ses-email-worker
+    MinLength: 4
+
+  EnableWontStopMovingReputationMetrics:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+Conditions:
+  ShouldExportWontStopMovingReputationMetrics: !Equals [!Ref EnableWontStopMovingReputationMetrics, 'true']
+  ShouldCreateWontStopMovingSubscription: !Equals [!Ref CreateWontStopMovingSubscription, 'true']
+  ShouldCreateAMovingService: !Not [!Equals [!Ref AMovingServiceGoogleSubject, '']]
+  ShouldCreateW3Develops: !Not [!Equals [!Ref W3DevelopsGoogleSubject, '']]
+  ShouldCreateAgentGarden: !Not [!Equals [!Ref AgentGardenGoogleSubject, '']]
+
+Resources:
+  WontStopMovingConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: wontstopmoving-transactional
+      SendingOptions:
+        SendingEnabled: true
+      ReputationOptions:
+        ReputationMetricsEnabled: !If [ShouldExportWontStopMovingReputationMetrics, true, false]
+  AMovingServiceConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Condition: ShouldCreateAMovingService
+    Properties:
+      Name: amovingservice-transactional
+      SendingOptions:
+        SendingEnabled: true
+      ReputationOptions:
+        ReputationMetricsEnabled: false
+  W3DevelopsConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Condition: ShouldCreateW3Develops
+    Properties:
+      Name: w3develops-transactional
+      SendingOptions:
+        SendingEnabled: true
+      ReputationOptions:
+        ReputationMetricsEnabled: false
+  AgentGardenConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Condition: ShouldCreateAgentGarden
+    Properties:
+      Name: agentgarden-transactional
+      SendingOptions:
+        SendingEnabled: true
+      ReputationOptions:
+        ReputationMetricsEnabled: false
+
+  WontStopMovingEvents:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: wontstopmoving-ses-events
+      SignatureVersion: '2'
+  AMovingServiceEvents:
+    Type: AWS::SNS::Topic
+    Condition: ShouldCreateAMovingService
+    Properties:
+      TopicName: amovingservice-ses-events
+      SignatureVersion: '2'
+  W3DevelopsEvents:
+    Type: AWS::SNS::Topic
+    Condition: ShouldCreateW3Develops
+    Properties:
+      TopicName: w3develops-ses-events
+      SignatureVersion: '2'
+  AgentGardenEvents:
+    Type: AWS::SNS::Topic
+    Condition: ShouldCreateAgentGarden
+    Properties:
+      TopicName: agentgarden-ses-events
+      SignatureVersion: '2'
+
+  WontStopMovingFeedbackSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: ShouldCreateWontStopMovingSubscription
+    DependsOn: WontStopMovingTopicPolicy
+    Properties:
+      Protocol: https
+      Endpoint: https://wontstopmoving.com/api/webhooks/aws/ses
+      TopicArn: !Ref WontStopMovingEvents
+      DeliveryPolicy:
+        healthyRetryPolicy:
+          minDelayTarget: 5
+          maxDelayTarget: 60
+          numRetries: 25
+          numNoDelayRetries: 0
+          numMinDelayRetries: 2
+          numMaxDelayRetries: 10
+          backoffFunction: exponential
+        throttlePolicy:
+          maxReceivesPerSecond: 10
+
+  WontStopMovingTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref WontStopMovingEvents]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SesPublish
+            Effect: Allow
+            Principal: { Service: ses.amazonaws.com }
+            Action: sns:Publish
+            Resource: !Ref WontStopMovingEvents
+            Condition:
+              StringEquals:
+                AWS:SourceAccount: !Ref AWS::AccountId
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/wontstopmoving-transactional
+  AMovingServiceTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Condition: ShouldCreateAMovingService
+    Properties:
+      Topics: [!Ref AMovingServiceEvents]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SesPublish
+            Effect: Allow
+            Principal: { Service: ses.amazonaws.com }
+            Action: sns:Publish
+            Resource: !Ref AMovingServiceEvents
+            Condition:
+              StringEquals:
+                AWS:SourceAccount: !Ref AWS::AccountId
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/amovingservice-transactional
+  W3DevelopsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Condition: ShouldCreateW3Develops
+    Properties:
+      Topics: [!Ref W3DevelopsEvents]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SesPublish
+            Effect: Allow
+            Principal: { Service: ses.amazonaws.com }
+            Action: sns:Publish
+            Resource: !Ref W3DevelopsEvents
+            Condition:
+              StringEquals:
+                AWS:SourceAccount: !Ref AWS::AccountId
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/w3develops-transactional
+  AgentGardenTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Condition: ShouldCreateAgentGarden
+    Properties:
+      Topics: [!Ref AgentGardenEvents]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SesPublish
+            Effect: Allow
+            Principal: { Service: ses.amazonaws.com }
+            Action: sns:Publish
+            Resource: !Ref AgentGardenEvents
+            Condition:
+              StringEquals:
+                AWS:SourceAccount: !Ref AWS::AccountId
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/agentgarden-transactional
+
+  WontStopMovingEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    DependsOn: WontStopMovingTopicPolicy
+    Properties:
+      ConfigurationSetName: !Ref WontStopMovingConfigurationSet
+      EventDestination:
+        Name: sns-transactional-events
+        Enabled: true
+        MatchingEventTypes: [SEND, REJECT, BOUNCE, COMPLAINT, DELIVERY, DELIVERY_DELAY, RENDERING_FAILURE]
+        SnsDestination: { TopicARN: !Ref WontStopMovingEvents }
+  AMovingServiceEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Condition: ShouldCreateAMovingService
+    DependsOn: AMovingServiceTopicPolicy
+    Properties:
+      ConfigurationSetName: !Ref AMovingServiceConfigurationSet
+      EventDestination:
+        Name: sns-transactional-events
+        Enabled: true
+        MatchingEventTypes: [SEND, REJECT, BOUNCE, COMPLAINT, DELIVERY, DELIVERY_DELAY, RENDERING_FAILURE]
+        SnsDestination: { TopicARN: !Ref AMovingServiceEvents }
+  W3DevelopsEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Condition: ShouldCreateW3Develops
+    DependsOn: W3DevelopsTopicPolicy
+    Properties:
+      ConfigurationSetName: !Ref W3DevelopsConfigurationSet
+      EventDestination:
+        Name: sns-transactional-events
+        Enabled: true
+        MatchingEventTypes: [SEND, REJECT, BOUNCE, COMPLAINT, DELIVERY, DELIVERY_DELAY, RENDERING_FAILURE]
+        SnsDestination: { TopicARN: !Ref W3DevelopsEvents }
+  AgentGardenEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Condition: ShouldCreateAgentGarden
+    DependsOn: AgentGardenTopicPolicy
+    Properties:
+      ConfigurationSetName: !Ref AgentGardenConfigurationSet
+      EventDestination:
+        Name: sns-transactional-events
+        Enabled: true
+        MatchingEventTypes: [SEND, REJECT, BOUNCE, COMPLAINT, DELIVERY, DELIVERY_DELAY, RENDERING_FAILURE]
+        SnsDestination: { TopicARN: !Ref AgentGardenEvents }
+
+  WontStopMovingEmailRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: wontstopmoving-ses-email-worker
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: accounts.google.com }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                accounts.google.com:sub: !Ref WontStopMovingGoogleSubject
+                accounts.google.com:aud: !Ref WontStopMovingGoogleSubject
+                accounts.google.com:oaud: !Ref WontStopMovingGoogleAudience
+      Policies:
+        - PolicyName: send-wontstopmoving-transactional
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ses:SendEmail
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/wontstopmoving.com
+                  - !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/wontstopmoving-transactional
+                Condition:
+                  StringEquals:
+                    ses:FromAddress: noreply@wontstopmoving.com
+  AMovingServiceEmailRole:
+    Type: AWS::IAM::Role
+    Condition: ShouldCreateAMovingService
+    Properties:
+      RoleName: amovingservice-ses-email-worker
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: accounts.google.com }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                accounts.google.com:sub: !Ref AMovingServiceGoogleSubject
+                accounts.google.com:aud: !Ref AMovingServiceGoogleSubject
+                accounts.google.com:oaud: !Ref AMovingServiceGoogleAudience
+      Policies:
+        - PolicyName: send-amovingservice-transactional
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ses:SendEmail
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/amovingservice.com
+                  - !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/amovingservice-transactional
+                Condition:
+                  StringEquals:
+                    ses:FromAddress: noreply@amovingservice.com
+  W3DevelopsEmailRole:
+    Type: AWS::IAM::Role
+    Condition: ShouldCreateW3Develops
+    Properties:
+      RoleName: w3develops-ses-email-worker
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: accounts.google.com }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                accounts.google.com:sub: !Ref W3DevelopsGoogleSubject
+                accounts.google.com:aud: !Ref W3DevelopsGoogleSubject
+                accounts.google.com:oaud: !Ref W3DevelopsGoogleAudience
+      Policies:
+        - PolicyName: send-w3develops-transactional
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ses:SendEmail
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/w3develops.org
+                  - !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/w3develops-transactional
+                Condition:
+                  StringEquals:
+                    ses:FromAddress: noreply@w3develops.org
+  AgentGardenEmailRole:
+    Type: AWS::IAM::Role
+    Condition: ShouldCreateAgentGarden
+    Properties:
+      RoleName: agentgarden-ses-email-worker
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: accounts.google.com }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                accounts.google.com:sub: !Ref AgentGardenGoogleSubject
+                accounts.google.com:aud: !Ref AgentGardenGoogleSubject
+                accounts.google.com:oaud: !Ref AgentGardenGoogleAudience
+      Policies:
+        - PolicyName: send-agentgarden-transactional
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ses:SendEmail
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/agentgarden.org
+                  - !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/agentgarden-transactional
+                Condition:
+                  StringEquals:
+                    ses:FromAddress: noreply@agentgarden.org
+
+Outputs:
+  WontStopMovingConfigurationSetName: { Value: !Ref WontStopMovingConfigurationSet }
+  WontStopMovingEventTopicArn: { Value: !Ref WontStopMovingEvents }
+  WontStopMovingEmailRoleArn: { Value: !GetAtt WontStopMovingEmailRole.Arn }
+  AMovingServiceConfigurationSetName:
+    Condition: ShouldCreateAMovingService
+    Value: !Ref AMovingServiceConfigurationSet
+  AMovingServiceEventTopicArn:
+    Condition: ShouldCreateAMovingService
+    Value: !Ref AMovingServiceEvents
+  AMovingServiceEmailRoleArn:
+    Condition: ShouldCreateAMovingService
+    Value: !GetAtt AMovingServiceEmailRole.Arn
+  W3DevelopsConfigurationSetName:
+    Condition: ShouldCreateW3Develops
+    Value: !Ref W3DevelopsConfigurationSet
+  W3DevelopsEventTopicArn:
+    Condition: ShouldCreateW3Develops
+    Value: !Ref W3DevelopsEvents
+  W3DevelopsEmailRoleArn:
+    Condition: ShouldCreateW3Develops
+    Value: !GetAtt W3DevelopsEmailRole.Arn
+  AgentGardenConfigurationSetName:
+    Condition: ShouldCreateAgentGarden
+    Value: !Ref AgentGardenConfigurationSet
+  AgentGardenEventTopicArn:
+    Condition: ShouldCreateAgentGarden
+    Value: !Ref AgentGardenEvents
+  AgentGardenEmailRoleArn:
+    Condition: ShouldCreateAgentGarden
+    Value: !GetAtt AgentGardenEmailRole.Arn

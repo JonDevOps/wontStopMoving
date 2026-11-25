@@ -12,7 +12,7 @@ export async function POST(req:Request){try{
   const ref=adminDb().doc(`phoneInbox/${p.CallSid}`);
   await adminDb().runTransaction(async tx=>{if(!(await tx.get(ref)).exists)tx.create(ref,{kind:'call',callSid:p.CallSid,phone:normalizeSmsPhone(p.From)||'',status:'new',createdAt:FieldValue.serverTimestamp()});});
   const forward=normalizeSmsPhone(process.env.TWILIO_VOICE_FORWARD_TO);
-  const greeting='<Say>Thank you for calling Wont Stop Moving.</Say>';
+  const greeting='<Say>Thank you for calling Won&apos;t Stop Moving.</Say>';
   if(forward&&forward!==BUSINESS_CONTACT.phone)return twiml(`${greeting}<Dial callerId="${BUSINESS_CONTACT.phone}" timeout="20" timeLimit="1800" action="${BUSINESS_CONTACT.website}/api/webhooks/twilio/voice-complete" method="POST"><Number>${xml(forward)}</Number></Dial>`);
   return twiml(`${greeting}<Redirect method="POST">${BUSINESS_CONTACT.website}/api/webhooks/twilio/voice-complete</Redirect>`);
 }catch(error){return errorResponse(error);}}

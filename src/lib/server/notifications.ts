@@ -1,48 +1,20 @@
 import { createHash } from 'node:crypto';
-import nodemailer from 'nodemailer';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from './firebase-admin';
 import { customQuotePricingText } from '../custom-quotes';
 import { queueReleaseText, queueMoveText, customerTextPhone } from './move-sms';
 import { BUSINESS_EMAIL_SIGNATURE } from '../business-contact';
+import { emailProviderConfigured } from './email-provider';
+import { deliverEmail } from './email-outbox';
+export { deliverEmail, processEmailQueue } from './email-outbox';
 
 const ORIGIN = 'https://wontstopmoving.com';
-// ZOHO_SMTP_USER must be the real Zoho mailbox (aliases can't sign in to SMTP).
-// The From address can be an alias on that mailbox, e.g. noreply@wontstopmoving.com.
-export function mailConfigured() { return !!process.env.ZOHO_SMTP_USER && !!process.env.ZOHO_SMTP_PASS && !/placeholder|your[_-]|changeme/i.test(process.env.ZOHO_SMTP_PASS); }
-
-export async function deliverEmail(id: string) {
-  const db = adminDb(), ref = db.doc(`emailOutbox/${id}`);
-  if (!mailConfigured()) return 'pending_configuration';
-  const message = await db.runTransaction(async tx => {
-    const snapshot = await tx.get(ref), data = snapshot.data();
-    if (!data || data.status !== 'pending') return null;
-    tx.update(ref, { status: 'sending', attemptedAt: FieldValue.serverTimestamp() });
-    return data;
-  });
-  if (!message) return (await ref.get()).data()?.status || 'missing';
-  try {
-    const port = Number(process.env.ZOHO_SMTP_PORT || 465);
-    const transport = nodemailer.createTransport({ host: process.env.ZOHO_SMTP_HOST || 'smtppro.zoho.com', port, secure: port === 465, requireTLS: port !== 465, auth: { user: process.env.ZOHO_SMTP_USER, pass: process.env.ZOHO_SMTP_PASS }, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 });
-    try {
-      const unsubscribe = typeof message.unsubscribeUrl === 'string' && message.unsubscribeUrl.startsWith('https://') ? message.unsubscribeUrl : null;
-      const result = await transport.sendMail({ from: process.env.EMAIL_FROM_ADDRESS || 'Wont Stop Moving <noreply@wontstopmoving.com>', replyTo: process.env.EMAIL_REPLY_TO || 'support@wontstopmoving.com', to: message.to, subject: message.subject, text: message.text, messageId: `<${id}@wontstopmoving.com>`, ...(unsubscribe ? { headers: { 'List-Unsubscribe': `<${unsubscribe}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } } : {}) });
-      if (!result.accepted?.length) throw new Error('SMTP_REJECTED');
-      await ref.update({ status: 'sent', sentAt: FieldValue.serverTimestamp() });
-      return 'sent';
-    } finally { transport.close(); }
-  } catch {
-    // SMTP failure may be ambiguous. Hold for review instead of automatically
-    // resending and potentially delivering duplicate customer messages.
-    await ref.update({ status: 'needs_review', failureCode: 'SMTP_DELIVERY_FAILED' });
-    return 'needs_review';
-  }
-}
+export function mailConfigured() { return emailProviderConfigured(); }
 
 export async function enqueueEmail(key: string, message: { to: string; subject: string; text: string; category: string; referenceId: string; unsubscribeUrl?: string }) {
   const id = createHash('sha256').update(key).digest('hex');
   const ref = adminDb().doc(`emailOutbox/${id}`);
-  await adminDb().runTransaction(async tx => { if (!(await tx.get(ref)).exists) tx.create(ref, { ...message, text: `${message.text}\n\n${BUSINESS_EMAIL_SIGNATURE}`, status: 'pending', createdAt: FieldValue.serverTimestamp() }); });
+  await adminDb().runTransaction(async tx => { if (!(await tx.get(ref)).exists) tx.create(ref, { ...message, text: `${message.text}\n\n${BUSINESS_EMAIL_SIGNATURE}`, status: 'pending', nextAttemptAt: FieldValue.serverTimestamp(), createdAt: FieldValue.serverTimestamp() }); });
   return { id, status: await deliverEmail(id) };
 }
 
@@ -92,7 +64,7 @@ export async function queueJobEmails(jobId: string) {
  * each message is keyed, so it is created and sent at most once.
  */
 export async function notifyPaidJob(jobId: string) {
-  try { await queueJobEmails(jobId); } catch (error) { console.error('Paid booking emails failed', jobId, error); }
+  try { await queueJobEmails(jobId); } catch { console.error('Paid booking emails failed', jobId); }
   try { await notifyProviderTexts(jobId, 'assigned'); await adminDb().doc(`jobs/${jobId}`).update({assignmentTextsPending:false}); } catch { console.error('Provider job text needs attention', jobId); }
 }
 
