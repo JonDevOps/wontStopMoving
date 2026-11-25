@@ -22,7 +22,8 @@ function AccountActivity() {
       const assigned = (jobs || []).filter(job => job.customerId === user.id || job.providerIds?.includes(user.id) || job.employeeIds?.includes(user.id));
       const completed = assigned.filter(job => job.status === 'completed');
       const last = completed.map(job => job.completedAt?.toDate?.()).filter(Boolean).sort((a, b) => b.getTime() - a.getTime())[0];
-      const href = user.role === 'customer' ? `/dashboard/admin/customers/${user.id}` : user.role === 'employee' ? `/dashboard/admin/employees/${user.id}` : '/dashboard/admin/providers';
+      // Employees/admins have their own profile page; everyone else opens the account profile (#110).
+      const href = user.role === 'employee' || user.role === 'admin' ? `/dashboard/admin/employees/${user.id}` : `/dashboard/admin/customers/${user.id}`;
       return <tr key={user.id} className="border-t"><td className="p-3"><Link className="underline" href={href}>{user.name || user.email || user.id}</Link></td><td className="p-3">{user.role}</td><td className="p-3">{date(accounts[user.id]?.createdAt)}</td><td className="p-3">{date(accounts[user.id]?.lastSignInAt)}</td><td className="p-3">{(quotes || []).filter(quote => quote.customerId === user.id).length}</td><td className="p-3">{assigned.length}</td><td className="p-3">{completed.length}</td><td className="p-3">{last ? last.toLocaleString() : 'None recorded'}</td></tr>;
     })}</tbody></table></div>}
   </div>;

@@ -209,6 +209,16 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               )}
             </div>
 
+            {/* Compact call button for screens where the full number is hidden (#164) */}
+            <a
+              href={BUSINESS_CONTACT.phoneHref}
+              aria-label={`Call ${BUSINESS_CONTACT.phoneDisplay}`}
+              className="xl:hidden inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-bold text-primary hover:bg-primary/5 hover:text-accent transition-colors"
+            >
+              <Phone className="h-5 w-5" />
+              <span className="hidden md:inline whitespace-nowrap">{BUSINESS_CONTACT.phoneDisplay}</span>
+            </a>
+
             {/* Mobile Menu Trigger */}
             <div className="lg:hidden">
               {mounted && (
@@ -327,7 +337,14 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                         </div>
                       </nav>
 
-                      <div className="p-6 bg-gray-50 mt-auto">
+                      <div className="p-6 bg-gray-50 mt-auto space-y-3">
+                        <a
+                          href={BUSINESS_CONTACT.phoneHref}
+                          onClick={() => setOpen(false)}
+                          className="flex items-center justify-center gap-2 w-full rounded-xl h-14 bg-primary text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-primary/20"
+                        >
+                          <Phone className="h-4 w-4" /> Call {BUSINESS_CONTACT.phoneDisplay}
+                        </a>
                         <p className="text-[10px] font-bold text-muted-foreground text-center uppercase tracking-widest">
                           Nationwide Coverage 24/7
                         </p>

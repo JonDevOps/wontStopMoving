@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { EmployeeLayout } from '@/components/layout/employee-layout';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,12 @@ export default function NewCustomQuotePage() {
   const [type, setType] = useState<'fixed' | 'hourly'>('fixed');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Prefill from a customer profile's "New Estimate" button (?name=&email=).
+  const [prefill, setPrefill] = useState<{ name?: string; email?: string }>({});
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setPrefill({ name: params.get('name') || undefined, email: params.get('email') || undefined });
+  }, []);
   const [saved, setSaved] = useState<{ id: string; url: string; email: string; body: string; emailStatus?: string } | null>(null);
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError('');
@@ -42,9 +48,9 @@ export default function NewCustomQuotePage() {
         <Button variant="outline" onClick={() => { setSaved(null); setError(''); }}>Create another</Button>
       </div>
       <pre className="whitespace-pre-wrap text-sm">{saved.body}</pre>
-    </div> : <form onSubmit={save} className="bg-white rounded-xl p-6 space-y-4">
+    </div> : <form key={`${prefill.name}|${prefill.email}`} onSubmit={save} className="bg-white rounded-xl p-6 space-y-4">
       <p>Only the recipient’s verified customer account can open the quote. Fixed totals are payable in full; hourly estimates are for review and require a finalized fixed-price quote before payment.</p>
-      {(['name', 'email', 'pickupAddress', 'dropoffAddress', 'moveDate', 'expiry'] as const).map(name => <div key={name} className="space-y-1"><Label htmlFor={name}>{{ name: 'Customer name', email: 'Customer email', pickupAddress: 'Pickup address', dropoffAddress: 'Drop-off address', moveDate: 'Move date', expiry: 'Quote expiry date' }[name]}</Label><Input id={name} name={name} required type={name === 'email' ? 'email' : name === 'moveDate' || name === 'expiry' ? 'date' : 'text'} maxLength={name === 'email' ? 254 : 500}/></div>)}
+      {(['name', 'email', 'pickupAddress', 'dropoffAddress', 'moveDate', 'expiry'] as const).map(name => <div key={name} className="space-y-1"><Label htmlFor={name}>{{ name: 'Customer name', email: 'Customer email', pickupAddress: 'Pickup address', dropoffAddress: 'Drop-off address', moveDate: 'Move date', expiry: 'Quote expiry date' }[name]}</Label><Input id={name} name={name} required type={name === 'email' ? 'email' : name === 'moveDate' || name === 'expiry' ? 'date' : 'text'} maxLength={name === 'email' ? 254 : 500} defaultValue={name === 'name' ? prefill.name : name === 'email' ? prefill.email : undefined}/></div>)}
       <Label htmlFor="description">Services included and exclusions</Label><Textarea id="description" name="description" required maxLength={3000}/>
       <Label htmlFor="pricing-type">Pricing</Label><select id="pricing-type" value={type} onChange={e => setType(e.target.value as typeof type)} className="w-full border rounded-md p-3"><option value="fixed">Fixed total</option><option value="hourly">Hourly estimate</option></select>
       {(type === 'fixed' ? ['total'] : ['hourlyRate', 'minimumHours', 'estimatedHours']).map(name => <div key={name}><Label htmlFor={name}>{{ total: 'Total price (USD)', hourlyRate: 'Hourly rate (USD for the entire quoted crew)', minimumHours: 'Minimum hours', estimatedHours: 'Estimated hours' }[name]}</Label><Input id={name} name={name} type="number" required min="0.5" step={name.includes('Hours') ? '0.5' : '0.01'} max={name.includes('Hours') ? 1000 : 999999}/></div>)}

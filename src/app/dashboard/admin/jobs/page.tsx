@@ -91,10 +91,10 @@ function AdminJobsContent() {
   }, [processedJobs, search, activeTab]);
 
   const stats = [
-    { label: "Total Jobs", value: processedJobs.length, icon: Truck, color: "text-blue-500", bg: "bg-blue-50" },
-    { label: "Scheduled", value: processedJobs.filter(j => j.category === 'Scheduled').length, icon: Calendar, color: "text-orange-500", bg: "bg-orange-50" },
-    { label: "In Progress", value: processedJobs.filter(j => j.category === 'Current').length, icon: Clock, color: "text-accent", bg: "bg-accent/5" },
-    { label: "Completed", value: processedJobs.filter(j => j.category === 'Past' && j.status === 'completed').length, icon: CheckCircle2, color: "text-green-500", bg: "bg-green-50" },
+    { label: "Total Jobs", tab: "all", value: processedJobs.length, icon: Truck, color: "text-blue-500", bg: "bg-blue-50" },
+    { label: "Scheduled", tab: "scheduled", value: processedJobs.filter(j => j.category === 'Scheduled').length, icon: Calendar, color: "text-orange-500", bg: "bg-orange-50" },
+    { label: "In Progress", tab: "current", value: processedJobs.filter(j => j.category === 'Current').length, icon: Clock, color: "text-accent", bg: "bg-accent/5" },
+    { label: "Completed", tab: "past", value: processedJobs.filter(j => j.category === 'Past' && j.status === 'completed').length, icon: CheckCircle2, color: "text-green-500", bg: "bg-green-50" },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -116,7 +116,15 @@ function AdminJobsContent() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {stats.map((stat, i) => (
-          <Card key={i} className="border-none shadow-sm h-full">
+          <Card
+            key={i}
+            role="button"
+            tabIndex={0}
+            aria-pressed={activeTab === stat.tab}
+            onClick={() => setActiveTab(stat.tab)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab(stat.tab); } }}
+            className={`border-none shadow-sm h-full cursor-pointer transition hover:shadow-md ${activeTab === stat.tab ? 'ring-2 ring-accent' : ''}`}
+          >
             <CardContent className="p-5 md:p-6">
               <div className="flex justify-between items-start mb-4">
                 <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
@@ -164,7 +172,7 @@ function AdminJobsContent() {
             ) : filteredJobs.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {filteredJobs.map((job) => (
-                  <div key={job.id} className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between hover:bg-gray-50 transition-all group gap-6">
+                  <Link key={job.id} href={`/dashboard/admin/jobs/${job.id}`} className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between hover:bg-gray-50 transition-all group gap-6">
                     <div className="flex items-start gap-4 flex-1 min-w-0">
                       <div className="w-12 h-12 md:w-14 md:h-14 bg-primary text-white rounded-2xl flex items-center justify-center shrink-0">
                         <Package className="h-6 w-6" />
@@ -194,13 +202,11 @@ function AdminJobsContent() {
                           <span>${job.price?.toLocaleString()}</span>
                         </div>
                       </div>
-                      <Button asChild variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-md transition-all group-hover:translate-x-1 shrink-0">
-                        <Link href={`/dashboard/admin/jobs/${job.id}`}>
-                          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-accent" />
-                        </Link>
-                      </Button>
+                      <span className="rounded-full p-2 group-hover:bg-white group-hover:shadow-md transition-all group-hover:translate-x-1 shrink-0" aria-hidden="true">
+                        <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-accent" />
+                      </span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
