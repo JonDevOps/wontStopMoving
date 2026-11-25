@@ -1,5 +1,5 @@
 /** Every published version has a permanent /terms/<version> page. */
-export const TERMS_VERSION = '2026-11-18';
+export const TERMS_VERSION = '2026-11-25';
 export const TERMS_DOCUMENT_PATH = `/terms/${TERMS_VERSION}`;
 
 export type TermsContext = 'signup' | 'quote' | 'booking';
