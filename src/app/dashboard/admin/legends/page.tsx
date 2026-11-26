@@ -13,7 +13,7 @@ import { BRANDS, GROUP_LABEL, LEGEND_SIZES, REVENUE_PER_TRUCK, type LegendGroup 
 import { SOCIAL_LABEL } from '@/lib/competitors';
 
 type Row = {
-  rank: number; group: LegendGroup; dot: string; state: string; name: string; dba: string; city: string; units: number; drivers: number; miles: number; years: number; size: number;
+  rank: number; group: LegendGroup; dot: string; state: string; name: string; dba: string; city: string; units: number; drivers: number; miles: number; years: number; size: number; filed: { units: number; drivers: number } | null;
   revenue: { low: number; high: number }; brand: { key: string; label: string; kind: string } | null; site: string | null; socials: Record<string, string>; followers: number | null;
   milesFromUs: number | null; kind: string | null; strategy: string | null; google: 'matched' | 'none' | null; competitorId: string | null;
   safety: { grade: 'A' | 'B' | 'C' | 'D' | null; score: number | null; trend: string | null; last12: number; crashes: number; trouble: number; signals: string[] } | null;
@@ -84,7 +84,7 @@ function Legends() {
       <p className="text-muted-foreground">The biggest moving companies: the top {LEGEND_SIZES.national} in the lower 48, the next {LEGEND_SIZES.perZone} in each time zone, and the top {LEGEND_SIZES.alaska} in Alaska and Hawaii.</p>
       <details className="text-sm bg-white border rounded-lg p-3"><summary className="cursor-pointer font-semibold">How this list is built</summary>
         <ul className="mt-2 list-disc pl-5 space-y-1 text-muted-foreground">
-          <li>Ranked by size score from the federal registry: trucks × 10 + drivers × 4 + miles ÷ 25,000. Companies Jev sorted as brokers, freight carriers or non-movers are left out.</li>
+          <li>Ranked by size score from the federal registry: trucks × 10 + drivers × 4 + miles ÷ 25,000. Companies Jev sorted as brokers, freight carriers or non-movers are left out. Obvious filing typos (like 1 truck and 8,000 drivers) are corrected for ranking and marked on the row.</li>
           <li>Time zones are by state; states split between zones go with the zone most of their people live in.</li>
           <li>Revenue is a rough range from fleet size (about {money(REVENUE_PER_TRUCK.low)}–{money(REVENUE_PER_TRUCK.high)} a year per truck), not reported revenue.</li>
           <li>Brand and franchise networks are recognized from the company’s name or website.</li>
@@ -122,7 +122,8 @@ function Legends() {
         <td className="p-3 text-muted-foreground">{r.rank}</td>
         <td className="p-3"><Link className="font-bold text-primary hover:underline" href={`/dashboard/admin/movers?dot=${r.dot}&state=${r.state}`}>{nice(r.dba || r.name)}</Link>
           <p className="text-xs text-muted-foreground">{nice(r.city)}, {r.state}{r.milesFromUs !== null ? ` · ${r.milesFromUs.toLocaleString()} mi away` : ''}</p>
-          {r.brand && <Badge variant="outline" className="text-[10px] mt-1">{r.brand.label}</Badge>}</td>
+          {r.brand && <Badge variant="outline" className="text-[10px] mt-1">{r.brand.label}</Badge>}
+          {r.filed && <p className="text-[11px] text-amber-700 mt-1" title="The federal filing looks like a typo, so ranking uses corrected numbers.">Filed {r.filed.units.toLocaleString()} trucks, {r.filed.drivers.toLocaleString()} drivers (likely a typo)</p>}</td>
         <td className="p-3 font-semibold">{r.units}</td><td className="p-3">{r.drivers}</td><td className="p-3">{r.years || '—'}</td>
         <td className="p-3 whitespace-nowrap">{money(r.revenue.low)}–{money(r.revenue.high)}</td>
         <td className="p-3 text-xs" title={r.safety?.signals.join('\n') || ''}>{!r.safety ? <span className="text-muted-foreground">—</span> : <>{r.safety.grade ? <span className={`px-2 py-0.5 rounded-full font-bold ${GRADE_STYLE[r.safety.grade]}`}>{r.safety.grade}</span> : <span className="text-muted-foreground">no grade</span>}{r.safety.trend && <span className="ml-1">{r.safety.trend === 'growing' ? '▲' : r.safety.trend === 'shrinking' ? '▼' : '●'}</span>}<p className="mt-1 text-muted-foreground">{r.safety.last12} inspections/yr{r.safety.crashes ? ` · ${r.safety.crashes} crashes` : ''}</p>{r.safety.trouble > 0 && <p className="text-red-700 font-semibold">⚠ {r.safety.trouble} warning{r.safety.trouble === 1 ? '' : 's'}</p>}</>}</td>
