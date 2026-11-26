@@ -1,4 +1,5 @@
 "use client";
+import { moveDay } from "@/lib/move-details";
 
 import { useState, useEffect } from "react";
 import { useUser, useFirestore } from "@/firebase";
@@ -157,7 +158,7 @@ export default function ProviderEarningsPage() {
                         </p>
                         <p className="text-sm text-muted-foreground mt-0.5">
                           {job.moveDate
-                            ? format(new Date(job.moveDate), "MMM d, yyyy")
+                            ? format(moveDay(job.moveDate), "MMM d, yyyy")
                             : job.scheduledDate?.toDate
                             ? format(job.scheduledDate.toDate(), "MMM d, yyyy")
                             : "Date TBD"}

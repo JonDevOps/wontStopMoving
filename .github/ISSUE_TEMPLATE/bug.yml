@@ -1,0 +1,29 @@
+name: Bug
+description: Something on the site or dashboard is broken or wrong
+labels: [bug]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: Page URL or dashboard tab
+      placeholder: https://wontstopmoving.com/dashboard/admin/leads
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what should have happened?
+    validations:
+      required: true
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who sees it
+      multiple: true
+      options: [Customers, Providers, Admins, Employees / sales reps, Everyone]
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce (optional)
+      placeholder: "1. Sign in as admin\n2. Open Leads\n3. Click a card"

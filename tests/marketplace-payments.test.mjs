@@ -88,7 +88,7 @@ test('cart rejects one-hour, invalid dates, duplicate items and unsupported serv
 test('cart checkout reprices on the server, rejects stale rates and checks live recipient capability', async () => {
   const stripe=fakeStripe();
   const coverage=load('mover-coverage', Object.fromEntries(['zip-cities','zip-latlng','canada-city-centers'].map(name => [`@/data/${name}.json`,{default:JSON.parse(readFileSync(new URL(`../src/data/${name}.json`,import.meta.url),'utf8'))}])));
-  const checkout=load('mover-checkout', {'@/lib/stripe':{stripe},'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./terms':{requireCurrentTerms:()=>{},bookingTermsAcceptance:()=>({accepted:true})},'../mover-cart':{moverCartSchema,providerShareCents},'../mover-pricing':{validProviderPricing},'./mover-locations':{moverCity:()=>({city:'Queen Creek'})},'./mover-coverage':coverage});
+  const checkout=load('mover-checkout', {'@/lib/stripe':{stripe},'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./terms':{requireCurrentTerms:()=>{},bookingTermsAcceptance:()=>({accepted:true})},'../mover-cart':{moverCartSchema,providerShareCents},'../mover-pricing':{validProviderPricing},'./mover-locations':{moverCity:()=>({city:'Queen Creek'})},'./mover-coverage':coverage,'./stripe-customer':load('stripe-customer',{'@/lib/stripe':{stripe},'./firebase-admin':{adminDb:()=>db}})});
   process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED = 'false';
   try {
     await assert.rejects(() => checkout.createMoverCheckout('money-customer', undefined, {}, 'https://wontstopmoving.com'), error => error.status === 503);
@@ -275,6 +275,32 @@ test('extra hours: crew requests, customer accepts with the saved card, crew sha
   assert.equal(failed.hoursRequest.status,'payment_failed'); assert.equal(failed.hoursReserved,2);
   await extra.respondExtraHours({jobId:'money-extra-b',uid:'money-extra-customer',accept:false});
   assert.equal((await db.doc('jobs/money-extra-b').get()).data().hoursRequest.status,'declined');
+});
+
+test('Book Now jobs: extra hours work without a cart order, and the base payout excludes extra-hours charges', async () => {
+  const created=[];
+  const stripeExtra={
+    paymentIntents:{
+      retrieve: async id => id==='pi_book_orig' ? {id, customer:'cus_book', payment_method:'pm_book', setup_future_usage:'off_session'} : {id, latest_charge:'ch_book_extra', status:'succeeded'},
+      create: async (params, options) => { created.push({params, options}); return {id:'pi_book_extra', status:'succeeded'}; },
+    },
+    transfers:{ create: async () => ({id:'tr_book_extra'}) },
+  };
+  const extra=load('extra-hours', { '@/lib/stripe':{stripe:stripeExtra}, './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>({})}, './money-operation':{moneyOperation}, '../mover-cart':{providerShareCents} });
+  const uid='money-book-crew', today=new Date().toISOString().slice(0,10);
+  // Older Book Now jobs have no orderId and no hourlyRate: the rate is price / hours.
+  await db.doc('jobs/money-book-a').set({customerId:'money-book-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_book_orig',hoursReserved:2,amountPaid:130,price:130,moveDate:today});
+  const req=await extra.requestExtraHours({jobId:'money-book-a',uid,isAdmin:false,hours:3,reason:'Long carry'});
+  assert.equal(req.extraCents,6500);
+  await extra.respondExtraHours({jobId:'money-book-a',uid:'money-book-customer',accept:true});
+  assert.equal(created[0].params.customer,'cus_book');
+  const stripe=fakeStripe();
+  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation}, './guest-account':{sendGuestPasswordEmail:async()=>{}}, './extra-hours':{payExtraCharges:async()=>true} });
+  await db.doc(`providers/${uid}`).set({stripeAccountId:`acct_${uid}`,stripeOnboardingComplete:true});
+  await db.doc('jobs/money-book-a').update({paymentIntentId:'pi_book_release'});
+  await lifecycle.releaseJobByCustomer({jobId:'money-book-a',uid:'money-book-customer'});
+  // 85% of the original $130 only; the extra $65 is paid from its own charge.
+  assert.equal([...stripe.transfersMade.values()][0].params.amount,providerShareCents(13000));
 });
 
 test('dispatcher requires verified sender, current consent and no STOP; stale queues and legacy booleans cannot send', async () => {

@@ -1,0 +1,25 @@
+name: Feature or change
+description: New feature, improvement, or a change to how something works
+labels: [enhancement]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: What do you want?
+      placeholder: "Let admins look up a customer by phone number"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why (what problem does it solve, or how does it make money)?
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Marketplace / booking, Admin dashboard, Sales / leads, Phone & texting, Payments, Provider tools, Website / SEO, Other]
+  - type: dropdown
+    id: when
+    attributes:
+      label: Priority
+      options: [Now, Next, Later]

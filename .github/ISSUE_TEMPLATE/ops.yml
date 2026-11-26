@@ -1,0 +1,14 @@
+name: Business to-do (not code)
+description: Licensing, accounts, outreach, vendors and other tasks done outside the codebase
+labels: [ops]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: What needs to happen?
+    validations:
+      required: true
+  - type: input
+    id: due
+    attributes:
+      label: Deadline (optional)

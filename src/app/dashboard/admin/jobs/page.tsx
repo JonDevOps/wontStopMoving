@@ -1,4 +1,5 @@
 "use client";
+import { moveDay } from "@/lib/move-details";
 
 import Link from "next/link";
 
@@ -186,7 +187,7 @@ function AdminJobsContent() {
                           {job.customerName}
                         </h3>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] md:text-xs text-muted-foreground font-medium">
-                          <span className="flex items-center gap-1.5 shrink-0"><Calendar className="h-3.5 w-3.5 shrink-0" /> {job.moveDate ? format(new Date(job.moveDate), "MMM d, yyyy") : "Date TBD"}</span>
+                          <span className="flex items-center gap-1.5 shrink-0"><Calendar className="h-3.5 w-3.5 shrink-0" /> {job.moveDate ? format(moveDay(job.moveDate), "MMM d, yyyy") : "Date TBD"}</span>
                           <span className="flex items-center gap-1.5 shrink-0"><MapPin className="h-3.5 w-3.5 shrink-0" /> {job.state}</span>
                           <span className="flex items-center gap-1.5 truncate"><Truck className="h-3.5 w-3.5 shrink-0" /> {job.pickupAddress?.split(',')[0]} → {job.dropoffAddress?.split(',')[0]}</span>
                         </div>
