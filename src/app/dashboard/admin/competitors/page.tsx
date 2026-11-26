@@ -91,7 +91,7 @@ function Competitors() {
           <p className="text-2xl font-black mt-1">{target.name}</p>
           <p className="text-sm text-slate-300">{target.score.known ? `Behind on ${target.score.behind} of ${target.score.known} known numbers` : 'Add their numbers to measure the gap'}</p>
           <Button size="sm" className="mt-3" onClick={() => { setView(target.tier); setOpenId(target.id); }}>Open</Button>
-        </> : <p className="text-sm text-slate-300 mt-2">{all.length ? 'Everyone on this list is passed. Add the next list.' : 'Add competitors to start.'}</p>}
+        </> : <p className="text-sm text-slate-300 mt-2">{!challengers.length ? 'Your main list is empty. Track your local rivals first (Find competitors in the registry), then take on the legends.' : phase2 && !legends.some(c => c.status !== 'passed') ? 'You’ve passed everyone on both lists. Add the next rivals.' : 'Everyone on this list is passed. Add the next list.'}</p>}
       </CardContent></Card>
     </div>
 
@@ -343,7 +343,7 @@ function SocialView({ competitors, us, ready, igToken, busy, post, setNotice, on
     <TokenTimer t={igToken} />
     <div className="flex flex-wrap gap-2">
       {on && <Button size="sm" disabled={busy} onClick={async () => { const r = await post({ action: 'social-stats-all' }, 'stats'); if (r) setNotice(`Updated numbers for ${r.refreshed} (anything checked in the last week is skipped).`); }}>Update Instagram & YouTube numbers</Button>}
-      {missing.length > 0 && <Button size="sm" variant="outline" disabled={busy} onClick={async () => { let found = 0; for (const c of missing.slice(0, 10)) { const r = await post({ action: 'find-socials', id: c.id }); if (r?.found) found++; } setNotice(`Checked ${Math.min(10, missing.length)} websites; found profiles for ${found}.`); }}>Find social profiles for {Math.min(10, missing.length)} competitors from their websites</Button>}
+      {missing.length > 0 && <Button size="sm" variant="outline" disabled={busy} onClick={async () => { let found = 0; for (const c of missing.slice(0, 10)) { const r = await post({ action: 'find-socials', id: c.id }); if (r?.found) found++; } setNotice(`Checked ${Math.min(10, missing.length)} websites; found profiles for ${found}.`); }}>Find social profiles for {Math.min(10, missing.length)} competitor{Math.min(10, missing.length) === 1 ? '' : 's'} from their websites</Button>}
     </div>
     <details className="text-xs text-muted-foreground"><summary className="cursor-pointer font-semibold">How the social score works</summary><p className="mt-1">{SOCIAL_SCORE_HELP} Active = posted in the last 2 weeks, slowing = within 2 months, inactive = longer.</p>
       <p className="mt-1">{on ? `Numbers come from the official ${[ready.instagram && 'Instagram', ready.youtube && 'YouTube'].filter(Boolean).join(' and ')} API${ready.instagram && ready.youtube ? 's' : ''}, refreshed weekly for tracked competitors.` : 'Instagram and YouTube numbers aren’t set up yet, so followers are entered by hand.'} Instagram only shares numbers for business and creator accounts. Facebook, TikTok and X don’t offer this for free, so enter those by hand.</p></details>
