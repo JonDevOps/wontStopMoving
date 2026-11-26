@@ -89,7 +89,19 @@ export function toMover(r: CensusRow, auth: AuthorityRow | undefined, zipLatLng:
 export const yearsInBusiness = (m: Pick<Mover, 'added'>, now = Date.now()) => (m.added ? Math.max(0, Math.floor((now - Date.parse(`${m.added}T00:00:00Z`)) / (365.25 * 86400000))) : 0);
 
 /** Overall size, for "biggest" rankings: trucks first, then drivers, then miles. */
-export const sizeScore = (m: Pick<Mover, 'units' | 'drivers' | 'miles'>) => m.units * 10 + m.drivers * 4 + Math.min(m.miles, 50_000_000) / 25_000;
+/**
+ * Fleet numbers with obvious filing typos corrected (the filing itself is kept as is):
+ *   - far more drivers than trucks (more than 10 per truck, and over 50): use 2 per truck, e.g. 1 truck and 8,000 drivers;
+ *   - far more trucks than drivers (more than 30 per driver, and over 100 trucks): use 3 per driver, e.g. 366 trucks and 4 drivers.
+ */
+export function saneFleet(m: Pick<Mover, 'units' | 'drivers'>): { units: number; drivers: number; typo: boolean } {
+  let { units, drivers } = m, typo = false;
+  if (drivers > 50 && drivers > Math.max(units, 1) * 10) { drivers = Math.max(units, 1) * 2; typo = true; }
+  if (units > 100 && drivers > 0 && units > drivers * 30) { units = drivers * 3; typo = true; }
+  return { units, drivers, typo };
+}
+
+export const sizeScore = (m: Pick<Mover, 'units' | 'drivers' | 'miles'>) => { const f = saneFleet(m); return f.units * 10 + f.drivers * 4 + Math.min(m.miles, 50_000_000) / 25_000; };
 
 export function distanceMiles(aLat: number, aLng: number, bLat: number, bLng: number) {
   const r = (d: number) => (d * Math.PI) / 180, R = 3958.8;
@@ -165,7 +177,7 @@ export type OurFleet = { units: number; drivers: number; miles: number; years: n
  * companies just above us: the next ones to pass.
  */
 export function ourRank(rows: Mover[], us: OurFleet, key: 'size' | 'units' | 'drivers' | 'miles' = 'size', now = Date.now()) {
-  const value = (m: Pick<Mover, 'units' | 'drivers' | 'miles'>) => (key === 'size' ? sizeScore(m) : m[key]);
+  const value = (m: Pick<Mover, 'units' | 'drivers' | 'miles'>) => (key === 'size' ? sizeScore(m) : key === 'miles' ? m.miles : saneFleet(m)[key]);
   const ours = value(us);
   const ahead = rows.filter(m => value(m) > ours).sort((a, b) => value(a) - value(b));
   return { rank: ahead.length + 1, of: rows.length + 1, nextUp: ahead.slice(0, 5), gapTo: (m: Mover) => ({ units: Math.max(0, m.units - us.units + 1), drivers: Math.max(0, m.drivers - us.drivers + 1), years: Math.max(0, yearsInBusiness(m, now) - us.years) }) };
@@ -200,7 +212,8 @@ export const REGISTRY_AREAS = [...US_STATES, ...CA_PROVINCES];
 export const SIZE_WEIGHTS = { perTruck: 10, perDriver: 4, milesPerPoint: 25_000, milesCap: 50_000_000 } as const;
 
 export function sizeParts(m: Pick<Mover, 'units' | 'drivers' | 'miles'>) {
-  const trucks = m.units * SIZE_WEIGHTS.perTruck, drivers = m.drivers * SIZE_WEIGHTS.perDriver, miles = Math.min(m.miles, SIZE_WEIGHTS.milesCap) / SIZE_WEIGHTS.milesPerPoint;
+  const f = saneFleet(m);
+  const trucks = f.units * SIZE_WEIGHTS.perTruck, drivers = f.drivers * SIZE_WEIGHTS.perDriver, miles = Math.min(m.miles, SIZE_WEIGHTS.milesCap) / SIZE_WEIGHTS.milesPerPoint;
   return { trucks, drivers, miles: Math.round(miles), total: Math.round(trucks + drivers + miles) };
 }
 

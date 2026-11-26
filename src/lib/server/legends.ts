@@ -6,7 +6,7 @@ import { matchPlace } from './places';
 import { safetyFor } from './safety';
 import { trackedByDot } from './registry-track';
 import { brandOf, buildLegends, GROUP_LABEL, revenueRange, STATE_ZONE, type LegendGroup } from '@/lib/legends';
-import { isProvince, REGISTRY_AREAS, sizeScore, yearsInBusiness, type Mover } from '@/lib/registry';
+import { isProvince, REGISTRY_AREAS, saneFleet, sizeScore, yearsInBusiness, type Mover } from '@/lib/registry';
 import { combineStats, type PlatformStats } from '@/lib/social-stats';
 
 /** The Legends board: see src/lib/legends.ts for how companies are chosen. */
@@ -35,7 +35,7 @@ async function compute() {
   const pool: Mover[] = [], seen = new Set<string>();
   const add = (list: Mover[]) => list.forEach(m => { if (!seen.has(m.dot)) { seen.add(m.dot); pool.push(m); } });
   add(sorted.slice(0, 800));
-  for (const z of ['eastern', 'central', 'mountain', 'pacific', 'alaska', 'hawaii']) add(sorted.filter(m => STATE_ZONE[m.state] === z).slice(0, z === 'alaska' || z === 'hawaii' ? 30 : 300));
+  for (const z of ['eastern', 'central', 'mountain', 'pacific', 'alaska', 'hawaii']) add(sorted.filter(m => STATE_ZONE[m.state] === z).slice(0, z === 'alaska' || z === 'hawaii' ? 30 : 700)); // Enough per zone to still have 100 after the national 500 and non-movers are taken out.
   const enr = await enrichmentFor(pool.map(m => m.dot));
   const groups = buildLegends(pool.filter(m => !NOT_MOVERS.has(enr.get(m.dot)?.kind || '')), sizeScore);
 
@@ -53,12 +53,15 @@ async function board(force = false) {
 
 export type LegendRow = ReturnType<typeof legendRow>;
 function legendRow(m: Mover, rank: number, group: LegendGroup, e: Enrichment | undefined, tracked: Map<string, string>) {
+  const fleet = saneFleet(m);
   const brand = brandOf({ ...m, foundSite: e?.site });
   const stats = (e?.socialStats || {}) as Record<string, { followers?: number | null }>;
   const followers = Object.values(stats).reduce((n, s) => n + (s?.followers || 0), 0);
   return {
-    rank, group, dot: m.dot, state: m.state, name: m.name, dba: m.dba || '', city: m.city, units: m.units, drivers: m.drivers, miles: m.miles,
-    years: yearsInBusiness(m), size: Math.round(sizeScore(m)), revenue: revenueRange(m), brand: brand ? { key: brand.key, label: brand.label, kind: brand.kind } : null,
+    // Corrected fleet numbers (filing typos), with what was filed when it differs.
+    rank, group, dot: m.dot, state: m.state, name: m.name, dba: m.dba || '', city: m.city, units: fleet.units, drivers: fleet.drivers, miles: m.miles,
+    filed: fleet.typo ? { units: m.units, drivers: m.drivers } : null,
+    years: yearsInBusiness(m), size: Math.round(sizeScore(m)), revenue: revenueRange(fleet), brand: brand ? { key: brand.key, label: brand.label, kind: brand.kind } : null,
     site: m.site || e?.site || null, socials: e?.socials || {}, followers: followers || null, milesFromUs: milesFrom(m.lat ?? null, m.lng ?? null),
     kind: e?.kind || null, strategy: e?.strategy || null,
     safety: e?.safety ? { grade: e.safety.grade, score: e.safety.score, trend: e.safety.trend, last12: e.safety.last12, crashes: e.safety.crashes, trouble: e.safety.trouble.length, signals: e.safety.signals.slice(0, 4) } : null, google: e?.placeId ? 'matched' : e?.placeCheckedAt ? 'none' : null,
@@ -95,7 +98,7 @@ export async function matchGroup(group: LegendGroup) {
 /** Jev's call on one company, from everything we know (our data only, never Google Maps content). */
 export async function strategyFor(m: Mover, e?: Enrichment, group?: LegendGroup) {
   const kind = e?.kind || (await classifyAndSave(m)).kind;
-  const r = revenueRange(m);
+  const r = revenueRange(saneFleet(m));
   const sum = combineStats((e?.socialStats || {}) as Record<string, PlatformStats>);
   return strategyAndSave(m, {
     kind, brand: brandOf({ ...m, foundSite: e?.site })?.label || null, milesFromUs: milesFrom(m.lat ?? null, m.lng ?? null),

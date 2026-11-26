@@ -34,7 +34,7 @@ import { guessDomains, isDirectory, matchPage, nameTokens, urlsIn, placeMatches 
 import { buildLegends, STATE_ZONE, brandOf, revenueRange } from '../src/lib/legends.ts';
 import { summarizeSafety, recentTrouble, NATIONAL_OOS } from '../src/lib/safety.ts';
 import { igUsername, ytRef, summarizePosts, combineStats, socialScore, activityOf, metricsFromStats } from '../src/lib/social-stats.ts';
-import { explainRank, sizeParts } from '../src/lib/registry.ts';
+import { explainRank, sizeParts, saneFleet, sizeScore } from '../src/lib/registry.ts';
 import { METROS } from '../src/lib/metros.ts';
 import { usableCredit, giftCardAmount, normalizeGiftCode, formatGiftCode, isGiftCodeCore } from '../src/lib/rewards.ts';
 import { diffPrices, describeChange } from '../src/lib/price-watch.ts';
@@ -2278,4 +2278,14 @@ test('road record is saved per company and shown on the company and Legends', as
   const board = await (await fetch(`${base}/api/admin/legends?refresh=1`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
   const row = Object.values(board.groups).flat().find(r => r.dot === '1234567');
   if (row) { assert.equal(row.safety.grade, 'A'); assert.equal(row.safety.trouble, 1); }
+});
+
+test('filing typos (1 truck and 8,000 drivers) are corrected for ranking; real fleets are untouched', () => {
+  assert.deepEqual(saneFleet({ units: 1, drivers: 8000 }), { units: 1, drivers: 2, typo: true });
+  assert.deepEqual(saneFleet({ units: 0, drivers: 1050 }), { units: 0, drivers: 2, typo: true });
+  assert.deepEqual(saneFleet({ units: 366, drivers: 4 }), { units: 12, drivers: 4, typo: true });
+  for (const real of [{ units: 88, drivers: 253 }, { units: 4731, drivers: 3424 }, { units: 3, drivers: 30 }, { units: 120, drivers: 0 }]) assert.deepEqual(saneFleet(real), { ...real, typo: false });
+  // The typo company no longer outranks a real 30-truck mover.
+  assert.ok(sizeScore({ units: 1, drivers: 8000, miles: 0 }) < sizeScore({ units: 30, drivers: 40, miles: 0 }));
+  assert.equal(sizeParts({ units: 1, drivers: 8000, miles: 0 }).total, 18);
 });
