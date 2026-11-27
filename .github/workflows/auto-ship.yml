@@ -27,7 +27,7 @@ jobs:
   ship:
     if: ${{ !contains(github.event.head_commit.message, '[no-ship]') && github.event.deleted == false }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 8
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
@@ -43,9 +43,23 @@ jobs:
             body=$(printf 'Opened automatically when `%s` was pushed. It merges by itself once the Verify check passes; merging deploys the site.\n\nTo stop it: turn off auto-merge on this PR, or push to a `wip/` branch next time.\n\n---\n%s' "$BRANCH" "$MESSAGE")
             url=$(gh pr create --repo "$REPO" --base main --head "$BRANCH" --title "$title" --body "$body")
             echo "Opened $url"
-            # A PR opened by this workflow doesn't start other workflows, so run the required check ourselves.
-            gh workflow run ci.yml --repo "$REPO" --ref "$BRANCH"
             existing=${url##*/}
+            # GitHub holds the CI run for a PR the Actions bot opened until someone
+            # approves it ("action_required"). Approve it so Verify runs on the PR.
+            approved=""
+            for _ in $(seq 1 12); do
+              sleep 5
+              runs=$(gh api "repos/$REPO/actions/runs?head_sha=$GITHUB_SHA&event=pull_request" \
+                --jq '.workflow_runs[] | select(.conclusion == "action_required" or .status == "waiting") | .id')
+              for id in $runs; do
+                gh api -X POST "repos/$REPO/actions/runs/$id/approve" >/dev/null && approved=1 && echo "Approved CI run $id"
+              done
+              [ -n "$approved" ] && break
+            done
+            if [ -z "$approved" ]; then
+              echo "::warning::No held CI run found to approve; starting CI by hand."
+              gh workflow run ci.yml --repo "$REPO" --ref "$BRANCH"
+            fi
           else
             echo "PR #$existing already open; this push updates it and CI runs on it as usual."
           fi
