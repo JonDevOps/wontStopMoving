@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
+  async redirects() {
+    return [
+      { source: '/security.txt', destination: '/.well-known/security.txt', permanent: true },
+    ];
+  },
   // `npm run dev:local` only: send the browser's Firebase emulator traffic through
   // this server, so the whole app runs on one origin (some browsers and embedded
   // panes block a page from calling other localhost ports).
