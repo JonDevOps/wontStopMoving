@@ -1,3 +1,5 @@
+import { creditBreakdown } from '@/lib/rewards';
+import { getWallet, applyCredit } from '@/lib/server/rewards';
 import { saveSmsConsent } from '@/lib/server/sms-consent';
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
@@ -50,6 +52,8 @@ export async function POST(req: Request) {
     if (typeof body.smsConsent === 'boolean') await saveSmsConsent({subject:`user:${user.uid}`,customerId:user.uid,phone:body.phone,consent:body.smsConsent,version:body.smsDisclosureVersion,source:'provider_checkout',sourcePage:body.smsSourcePage});
     requireStripe();
 
+    const balances = body.useCredit !== false ? await getWallet(user.uid) : { balance: 0, giftBalance: 0 };
+    const funding = creditBreakdown(price, balances.giftBalance, balances.giftBalance);
     const jobRef = db.collection("jobs").doc();
     await jobRef.set({
       id: jobRef.id,
@@ -87,17 +91,23 @@ export async function POST(req: Request) {
               name: `Moving Service with ${String(p.businessName || "your provider").slice(0, 80)}`,
               description: `${hours} hours. Released to your mover after the job is done.`,
             },
-            unit_amount: Math.round(price * 100),
+            unit_amount: Math.round((price - funding.credit) * 100),
           },
           quantity: 1,
         },
       ],
-      metadata: { flow: "booking", jobId: jobRef.id, customerId: user.uid, providerId, termsVersion: TERMS_VERSION },
+      metadata: { flow: "booking", jobId: jobRef.id, customerId: user.uid, providerId, termsVersion: TERMS_VERSION, creditApplied: funding.credit.toFixed(2) },
+      ...(funding.credit ? { expires_at: Math.floor(Date.now() / 1000) + 3600 } : {}),
       success_url: `${origin}/dashboard/customer/moves?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/book/${providerId}?canceled=true`,
     });
-    await jobRef.update({ checkoutSessionId: session.id });
-
+    try {
+    await db.runTransaction(async tx => {
+      if (funding.credit) await applyCredit(tx, user.uid, -funding.credit, 'checkout', `checkout-${session.id}`, { sessionId: session.id, jobId: jobRef.id, giftApplied: funding.gift });
+      tx.set(db.doc(`checkoutTerms/${session.id}`), { customerId: user.uid, jobId: jobRef.id, totalCents: Math.round(price * 100), creditApplied: funding.credit, giftApplied: funding.gift });
+      tx.update(jobRef, { checkoutSessionId: session.id, creditApplied: funding.credit, giftApplied: funding.gift, creditLedgerKey: funding.credit ? `checkout-${session.id}` : null });
+    });
+    } catch(error) { await stripe.checkout.sessions.expire(session.id).catch(() => {}); throw error; }
     return NextResponse.json({ url: session.url });
   } catch (error) {
     return errorResponse(error);

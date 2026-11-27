@@ -168,7 +168,7 @@ export default function ProviderSignUpPage() {
         bio: data.businessDescription,
         email,
         phone: data.phone,
-        ...(providerExists ? {} : { status: "pending", isEmployee: false, services: [], rating: 0, reviewCount: 0 }),
+        ...(providerExists ? {} : { createdAt: serverTimestamp(), status: "pending", isEmployee: false, services: [], rating: 0, reviewCount: 0 }),
         termsAccepted: true,
         agreementVersion: PROVIDER_AGREEMENT_VERSION,
         independentContractorAcknowledged: true,

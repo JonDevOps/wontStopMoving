@@ -50,7 +50,7 @@ export function ReviewForm({ jobId, onReviewSubmitted, refundEligible = false }:
       <CardHeader className="relative z-10 pb-4">
         <CardTitle className="text-2xl font-black uppercase tracking-widest text-white">Rate your provider</CardTitle>
         <CardDescription className="text-accent-foreground font-medium">
-          {refundEligible ? 'Submit an honest review of any rating for a $5 refund to your original payment method. This incentive will be disclosed on your review. Optional tipping is available after submission.' : 'How was your move? Your feedback helps others book with confidence. Optional tipping is available after submission.'}
+          {refundEligible ? 'Submit an honest review of any rating for a $5 refund to your original payment types (gift-card amounts return to gift-card balance). This incentive will be disclosed on your review. Optional tipping is available after submission.' : 'How was your move? Your feedback helps others book with confidence. Optional tipping is available after submission.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="relative z-10">
