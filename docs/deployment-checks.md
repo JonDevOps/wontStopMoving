@@ -22,7 +22,9 @@ are warnings for now; tighten them to errors as the code is cleaned up.
 
 Firebase App Hosting deploys `main` from the organization repository,
 `wontStopMoving/wontStopMoving`. `main` requires the GitHub Actions `Verify`
-check, with branches up to date before merging. The protection applies to
+check. Branches do not have to be up to date with `main` before merging, so
+several open pull requests can merge without blocking each other; `Verify`
+runs again on `main` after each merge. The protection applies to
 administrators, blocks force pushes and deletion, and requires a pull request.
 No second-person review is required.
 
