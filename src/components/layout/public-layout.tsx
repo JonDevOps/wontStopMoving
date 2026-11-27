@@ -433,6 +433,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
             <p>Copyright © 2026 {BUSINESS_CONTACT.legalBusiness} · WontStopMoving. All rights reserved.</p>
             <div className="flex gap-6">
+              <Link href="/newsletter" className="hover:text-white transition-colors">Newsletter</Link>
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               <Link href="/sms" className="hover:text-white transition-colors">Text updates</Link>
               <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>

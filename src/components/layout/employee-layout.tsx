@@ -136,6 +136,7 @@ export function EmployeeLayout({ children, isAdmin = false }: { children: React.
     { label: "Phone inbox", href: "/dashboard/admin/phone", icon: MessageSquare },
     { label: "Service Desk", href: "/dashboard/admin/service", icon: LifeBuoy },
     { label: "Emails", href: "/dashboard/admin/emails", icon: Mail },
+        { label: "Newsletter", href: "/dashboard/admin/newsletter", icon: Mail },
     { label: "Mover Payments", href: "/dashboard/admin/mover-payments", icon: Landmark },
     { label: "Blog", href: "/dashboard/admin/blog", icon: Newspaper },
     { label: "Referrals", href: "/dashboard/admin/referrals", icon: Gift },
