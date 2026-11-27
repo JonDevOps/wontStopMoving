@@ -1,3 +1,5 @@
+import { creditBreakdown } from '../rewards';
+import { applyCredit, readWallet, releaseCheckoutCredit } from './rewards';
 import { normalizeSmsPhone } from '../sms-consent';
 import { saveSmsConsent } from './sms-consent';
 import { createHash } from 'node:crypto';
@@ -44,16 +46,26 @@ export async function createMoverCheckout(uid: string, email: string | undefined
   }
   const id = createHash('sha256').update(`${uid}:${body.requestId}`).digest('hex');
   const ref = db.doc(`moverOrders/${id}`);
-  const fingerprint = createHash('sha256').update(JSON.stringify({ items: parsed.data, phone, consent: body.smsConsent === true })).digest('hex');
+  const fingerprint = createHash('sha256').update(JSON.stringify({ items: parsed.data, phone, consent: body.smsConsent === true, useCredit: body.useCredit === true })).digest('hex');
   const order = await db.runTransaction(async tx => {
     const saved = (await tx.get(ref)).data();
     if (saved) {
       if (saved.fingerprint !== fingerprint) throw new HttpError(409, 'Your cart changed. Refresh it before payment.');
+      if (saved.paymentStatus === 'expired') throw new HttpError(409, 'This checkout expired. Start a new checkout.');
       if (saved.paymentStatus === 'paid') throw new HttpError(409, 'This cart is already paid. Open your moves dashboard.');
       if (Date.now() - saved.startedAt.toMillis() > 23 * 3600000) throw new HttpError(409, 'This checkout expired. Refresh your cart.');
       return saved;
     }
-    const next = { customerId: uid, fingerprint, items: items.map((item, index) => ({ ...item, jobId: `mover_${id}_${index}` })), totalCents: items.reduce((sum, item) => sum + item.totalCents, 0), paymentStatus: 'pending', termsAcceptance: bookingTermsAcceptance(uid), startedAt: Timestamp.now() };
+    const totalCents = items.reduce((sum, item) => sum + item.totalCents, 0);
+    const balances = body.useCredit === true ? await readWallet(tx, uid) : { balance: 0, giftBalance: 0 };
+    const funding = creditBreakdown(totalCents / 100, balances.giftBalance, balances.giftBalance);
+    let creditLeft = Math.round(funding.credit * 100), giftLeft = Math.round(funding.gift * 100);
+    const fundedItems = items.map(item => {
+      const creditCents = Math.min(item.totalCents, creditLeft), giftCents = Math.min(creditCents, giftLeft);
+      creditLeft -= creditCents; giftLeft -= giftCents;
+      return { ...item, creditCents, giftCents, cardCents: item.totalCents - creditCents };
+    });
+    const next = { creditApplied: funding.credit, giftApplied: funding.gift, cardCents: totalCents - Math.round(funding.credit * 100), customerId: uid, fingerprint, items: fundedItems.map((item, index) => ({ ...item, jobId: `mover_${id}_${index}` })), totalCents: items.reduce((sum, item) => sum + item.totalCents, 0), paymentStatus: 'pending', termsAcceptance: bookingTermsAcceptance(uid), startedAt: Timestamp.now() };
     tx.create(ref, next);
     return next;
   });
@@ -61,14 +73,29 @@ export async function createMoverCheckout(uid: string, email: string | undefined
   const tag = id.slice(0, 8).replace(/[0-9a-f]/g, value => String.fromCharCode(97 + parseInt(value, 16)));
   const session = await stripe.checkout.sessions.create({
     mode: 'payment', customer: stripeCustomerId, integration_identifier: `wsm_cart_${tag}`,
-    custom_text: { submit: { message: SAVED_CARD_NOTE } },
-    line_items: order.items.map((item: { providerName: string; service: string; hours: number; totalCents: number }) => ({ quantity: 1, price_data: { currency: 'usd', unit_amount: item.totalCents, product_data: { name: `${item.providerName} · ${item.service}`, description: `${item.hours} hours. Release this crew’s payment code after their work is complete.` } } })),
-    payment_intent_data: { transfer_group: `ORDER_${id}`, setup_future_usage: 'off_session' },
+    line_items: order.items.map((item: { providerName: string; service: string; hours: number; totalCents: number; cardCents?: number }) => ({ quantity: 1, price_data: { currency: 'usd', unit_amount: item.cardCents ?? item.totalCents, product_data: { name: `${item.providerName} · ${item.service}`, description: `${item.hours} hours. Release this crew’s payment code after their work is complete.` } } })),
+    // Gift cards and credit can cover the whole booking; then there is no card payment to save or transfer.
+    ...(order.cardCents !== 0 ? { custom_text: { submit: { message: SAVED_CARD_NOTE } }, payment_intent_data: { transfer_group: `ORDER_${id}`, setup_future_usage: 'off_session' as const } } : {}),
+    expires_at: Math.floor(order.startedAt.toMillis() / 1000) + 3600,
     metadata: { flow: 'mover_cart', orderId: id, customerId: uid, ...(opts.guest ? { guest: 'true', origin } : {}) },
     // Guests aren't signed in yet, so they land on a confirmation page instead of the dashboard.
     success_url: opts.guest ? `${origin}/movers/booked?session_id={CHECKOUT_SESSION_ID}` : `${origin}/dashboard/customer/moves?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/movers/cart?canceled=true`,
   }, { idempotencyKey: `mover-checkout-${id}` });
-  await ref.update({ checkoutSessionId: session.id });
+  try {
+    await db.runTransaction(async tx => {
+      const saved = (await tx.get(ref)).data();
+      if (!saved || saved.paymentStatus !== 'pending') throw new HttpError(409, 'This checkout is no longer available.');
+      if (!saved.creditHeld && saved.creditApplied) await applyCredit(tx, uid, -saved.creditApplied, 'checkout', `checkout-order-${id}`, { orderId: id, giftApplied: saved.giftApplied });
+      tx.update(ref, { checkoutSessionId: session.id, creditHeld: true });
+    });
+  } catch(error) {
+    const expired = await stripe.checkout.sessions.expire(session.id).catch(() => null);
+    if (expired) {
+      await db.runTransaction(async tx => { const current = (await tx.get(ref)).data(); if (current?.paymentStatus === 'pending') tx.update(ref, { checkoutSessionId: session.id, paymentStatus: 'expired' }); });
+      await releaseCheckoutCredit(expired);
+    }
+    throw error;
+  }
   return { url: session.url, orderId: id };
 }

@@ -1,11 +1,4 @@
-/**
- * Rewards and gift cards: pure rules shared by the server and the UI.
- *
- * Customers keep a move-credit balance (rewardWallets/{uid}, server-only). It
- * grows from completed moves and redeemed gift cards, and pays for part of a
- * move at checkout. Credit can cover at most the platform's 15% share of a
- * move, so the mover's 85% is always paid in full from the card charge.
- */
+/** Prepaid gift cards can cover a full move; promotional rewards retain their 15% cap. */
 export const MOVE_CREDIT_USD = Number(process.env.MOVE_CREDIT_USD || 25);
 /** Matches the platform fee (1 - PROVIDER_SHARE): credit never comes out of the mover's pay. */
 export const MAX_CREDIT_SHARE = 0.15;
@@ -15,12 +8,24 @@ export const GIFT_CARD_MAX = 1000;
 export const GIFT_CARD_PRESETS = [50, 100, 250, 500] as const;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-const cents = (n: number) => Math.round(n * 100) / 100;
+export function creditBreakdown(total: number, balance: number, giftBalance = 0) {
+  if (![total, balance, giftBalance].every(Number.isFinite) || total <= 0 || balance <= 0) return { credit: 0, gift: 0, reward: 0 };
+  const price = Math.round(total * 100), available = Math.max(0, Math.round(balance * 100));
+  const gifts = Math.min(available, Math.max(0, Math.round(giftBalance * 100)));
+  let gift = Math.min(price, gifts);
+  let reward = Math.min(price - gift, available - gifts, Math.floor(price * MAX_CREDIT_SHARE));
+  // Stripe requires at least 50 cents for a nonzero USD card charge.
+  const remaining = price - gift - reward;
+  if (remaining > 0 && remaining < 50) {
+    let giveBack = Math.min(50 - remaining, gift + reward);
+    const rewardBack = Math.min(reward, giveBack); reward -= rewardBack; giveBack -= rewardBack;
+    gift -= giveBack;
+  }
+  return { credit: (gift + reward) / 100, gift: gift / 100, reward: reward / 100 };
+}
 
-/** How much of `balance` can go toward a move priced at `total`. */
-export function usableCredit(total: number, balance: number): number {
-  if (!(total > 0) || !(balance > 0)) return 0;
-  return cents(Math.min(balance, Math.floor(total * MAX_CREDIT_SHARE * 100) / 100));
+export function usableCredit(total: number, balance: number, giftBalance = 0): number {
+  return creditBreakdown(total, balance, giftBalance).credit;
 }
 
 /** Whole-dollar gift card amount in range, or null. */
@@ -43,5 +48,15 @@ export const LEDGER_REASONS: Record<string, string> = {
   'gift-card': 'Gift card redeemed',
   'checkout': 'Used toward a move',
   'checkout-released': 'Returned from an unfinished checkout',
+  'booking-refund': 'Refund for a cancelled booking',
+  'gift-refund': 'Returned to gift-card balance',
+  'review-gift-refund': '$5 review refund to gift-card balance',
   'admin': 'Added by our team',
 };
+
+/** Refund paid value proportionally to the original gift/card tender; reward discounts are not cash. */
+export function refundTenderSplit(refundCents: number, giftCents: number, cardCents: number) {
+  if (![refundCents,giftCents,cardCents].every(Number.isSafeInteger) || Math.min(refundCents,giftCents,cardCents)<0 || refundCents>giftCents+cardCents) throw new Error('Invalid refund amount.');
+  const gift = giftCents + cardCents ? Math.round(refundCents * giftCents / (giftCents + cardCents)) : 0;
+  return { giftCents: gift, cardCents: refundCents - gift };
+}
