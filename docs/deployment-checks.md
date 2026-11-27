@@ -20,20 +20,28 @@ are warnings for now; tighten them to errors as the code is cleaned up.
 
 ## Publishing changes
 
-Both repositories require the GitHub Actions `Verify` check on `main`, with
-branches up to date before merging. The protection applies to administrators,
-blocks force pushes and deletion, and requires a pull request. No second-person
-review is required, so the owner can merge their own passing pull requests.
+Firebase App Hosting deploys `main` from the organization repository,
+`wontStopMoving/wontStopMoving`. `main` requires the GitHub Actions `Verify`
+check, with branches up to date before merging. The protection applies to
+administrators, blocks force pushes and deletion, and requires a pull request.
+No second-person review is required.
 
-1. Work on a branch such as `codex/my-change`.
-2. Open a pull request and wait for `Verify` to succeed.
-3. Merge the passing pull request. Firebase App Hosting automatically deploys
-   `main` from `JonDevOps/wontStopMoving`.
-4. Keep `wontStopMoving/wontStopMoving` synchronized through a passing pull
-   request as well. The organization repository is not the App Hosting source.
+Pushing a branch to the organization repository ships it automatically (the
+`Auto ship` workflow):
+
+1. Push any branch other than `main`.
+2. `Auto ship` opens a pull request into `main`, starts `Verify`, and turns on
+   auto-merge. Later pushes to the same branch update that pull request.
+3. When `Verify` passes, GitHub merges the pull request, deletes the branch,
+   and App Hosting deploys. A failing check never merges.
+
+To push without shipping, name the branch `wip/...` or `draft/...`, or put
+`[no-ship]` in the commit message. To stop an open pull request, turn off its
+auto-merge. Work on the `JonDevOps/wontStopMoving` fork does not deploy until a
+pull request brings it into the organization repository.
 
 Changing or renaming the `Verify` job requires updating the required-check
-setting in both repositories. Do not bypass a failing check to deploy.
+setting in the organization repository. Do not bypass a failing check to deploy.
 
 ## Local verification
 
