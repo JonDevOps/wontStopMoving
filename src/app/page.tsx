@@ -25,6 +25,10 @@ export const metadata = {
     path: '/',
   }),
   title: { absolute: 'Wont Stop Moving | Movers Across the U.S., Puerto Rico & Canada' },
+  alternates: {
+    canonical: '/',
+    types: { 'text/markdown': [{ url: '/home.md', title: 'Wont Stop Moving homepage in Markdown' }] },
+  },
 };
 
 export default function Home() {

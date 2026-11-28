@@ -6,6 +6,7 @@ import { ADDON_PRICING, MOVE_PRICING } from '@/lib/pricing';
 import { FAQ_CATEGORIES } from '@/lib/faq-data';
 import { ALL_LOCATIONS, CITIES_BY_STATE, slugify } from '@/lib/location-data';
 import { DEFAULT_DESCRIPTION, SERVICES, SITE_EMAIL, SITE_URL } from '@/lib/seo';
+import { BUSINESS_CONTACT } from '@/lib/business-contact';
 
 const usd = (n: number) => `$${n.toLocaleString('en-US')}`;
 
@@ -60,9 +61,9 @@ export function howBookingWorksMd(): string {
 1. **Get a quote.** Enter your ZIP codes, move size, date and any add-ons at ${SITE_URL}/quote. You get an instant estimate from our price list (${SITE_URL}/pricing.md).
 2. **Create a free account.** Sign up with Google or email to save and pay for your quote. You can also book an individual mover from the marketplace (${SITE_URL}/marketplace).
 3. **Pay securely.** Payment is by card through Stripe. Wont Stop Moving holds the payment; it is not released to the mover yet.
-4. **Get your release code.** Once paid, your dashboard shows a private 6-digit release code. Only you can see it. Movers can't.
+4. **Get your release code.** Once paid, your dashboard shows a private 6-digit release code. Keep it private until the job is done.
 5. **Move day.** Follow your move's status (confirmed, in progress, completed) in your dashboard and message your mover.
-6. **Release payment.** When the job is done to your satisfaction, give your mover the 6-digit code. Entering it marks the move complete and pays the mover (providers receive 85%; W3Develops retains its 15% platform fee).
+6. **Release payment.** When the job is done to your satisfaction, give your mover the 6-digit code. The provider enters it to complete the job and release the marketplace payout.
 
 Questions: ${SITE_EMAIL}
 `;
@@ -138,6 +139,7 @@ Key facts:
 
 ## Guides for AI assistants
 
+- [Homepage overview](${SITE_URL}/home.md)
 - [Pricing](${SITE_URL}/pricing.md): base prices, add-ons, express and discounts
 - [How booking works](${SITE_URL}/how-booking-works.md): quote, payment and the release code
 - [FAQ](${SITE_URL}/faq.md)
@@ -156,6 +158,30 @@ ${services}
 - [Service areas](${SITE_URL}/locations)
 - [Moving tips blog](${SITE_URL}/blog)
 - [About](${SITE_URL}/about) · [Contact](${SITE_URL}/contact) · [Careers](${SITE_URL}/careers)
+`;
+}
+
+export function homeMd(): string {
+  return `# Wont Stop Moving
+
+${DEFAULT_DESCRIPTION}
+
+## Plan a move
+
+- [Get an instant quote](${SITE_URL}/quote) for your route, move size and date.
+- [Find local moving help](${SITE_URL}/movers) to compare providers in your area.
+- [Browse service areas](${SITE_URL}/locations) for direct booking options by city.
+- [See how booking works](${SITE_URL}/how-booking-works.md) for payment and the release code.
+
+## Contact
+
+WontStopMoving is operated by ${BUSINESS_CONTACT.legalBusiness}
+
+- Email: ${SITE_EMAIL}
+- Phone: ${BUSINESS_CONTACT.phoneDisplay} (${BUSINESS_CONTACT.phoneNumeric})
+- [Contact form](${SITE_URL}/contact)
+
+[Public site guides](${SITE_URL}/llms.txt)
 `;
 }
 
