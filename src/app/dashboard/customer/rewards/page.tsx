@@ -13,7 +13,7 @@ import { apiFetch } from "@/lib/api-client";
 import { LEDGER_REASONS, type LedgerEntry } from "@/lib/rewards";
 import { useToast } from "@/hooks/use-toast";
 
-type Wallet = { balance: number; ledger: LedgerEntry[]; moveCreditUsd: number; maxSharePct: number };
+type Wallet = { balance: number; giftBalance: number; rewardBalance: number; ledger: LedgerEntry[]; moveCreditUsd: number; maxSharePct: number };
 const usd = (n: number) => `$${n.toFixed(2).replace(/\.00$/, '')}`;
 
 export default function CustomerRewardsPage() {
@@ -44,8 +44,8 @@ export default function CustomerRewardsPage() {
           <CardContent className="p-6 flex items-center justify-between gap-4 flex-wrap">
             <div>
               <p className="text-xs uppercase tracking-widest text-white/70 flex items-center gap-1"><Wallet className="h-4 w-4" /> Move credit</p>
-              <p className="text-5xl font-black">{wallet ? usd(wallet.balance) : "…"}</p>
-              <p className="text-sm text-white/80 mt-1">Applied at checkout on your next move, up to {wallet?.maxSharePct ?? 15}% of its price. The rest carries over.</p>
+              <p className="text-5xl font-black">{wallet ? usd(wallet.balance) : "…"}</p><p className="text-sm mt-2">Gift cards: {wallet ? usd(wallet.giftBalance) : "…"} · Rewards: {wallet ? usd(wallet.rewardBalance) : "…"}</p>
+              <p className="text-sm text-white/80 mt-1">Gift cards can cover your full booking price. Promotional rewards cover up to {wallet?.maxSharePct ?? 15}%. Unused balance carries over.</p>
             </div>
             <Button asChild className="bg-accent hover:bg-accent/90 font-black uppercase"><Link href="/quote">Plan a move</Link></Button>
           </CardContent>

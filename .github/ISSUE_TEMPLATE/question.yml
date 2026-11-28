@@ -1,0 +1,14 @@
+name: Question / research
+description: "Should we...?", "Is there an API for...?", or a tool or vendor decision
+labels: [research]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context (links, what you've already looked at)

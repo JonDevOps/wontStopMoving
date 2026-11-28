@@ -1,3 +1,4 @@
+import { checkoutCreditHeld } from './rewards';
 import { randomInt } from 'node:crypto';
 import type Stripe from 'stripe';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -7,21 +8,24 @@ import { notifyPaidJob } from './notifications';
 
 /** One immutable allocation and one release code per cart item, even for the same provider. */
 export async function confirmMoverOrder(session: Stripe.Checkout.Session) {
-  if (session.payment_status !== 'paid') return { jobId: null };
+  if (session.payment_status !== 'paid' && session.payment_status !== 'no_payment_required') return { jobId: null };
   const db = adminDb(), ref = db.doc(`moverOrders/${session.metadata!.orderId}`);
   const ids = await db.runTransaction(async tx => {
     const order = (await tx.get(ref)).data();
     if (!order || order.customerId !== session.metadata?.customerId || (order.checkoutSessionId && order.checkoutSessionId !== session.id)) throw new HttpError(409, 'Checkout does not match this order.');
-    if (session.currency !== 'usd' || session.amount_total !== order.totalCents || !session.payment_intent) throw new HttpError(409, 'Payment amount does not match this order.');
+    const cardCents = order.cardCents ?? order.totalCents;
+    if (session.currency !== 'usd' || session.amount_total !== cardCents || (cardCents > 0 && (!session.payment_intent || session.payment_status !== 'paid')) || (cardCents === 0 && (session.status !== 'complete' || !['paid','no_payment_required'].includes(session.payment_status) || Math.round(Number(order.creditApplied || 0) * 100) !== order.totalCents))) throw new HttpError(409, 'Payment amount does not match this order.');
     const jobIds: string[] = order.items.map((item: { jobId: string }) => item.jobId);
     if (order.paymentStatus === 'paid') return jobIds;
-    const paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent.id;
+    if (order.paymentStatus === 'expired') throw new HttpError(409, 'This checkout credit was released.');
+    if (order.creditApplied) await checkoutCreditHeld(tx, order.customerId, `checkout-order-${ref.id}`, order.creditApplied);
+    const paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id || null;
     const codes = new Set<string>();
     for (const item of order.items) {
       tx.create(db.doc(`jobs/${item.jobId}`), {
         id: item.jobId, orderId: ref.id, customerId: order.customerId, providerIds: [item.providerId], employeeIds: [],
         status: 'confirmed', paymentStatus: 'paid', checkoutSessionId: session.id, paymentIntentId,
-        amountPaid: item.totalCents / 100, price: item.totalCents / 100, allocatedCents: item.totalCents,
+        amountPaid: (item.cardCents ?? item.totalCents) / 100, creditApplied: (item.creditCents || 0) / 100, giftApplied: (item.giftCents || 0) / 100, creditLedgerKey: order.creditApplied ? `checkout-order-${ref.id}` : null, price: item.totalCents / 100, allocatedCents: item.totalCents,
         providerPayoutCents: item.providerPayoutCents, platformFeeCents: item.totalCents - item.providerPayoutCents,
         moveDate: item.moveDate, service: item.service, preferredStartTime: item.preferredStartTime,
         pickupAddress: item.pickupAddress, dropoffAddress: item.dropoffAddress, hoursReserved: item.hours,

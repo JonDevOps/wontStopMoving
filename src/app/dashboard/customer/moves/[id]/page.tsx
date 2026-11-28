@@ -1,4 +1,5 @@
 "use client";
+import { moveDay } from "@/lib/move-details";
 
 import { CustomerLayout } from "@/components/layout/customer-layout";
 import { useFirestore, useUser } from "@/firebase";
@@ -116,7 +117,7 @@ export default function CustomerJobDetailsPage() {
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Move Date</h4>
-                    <p className="font-bold text-slate-900">{job.moveDate ? format(new Date(job.moveDate), "MMM d, yyyy") : "TBD"}</p>
+                    <p className="font-bold text-slate-900">{job.moveDate ? format(moveDay(job.moveDate), "MMM d, yyyy") : "TBD"}</p>
                   </div>
                   {job.hoursReserved && (
                     <div>

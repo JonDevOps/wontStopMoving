@@ -52,11 +52,12 @@ export default function MyQuotesPage() {
       .catch(() => {});
   }, [user, auth]);
   const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
-  // Move credit is applied automatically at checkout (up to 15% of the move).
+  // Prepaid gift value covers the full price; promotional rewards retain their cap.
   const [credit, setCredit] = useState(0);
+  const [giftCredit, setGiftCredit] = useState(0);
   useEffect(() => {
     if (!user) return;
-    apiFetch<{ balance: number }>(auth, "/api/rewards/me").then(w => setCredit(w.balance)).catch(() => {});
+    apiFetch<{ balance: number; giftBalance: number }>(auth, "/api/rewards/me").then(w => { setCredit(w.balance); setGiftCredit(w.giftBalance); }).catch(() => {});
   }, [user, auth]);
 
   // Query for all quotes requested by the current user
@@ -91,7 +92,7 @@ export default function MyQuotesPage() {
 
         {credit > 0 && (
           <p role="status" className="rounded-2xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-900">
-            You have <b>${credit.toFixed(2)}</b> of move credit. It&apos;s applied automatically when you pay (up to 15% of a move). <Link className="underline" href="/dashboard/customer/rewards">See rewards</Link>
+            You have <b>${credit.toFixed(2)}</b> of move credit. It&apos;s applied automatically when you pay. Gift-card value can cover the full price; promotional rewards cover up to 15%. <Link className="underline" href="/dashboard/customer/rewards">See rewards</Link>
           </p>
         )}
         <FinancingNote />
@@ -157,7 +158,7 @@ export default function MyQuotesPage() {
                           </div>
                           <div className="text-right">
                             <p className="text-2xl font-black text-primary">${estimatedTotal.toLocaleString()}</p>
-                            {!isProcessed && usableCredit(estimatedTotal, credit) > 0 && <p className="text-xs font-bold text-green-700">−${usableCredit(estimatedTotal, credit).toFixed(2)} move credit at checkout</p>}
+                            {!isProcessed && usableCredit(estimatedTotal, credit, giftCredit) > 0 && <p className="text-xs font-bold text-green-700">−${usableCredit(estimatedTotal, credit, giftCredit).toFixed(2)} move credit at checkout</p>}
                             <Badge 
                               className={
                                 quote.status === 'processed' ? "bg-green-500 hover:bg-green-500" :

@@ -1,5 +1,5 @@
-
 "use client";
+import { moveDay } from "@/lib/move-details";
 
 import { CustomerLayout } from "@/components/layout/customer-layout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -113,7 +113,7 @@ function MovesContent() {
                           <div>
                             <p className="text-[10px] font-bold text-muted-foreground uppercase">Date</p>
                             <p className="text-sm font-bold">
-                              {job.moveDate ? format(new Date(job.moveDate), "MMM d, yyyy") : "TBD"}
+                              {job.moveDate ? format(moveDay(job.moveDate), "MMM d, yyyy") : "TBD"}
                             </p>
                           </div>
                         </div>

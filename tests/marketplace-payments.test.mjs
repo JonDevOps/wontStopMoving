@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { runInThisContext } from 'node:vm';
 import ts from 'typescript';
+import * as rewardsShared from '../src/lib/rewards.ts';
 import * as contact from '../src/lib/business-contact.ts';
 import * as consentShared from '../src/lib/sms-consent.ts';
 import { initializeApp, deleteApp } from 'firebase-admin/app';
@@ -17,7 +18,7 @@ if (!process.env.FIRESTORE_EMULATOR_HOST || process.env.GCLOUD_PROJECT !== 'demo
 process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED = 'true';
 const app = initializeApp({ projectId: 'demo-wsm' }, 'marketplace-money-tests'), db = getFirestore(app);
 before(async () => {
-  for (const name of ['jobs','providers','jobSecrets','moverOrders','moveTips','moneyOperations','providerSmsPreferences','smsOutbox']) {
+  for (const name of ['jobs','providers','jobSecrets','moverOrders','moveTips','moneyOperations','providerSmsPreferences','smsOutbox','rewardWallets','checkoutTerms']) {
     const docs = await db.collection(name).get();
     for (const doc of docs.docs.filter(doc => doc.id.includes('money-'))) await db.recursiveDelete(doc.ref);
   }
@@ -31,7 +32,7 @@ function load(file, mocks) {
   const source = readFileSync(new URL(`../src/lib/server/${file}.ts`, import.meta.url), 'utf8');
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const loaded = { exports: {} };
-  runInThisContext(`(function(require,module,exports){${output}\n})`)(id => id in mocks ? mocks[id] : ['../business-contact','@/lib/business-contact'].includes(id) ? contact : id==='../sms-consent' ? consentShared : id==='./sms-consent' ? load('sms-consent',{'./firebase-admin':{adminDb:()=>db},'./auth':authMock}) : id.startsWith('.') || id.startsWith('@/') ? (() => { throw new Error(`Unmocked dependency ${id}`); })() : require(id), loaded, loaded.exports);
+  runInThisContext(`(function(require,module,exports){${output}\n})`)(id => id in mocks ? mocks[id] : id==='./rewards' ? rewardService() : ['../rewards','@/lib/rewards'].includes(id) ? rewardsShared : ['../business-contact','@/lib/business-contact'].includes(id) ? contact : id==='../sms-consent' ? consentShared : id==='./sms-consent' ? load('sms-consent',{'./firebase-admin':{adminDb:()=>db},'./auth':authMock}) : id.startsWith('.') || id.startsWith('@/') ? (() => { throw new Error(`Unmocked dependency ${id}`); })() : require(id), loaded, loaded.exports);
   return loaded.exports;
 }
 const authMock = { HttpError, isId: value => typeof value === 'string' && /^[\w-]+$/.test(value), stripeConfigured: () => true, requireStripe: () => {} };
@@ -47,6 +48,7 @@ function fakeStripe() {
     checkout: { sessions: { create: (params, options) => record(sessions, 'cs', params, options).then(result => ({...result,url:'https://checkout.stripe.com/c/pay/demo'})) } },
   };
 }
+function rewardService() { return load('rewards', {'@/lib/stripe':{stripe:fakeStripe()},'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./notifications':{enqueueEmail:async()=>{}}}); }
 function benefits(stripe) { return load('move-benefits', { '@/lib/stripe': {stripe}, './firebase-admin': {adminDb:()=>db}, './auth': authMock, './money-operation': {moneyOperation}, '../mover-cart': { REVIEW_REFUND_CENTS:500,tipShareCents } }); }
 
 test('minimum booking and separate tip allocation use integer cents', () => {
@@ -88,7 +90,7 @@ test('cart rejects one-hour, invalid dates, duplicate items and unsupported serv
 test('cart checkout reprices on the server, rejects stale rates and checks live recipient capability', async () => {
   const stripe=fakeStripe();
   const coverage=load('mover-coverage', Object.fromEntries(['zip-cities','zip-latlng','canada-city-centers'].map(name => [`@/data/${name}.json`,{default:JSON.parse(readFileSync(new URL(`../src/data/${name}.json`,import.meta.url),'utf8'))}])));
-  const checkout=load('mover-checkout', {'@/lib/stripe':{stripe},'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./terms':{requireCurrentTerms:()=>{},bookingTermsAcceptance:()=>({accepted:true})},'../mover-cart':{moverCartSchema,providerShareCents},'../mover-pricing':{validProviderPricing},'./mover-locations':{moverCity:()=>({city:'Queen Creek'})},'./mover-coverage':coverage});
+  const checkout=load('mover-checkout', {'@/lib/stripe':{stripe},'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./terms':{requireCurrentTerms:()=>{},bookingTermsAcceptance:()=>({accepted:true})},'../mover-cart':{moverCartSchema,providerShareCents},'../mover-pricing':{validProviderPricing},'./mover-locations':{moverCity:()=>({city:'Queen Creek'})},'./mover-coverage':coverage,'./stripe-customer':load('stripe-customer',{'@/lib/stripe':{stripe},'./firebase-admin':{adminDb:()=>db}})});
   process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED = 'false';
   try {
     await assert.rejects(() => checkout.createMoverCheckout('money-customer', undefined, {}, 'https://wontstopmoving.com'), error => error.status === 503);
@@ -186,7 +188,7 @@ test('a refunded tip payment is never transferred to the provider', async () => 
 
 test('only the assigned crew can redeem its code; each allocation pays independently once', async () => {
   const stripe=fakeStripe();
-  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation}, './guest-account':{sendGuestPasswordEmail:async()=>{}}, './extra-hours':{payExtraCharges:async()=>true} });
+  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{...rewardService(),grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation}, './guest-account':{sendGuestPasswordEmail:async()=>{}}, './extra-hours':{payExtraCharges:async()=>true} });
   for(const [id,uid,cents] of [['money-release-a','money-release-crew-a',9000],['money-release-b','money-release-crew-b',13000]]) {
     await db.doc(`providers/${uid}`).set({stripeAccountId:`acct_${uid}`,stripeOnboardingComplete:true});
     await db.doc(`jobs/${id}`).set({customerId:'money-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_shared_release',orderId:'money-shared-order',amountPaid:cents/100,providerPayoutCents:providerShareCents(cents),reviewRefundEligible:true});
@@ -206,7 +208,7 @@ test('only the assigned crew can redeem its code; each allocation pays independe
 
 test('customer can release their own paid move from the app, once, on or after the move date', async () => {
   const stripe=fakeStripe();
-  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation}, './guest-account':{sendGuestPasswordEmail:async()=>{}}, './extra-hours':{payExtraCharges:async()=>true} });
+  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{...rewardService(),grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation}, './guest-account':{sendGuestPasswordEmail:async()=>{}}, './extra-hours':{payExtraCharges:async()=>true} });
   const uid='money-custrelease-crew', today=new Date().toISOString().slice(0,10), later=new Date(Date.now()+5*86400000).toISOString().slice(0,10);
   await db.doc(`providers/${uid}`).set({stripeAccountId:`acct_${uid}`,stripeOnboardingComplete:true});
   await db.doc('jobs/money-custrelease-now').set({customerId:'money-custrelease-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_custrelease',amountPaid:100,providerPayoutCents:providerShareCents(10000),reviewRefundEligible:true,moveDate:today});
@@ -277,6 +279,32 @@ test('extra hours: crew requests, customer accepts with the saved card, crew sha
   assert.equal((await db.doc('jobs/money-extra-b').get()).data().hoursRequest.status,'declined');
 });
 
+test('Book Now jobs: extra hours work without a cart order, and the base payout excludes extra-hours charges', async () => {
+  const created=[];
+  const stripeExtra={
+    paymentIntents:{
+      retrieve: async id => id==='pi_book_orig' ? {id, customer:'cus_book', payment_method:'pm_book', setup_future_usage:'off_session'} : {id, latest_charge:'ch_book_extra', status:'succeeded'},
+      create: async (params, options) => { created.push({params, options}); return {id:'pi_book_extra', status:'succeeded'}; },
+    },
+    transfers:{ create: async () => ({id:'tr_book_extra'}) },
+  };
+  const extra=load('extra-hours', { '@/lib/stripe':{stripe:stripeExtra}, './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>({})}, './money-operation':{moneyOperation}, '../mover-cart':{providerShareCents} });
+  const uid='money-book-crew', today=new Date().toISOString().slice(0,10);
+  // Older Book Now jobs have no orderId and no hourlyRate: the rate is price / hours.
+  await db.doc('jobs/money-book-a').set({customerId:'money-book-customer',providerIds:[uid],status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_book_orig',hoursReserved:2,amountPaid:130,price:130,moveDate:today});
+  const req=await extra.requestExtraHours({jobId:'money-book-a',uid,isAdmin:false,hours:3,reason:'Long carry'});
+  assert.equal(req.extraCents,6500);
+  await extra.respondExtraHours({jobId:'money-book-a',uid:'money-book-customer',accept:true});
+  assert.equal(created[0].params.customer,'cus_book');
+  const stripe=fakeStripe();
+  const lifecycle=load('jobs', { './firebase-admin':{adminDb:()=>db}, './auth':authMock, './notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{}}, './shop':{}, './routing':{}, './referrals':{}, './rewards':{...rewardService(),grantMoveCredit:async()=>{}}, '@/lib/stripe':{stripe}, './mover-orders':{}, './move-benefits':{}, './money-operation':{moneyOperation}, './guest-account':{sendGuestPasswordEmail:async()=>{}}, './extra-hours':{payExtraCharges:async()=>true} });
+  await db.doc(`providers/${uid}`).set({stripeAccountId:`acct_${uid}`,stripeOnboardingComplete:true});
+  await db.doc('jobs/money-book-a').update({paymentIntentId:'pi_book_release'});
+  await lifecycle.releaseJobByCustomer({jobId:'money-book-a',uid:'money-book-customer'});
+  // 85% of the original $130 only; the extra $65 is paid from its own charge.
+  assert.equal([...stripe.transfersMade.values()][0].params.amount,providerShareCents(13000));
+});
+
 test('dispatcher requires verified sender, current consent and no STOP; stale queues and legacy booleans cannot send', async () => {
  const saved={...process.env},originalFetch=globalThis.fetch;let sends=0;
  try {
@@ -315,4 +343,109 @@ test('provider ranking: trusted ratings beat a single 5-star, top rated needs re
   assert.ok(ranked.find(p => p.id === 'pinned').featured);
   assert.equal(ranked.find(p => p.id === 'new').featured, false);
   assert.ok(ranked.slice(0, 4).every(p => p.featured));
+});
+
+test('gift value covers the full price while promotional rewards retain their cap and refund split is exact', () => {
+  assert.deepEqual(rewardsShared.creditBreakdown(100,250,250),{credit:100,gift:100,reward:0});
+  assert.deepEqual(rewardsShared.creditBreakdown(100,250,40),{credit:55,gift:40,reward:15});
+  assert.deepEqual(rewardsShared.creditBreakdown(100,99.99,99.99),{credit:99.5,gift:99.5,reward:0});
+  assert.equal(rewardsShared.usableCredit(100,250),15);
+  assert.deepEqual(rewardsShared.refundTenderSplit(500,8000,2000),{giftCents:400,cardCents:100});
+  assert.deepEqual(rewardsShared.refundTenderSplit(500,10000,0),{giftCents:500,cardCents:0});
+});
+
+test('legacy gift balances are preserved and gift holds cannot overspend or restore twice', async () => {
+  const service=rewardService(),uid='money-gift-wallet';
+  await db.doc(`rewardWallets/${uid}`).set({balance:160});
+  await db.doc(`rewardWallets/${uid}/ledger/gift-old`).set({amount:200,reason:'gift-card',createdAt:Timestamp.fromMillis(100)});
+  await db.doc(`rewardWallets/${uid}/ledger/spend-old`).set({amount:-50,reason:'checkout',createdAt:Timestamp.fromMillis(200)});
+  await db.doc(`rewardWallets/${uid}/ledger/reward-old`).set({amount:10,reason:'admin',createdAt:Timestamp.fromMillis(300)});
+  const old=await service.getWallet(uid);assert.equal(old.balance,160);assert.equal(old.giftBalance,150);assert.equal(old.rewardBalance,10);
+  await db.runTransaction(tx=>service.applyCredit(tx,uid,-100,'checkout','checkout-cs_money_gift_expiry',{sessionId:'cs_money_gift_expiry',giftApplied:100}));
+  assert.equal((await service.getWallet(uid)).giftBalance,50);
+  await assert.rejects(()=>db.runTransaction(tx=>service.applyCredit(tx,uid,-100,'checkout','overspend',{giftApplied:100})));
+  const session={id:'cs_money_gift_expiry',payment_status:'unpaid',metadata:{customerId:uid,creditApplied:'99999'}};
+  await service.releaseCheckoutCredit(session);await service.releaseCheckoutCredit(session);
+  const returned=await service.getWallet(uid);assert.equal(returned.balance,160);assert.equal(returned.giftBalance,150);
+  await assert.rejects(()=>db.runTransaction(tx=>service.checkoutCreditHeld(tx,uid,'checkout-cs_money_gift_expiry',100)));
+});
+
+test('fully gift-funded marketplace booking has a code, full provider allocation and no new card charge', async () => {
+  const uid='money-gift-customer',id='money-gift-order',jobId='money-gift-job',service=rewardService();
+  await db.doc(`rewardWallets/${uid}`).set({balance:250,giftBalance:250});
+  await db.runTransaction(tx=>service.applyCredit(tx,uid,-100,'checkout',`checkout-order-${id}`,{giftApplied:100}));
+  const item={jobId,providerId:'money-gift-crew',providerName:'Gift crew',totalCents:10000,creditCents:10000,giftCents:10000,cardCents:0,providerPayoutCents:8500,hourlyRate:50,payoutAccountId:'acct_gift_crew',moveDate:'2027-12-15',service:'loading',preferredStartTime:'morning',pickupAddress:'Demo pickup',dropoffAddress:'Demo dropoff',hours:2};
+  await db.doc(`moverOrders/${id}`).set({customerId:uid,totalCents:10000,cardCents:0,creditApplied:100,giftApplied:100,items:[item],checkoutSessionId:'cs_money_gift',paymentStatus:'pending',termsAcceptance:{accepted:true}});
+  const orders=load('mover-orders',{'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./notifications':{notifyPaidJob:async()=>{}}});
+  const session={id:'cs_money_gift',status:'complete',payment_status:'paid',currency:'usd',amount_total:0,payment_intent:null,metadata:{flow:'mover_cart',orderId:id,customerId:uid}};
+  await orders.confirmMoverOrder(session);await orders.confirmMoverOrder(session);
+  const job=(await db.doc(`jobs/${jobId}`).get()).data();
+  assert.equal(job.amountPaid,0);assert.equal(job.creditApplied,100);assert.equal(job.giftApplied,100);assert.equal(job.providerPayoutCents,8500);assert.ok((await db.doc(`jobSecrets/${jobId}`).get()).data().releaseCode);
+  const stripe=fakeStripe();
+  const jobs=load('jobs',{'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{},notifyCompletedJobTexts:async()=>{}},'./shop':{},'./routing':{},'./referrals':{},'./rewards':service,'@/lib/stripe':{stripe},'./mover-orders':{},'./move-benefits':{},'./money-operation':{moneyOperation},'./guest-account':{sendGuestPasswordEmail:async()=>{}},'./extra-hours':{payExtraCharges:async()=>true}});
+  await db.doc('providers/money-gift-crew').set({stripeAccountId:'acct_gift_crew',stripeOnboardingComplete:true});
+  await db.doc(`jobs/${jobId}`).update({status:'completed',releaseConfirmedAt:Timestamp.now(),payeeProviderId:'money-gift-crew',reviewed:true});
+  assert.equal((await jobs.payoutCompletedJob(jobId)).payoutStatus,'paid');await jobs.payoutCompletedJob(jobId);
+  const transfer=[...stripe.transfersMade.values()][0];assert.equal(transfer.params.amount,8500);assert.equal(transfer.params.source_transaction,undefined);assert.equal(stripe.transfersMade.size,1);
+  const benefitsService=benefits(stripe);await benefitsService.refundReviewedMove(jobId);await benefitsService.refundReviewedMove(jobId);
+  assert.equal((await service.getWallet(uid)).giftBalance,155);assert.equal(stripe.refundsMade.size,0);assert.equal((await db.doc(`jobs/${jobId}`).get()).data().reviewRefundStatus,'refunded');
+});
+
+test('mixed gift/card review refunds preserve the original tender split and repeated callbacks cannot double-credit', async () => {
+  const uid='money-mixed-customer',id='money-mixed-job',sessionId='cs_money_mixed',wallet=rewardService(),stripe=fakeStripe(),service=benefits(stripe);
+  await db.doc(`rewardWallets/${uid}`).set({balance:80,giftBalance:80});
+  await db.runTransaction(tx=>wallet.applyCredit(tx,uid,-80,'checkout',`checkout-${sessionId}`,{giftApplied:80}));
+  await db.doc(`checkoutTerms/${sessionId}`).set({customerId:uid,totalCents:10000,creditApplied:80,giftApplied:80});
+  await db.doc(`jobs/${id}`).set({id,customerId:uid,checkoutSessionId:sessionId,creditLedgerKey:`checkout-${sessionId}`,creditApplied:80,giftApplied:80,amountPaid:20,allocatedCents:10000,platformFeeCents:1500,status:'completed',paymentStatus:'paid',releaseConfirmedAt:Timestamp.now(),reviewed:true,reviewRefundEligible:true,paymentIntentId:'pi_money_mixed'});
+  await service.refundReviewedMove(id);await service.refundReviewedMove(id);
+  assert.equal(stripe.refundsMade.size,1);const refund=[...stripe.refundsMade.values()][0];assert.equal(refund.params.amount,100);
+  assert.equal((await wallet.getWallet(uid)).giftBalance,4);
+  await service.updateReviewRefund({id:refund.id,status:'succeeded',currency:'usd',payment_intent:'pi_money_mixed',amount:100,metadata:refund.params.metadata});
+  assert.equal((await wallet.getWallet(uid)).giftBalance,4);
+});
+
+test('admin cancellation returns gift/reward/card amounts once and refuses jobs already released', async () => {
+  const uid='money-cancel-customer',id='money-cancel-job',sid='cs_money_cancel',wallet=rewardService(),stripe=fakeStripe();
+  const cancel=load('booking-refunds',{'./firebase-admin':{adminDb:()=>db},'@/lib/stripe':{stripe},'./auth':authMock,'./money-operation':{moneyOperation}});
+  await db.doc(`rewardWallets/${uid}`).set({balance:90,giftBalance:80});
+  await db.runTransaction(tx=>wallet.applyCredit(tx,uid,-90,'checkout',`checkout-${sid}`,{giftApplied:80}));
+  await db.doc(`checkoutTerms/${sid}`).set({customerId:uid,totalCents:10000,creditApplied:90,giftApplied:80});
+  await db.doc(`jobs/${id}`).set({id,customerId:uid,checkoutSessionId:sid,creditLedgerKey:`checkout-${sid}`,creditApplied:90,giftApplied:80,amountPaid:10,price:100,status:'confirmed',paymentStatus:'paid',paymentIntentId:'pi_money_cancel'});
+  assert.equal((await cancel.cancelAndRefundBooking(id,'money-admin')).status,'refunded');await cancel.cancelAndRefundBooking(id,'money-admin');
+  assert.equal(stripe.refundsMade.size,1);assert.equal([...stripe.refundsMade.values()][0].params.amount,1000);
+  const result=await wallet.getWallet(uid);assert.equal(result.balance,90);assert.equal(result.giftBalance,80);assert.equal(result.rewardBalance,10);
+  assert.equal((await db.doc(`jobs/${id}`).get()).data().paymentStatus,'refunded');
+  await db.doc(`jobs/${id}-released`).set({status:'completed',releaseConfirmedAt:Timestamp.now(),paymentStatus:'paid',amountPaid:100});
+  await assert.rejects(()=>cancel.cancelAndRefundBooking(`${id}-released`,'money-admin'));
+});
+
+test('zero-due fulfillment cannot invent funding and refunded gift purchases freeze spending', async () => {
+  const uid='money-hold-customer',id='money-unfunded-order',wallet=rewardService();
+  await db.doc(`rewardWallets/${uid}`).set({balance:100,giftBalance:100});
+  const orders=load('mover-orders',{'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./notifications':{notifyPaidJob:async()=>{}}});
+  await db.doc(`moverOrders/${id}`).set({customerId:uid,checkoutSessionId:'cs_money_no_funding',paymentStatus:'pending',totalCents:10000,cardCents:0,creditApplied:100,giftApplied:100,items:[{jobId:'money-unfunded-job',totalCents:10000}]});
+  await assert.rejects(()=>orders.confirmMoverOrder({id:'cs_money_no_funding',status:'complete',payment_status:'no_payment_required',amount_total:0,currency:'usd',metadata:{flow:'mover_cart',orderId:id,customerId:uid}}));
+  assert.equal((await db.doc('jobs/money-unfunded-job').get()).exists,false);
+  await db.doc('giftCardOrders/money-held-purchase').set({paymentIntentId:'pi_money_hold',code:'MONEYABC',status:'paid'});
+  await db.doc('giftCards/MONEYABC').set({status:'redeemed',redeemedBy:uid,orderId:'money-held-purchase'});
+  await wallet.holdGiftCardPurchase('pi_money_hold','charge.dispute.created');
+  await assert.rejects(()=>db.runTransaction(tx=>wallet.applyCredit(tx,uid,-100,'checkout','blocked',{giftApplied:100})));
+  assert.equal((await wallet.getWallet(uid)).balance,100);
+});
+
+test('cancelling the card-paid crew does not prevent payout to a separate gift-paid crew', async () => {
+  const uid='money-split-customer',id='money-split-order',wallet=rewardService(),stripe=fakeStripe();
+  await db.doc(`rewardWallets/${uid}`).set({balance:100,giftBalance:100});
+  await db.runTransaction(tx=>wallet.applyCredit(tx,uid,-100,'checkout',`checkout-order-${id}`,{giftApplied:100}));
+  const items=[0,1].map(i=>({jobId:`money-split-job-${i}`,providerId:`money-split-provider-${i}`,providerName:'Synthetic split crew',totalCents:10000,creditCents:i?0:10000,giftCents:i?0:10000,cardCents:i?10000:0,providerPayoutCents:8500,hourlyRate:50,payoutAccountId:'acct_split_crew',moveDate:'2027-12-15',service:'loading',preferredStartTime:'morning',pickupAddress:'Synthetic pickup',dropoffAddress:'Synthetic dropoff',hours:2}));
+  await db.doc(`moverOrders/${id}`).set({customerId:uid,totalCents:20000,cardCents:10000,creditApplied:100,giftApplied:100,items,checkoutSessionId:'cs_money_split',paymentStatus:'pending',termsAcceptance:{accepted:true}});
+  await load('mover-orders',{'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./notifications':{notifyPaidJob:async()=>{}}}).confirmMoverOrder({id:'cs_money_split',payment_status:'paid',currency:'usd',amount_total:10000,payment_intent:'pi_money_split',metadata:{orderId:id,customerId:uid}});
+  const cancellation=load('booking-refunds',{'./firebase-admin':{adminDb:()=>db},'@/lib/stripe':{stripe},'./auth':authMock,'./money-operation':{moneyOperation}});
+  assert.equal((await cancellation.cancelAndRefundBooking(items[1].jobId,'money-admin')).status,'refunded');
+  stripe.paymentIntents.retrieve=async()=>({status:'succeeded',currency:'usd',latest_charge:{id:'ch_money_split',refunded:true,disputed:false,amount:10000,amount_refunded:10000}});
+  await db.doc('providers/'+items[0].providerId).set({stripeOnboardingComplete:true,stripeAccountId:'acct_split_crew'});
+  await db.doc('jobs/'+items[0].jobId).update({status:'completed',releaseConfirmedAt:Timestamp.now(),payeeProviderId:items[0].providerId});
+  const jobs=load('jobs',{'./firebase-admin':{adminDb:()=>db},'./auth':authMock,'./notifications':{enqueueEmail:async()=>{},notifyPaidJob:async()=>{},notifyCompletedJobTexts:async()=>{}},'./shop':{},'./routing':{},'./referrals':{},'./rewards':wallet,'@/lib/stripe':{stripe},'./mover-orders':{},'./move-benefits':{},'./money-operation':{moneyOperation},'./guest-account':{sendGuestPasswordEmail:async()=>{}},'./extra-hours':{payExtraCharges:async()=>true}});
+  assert.equal((await jobs.payoutCompletedJob(items[0].jobId)).payoutStatus,'paid');
+  assert.equal([...stripe.transfersMade.values()][0].params.amount,8500);
 });

@@ -8,7 +8,7 @@ import { enqueueEmail, notifyPaidJob, notifyCompletedJobTexts } from "./notifica
 import { confirmShopOrder } from './shop';
 import { routeNewJob } from './routing';
 import { recordReferralForPaidQuote } from "./referrals";
-import { confirmGiftCardOrder, grantMoveCredit } from './rewards';
+import { confirmGiftCardOrder, grantMoveCredit, checkoutCreditHeld, verifyJobCredit, releaseCheckoutCredit } from './rewards';
 import { stripe } from "@/lib/stripe";
 import { confirmMoverOrder } from './mover-orders';
 import { confirmTipCheckout } from './move-benefits';
@@ -41,7 +41,7 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
   // Supplies shop orders share the checkout confirmation paths (webhook and return page).
   if (session.metadata?.type === "shop") { await confirmShopOrder(session); return { jobId: null }; }
   if (session.metadata?.type === "giftcard") { await confirmGiftCardOrder(session); return { jobId: null }; }
-  if (session.payment_status !== "paid") return { jobId: null };
+  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") return { jobId: null };
   if (session.metadata?.flow === 'move_tip') { await confirmTipCheckout(session); return { jobId: session.metadata.jobId || null }; }
   if (session.metadata?.flow === 'mover_cart') {
     const result = await confirmMoverOrder(session);
@@ -79,6 +79,10 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
         throw new HttpError(409, "This booking was paid with a different checkout.");
       }
       if (data.paymentStatus === "paid") return;
+      const credit = Number(data.creditApplied || 0);
+      if (credit > 0) await checkoutCreditHeld(tx, customerId, `checkout-${session.id}`, credit);
+      if (Math.round((Number(session.amount_total || 0) / 100 + credit) * 100) !== Math.round(Number(data.price) * 100)) throw new HttpError(409, 'Payment amount does not match this booking.');
+      if (session.payment_status === 'no_payment_required' && (!(credit > 0) || session.amount_total !== 0 || session.status !== 'complete')) throw new HttpError(409, 'This booking has not been paid.');
       tx.update(jobRef, payment);
       if (!secret.exists) tx.set(secretRef, { customerId, releaseCode: newReleaseCode(), failedAttempts: 0 });
     });
@@ -104,6 +108,17 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
       if (md.termsVersion && (!checkoutTerms.exists || checkoutTerms.data()?.customerId !== customerId || checkoutTerms.data()?.quoteId !== md.quoteId || acceptance?.version !== md.termsVersion || acceptance?.acceptedBy !== customerId)) {
         throw new Error('Checkout terms record is missing or does not match this payment.');
       }
+      const credit = Number(md.creditApplied || 0);
+      const funding = checkoutTerms.data() || { customerId, quoteId: md.quoteId };
+      if (credit > 0) {
+        const held = await checkoutCreditHeld(tx, customerId, `checkout-${session.id}`, credit);
+        if (funding.totalCents === undefined) {
+          Object.assign(funding, { totalCents: Math.round((Number(session.amount_total || 0) / 100 + credit) * 100), creditApplied: credit, giftApplied: Number(held.giftApplied || 0) });
+          tx.set(termsRef, funding, { merge: true });
+        }
+        if (funding.creditApplied !== credit || Math.round((Number(session.amount_total || 0) / 100 + credit) * 100) !== funding.totalCents || Number(held.giftApplied || 0) !== funding.giftApplied) throw new HttpError(409, 'Credit funding does not match checkout.');
+      }
+      if (session.payment_status === 'no_payment_required' && (!(credit > 0) || session.amount_total !== 0 || session.status !== 'complete')) throw new HttpError(409, 'This booking has not been paid.');
       let details: Record<string, any> = {};
       try {
         details = typeof q.details === "string" ? JSON.parse(q.details) : q.details || {};
@@ -123,9 +138,11 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
           moveSize: md.moveSize || q.moveSize || details.moveSize || "studio",
           specialItems: q.specialItems || details.specialItems || "",
           ...(q.isCustomQuote ? { serviceDescription: q.description, quotedPricing: q.pricing } : {}),
-          price: payment.amountPaid,
+          price: payment.amountPaid + Number(md.creditApplied || 0),
           // Move credit the customer used; the platform funds it, so the mover is paid on the full price.
           creditApplied: Number(md.creditApplied || 0),
+          giftApplied: Number(funding?.giftApplied || 0),
+          creditLedgerKey: credit ? `checkout-${session.id}` : null,
           employeeIds: [],
           providerIds: q.preferredProviderId ? [q.preferredProviderId] : [],
           createdAt: FieldValue.serverTimestamp(),
@@ -148,10 +165,11 @@ export async function confirmPaidCheckout(session: Stripe.Checkout.Session): Pro
 
 /** A failed attempt never downgrades a paid booking or a newer Checkout attempt. */
 export async function recordFailedCheckout(session: Stripe.Checkout.Session) {
-  if (session.payment_status === 'paid') return;
+  if (session.payment_status === 'paid' || session.payment_status === 'no_payment_required') return;
   if (session.metadata?.type === 'shop' || session.metadata?.type === 'giftcard') return; // Unpaid shop and gift card orders simply stay pending.
   const md = session.metadata || {};
   if (!isId(md.customerId)) throw new HttpError(400, 'Payment is missing its customer.');
+  if (md.flow === 'mover_cart') { await releaseCheckoutCredit(session); return; }
   const booking = md.flow === 'booking' && isId(md.jobId);
   const quote = md.flow === 'quote' && isId(md.quoteId);
   if (!booking && !quote) throw new HttpError(400, 'Payment is missing its booking details.');
@@ -172,6 +190,7 @@ export async function recordFailedCheckout(session: Stripe.Checkout.Session) {
       paymentFailedAt: FieldValue.serverTimestamp(),
     });
   });
+  await releaseCheckoutCredit(session);
 }
 
 function codesMatch(a: string, b: string) {
@@ -324,7 +343,10 @@ export async function payoutCompletedJob(jobId: string): Promise<CompletionResul
     const payeeUid = data.payeeProviderId;
     const provider = payeeUid ? await db.doc(`providers/${payeeUid}`).get() : null;
     const accountId = provider?.data()?.stripeAccountId as string | undefined;
-    const cents = data.providerPayoutCents ?? Math.round((Number(data.amountPaid || 0) + Number(data.creditApplied || 0)) * PROVIDER_SHARE * 100);
+    // Extra hours (#153) are charged and paid out separately from their own charges,
+    // so the base payout comes only from the original booking payment.
+    const extraCents = Array.isArray(data.extraCharges) ? data.extraCharges.reduce((sum: number, c: { cents?: number }) => sum + Number(c.cents || 0), 0) : 0;
+    const cents = data.providerPayoutCents ?? Math.round((Math.round((Number(data.amountPaid || 0) + Number(data.creditApplied || 0)) * 100) - extraCents) * PROVIDER_SHARE);
     if (accountId?.startsWith("acct_") && provider?.data()?.stripeOnboardingComplete && cents > 0) {
       const transfer = await moneyOperation(db, `payout-${jobId}`, {
           amount: cents,
@@ -333,17 +355,19 @@ export async function payoutCompletedJob(jobId: string): Promise<CompletionResul
           description: `85% payout for job ${jobId}`,
           metadata: { jobId, providerId: payeeUid },
         }, async (request, key) => {
-          const pi = await stripe.paymentIntents.retrieve(data.paymentIntentId, { expand: ['latest_charge'] });
-          const charge = typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
-          if (pi.status !== 'succeeded' || !charge || charge.refunded || charge.disputed || pi.currency !== 'usd') throw new Error('PAYMENT_REQUIRES_REVIEW');
-          if (charge.amount_refunded > 0) {
+          await verifyJobCredit(data);
+          const pi = data.paymentIntentId ? await stripe.paymentIntents.retrieve(data.paymentIntentId, { expand: ['latest_charge'] }) : null;
+          if (!pi && (!(data.creditApplied > 0) || data.amountPaid !== 0)) throw new Error('PAYMENT_REQUIRES_REVIEW');
+          const charge = pi && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
+          if (pi && (pi.status !== 'succeeded' || !charge || charge.disputed || pi.currency !== 'usd')) throw new Error('PAYMENT_REQUIRES_REVIEW');
+          if (charge && charge.amount_refunded > 0) {
             const allocations = await db.collection('jobs').where('paymentIntentId', '==', data.paymentIntentId).get();
-            const knownReviewRefunds = allocations.docs.reduce((sum, job) => sum + (job.data().reviewRefundStatus === 'refunded' && job.data().reviewRefundId ? Number(job.data().reviewRefundCents || 0) : 0), 0);
+            const knownReviewRefunds = allocations.docs.reduce((sum, job) => sum + (job.data().reviewRefundStatus === 'refunded' && job.data().reviewRefundId ? Number(job.data().reviewRefundCents || 0) : 0) + (job.data().bookingRefundStatus === 'refunded' && job.data().bookingRefundId ? Number(job.data().bookingRefundCardCents || 0) : 0), 0);
             if (charge.amount_refunded !== knownReviewRefunds) throw new Error('PARTIAL_REFUND_REQUIRES_REVIEW');
           }
           const current = await stripe.v2.core.accounts.retrieve(String(request.destination), { include: ['configuration.recipient'] });
           if (current.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status !== 'active') throw new Error('RECIPIENT_NOT_READY');
-          return stripe.transfers.create({ ...request, source_transaction: charge.id } as unknown as Stripe.TransferCreateParams, { idempotencyKey: key });
+          return stripe.transfers.create({ ...request, ...(!(data.creditApplied > 0) && charge ? { source_transaction: charge.id } : {}) } as unknown as Stripe.TransferCreateParams, { idempotencyKey: key });
         });
       transferId = transfer.id;
       if (Array.isArray(data.extraCharges) && data.extraCharges.length) await payExtraCharges(jobId, data.payoutAccountId || accountId);

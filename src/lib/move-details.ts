@@ -74,3 +74,9 @@ export function formatMoveDate(value: unknown): string {
   const [y, m, d] = value.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
+
+/** A calendar move date ("2026-12-20") as a Date at local noon, so date-fns shows the same day in every timezone. */
+export function moveDay(value: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12) : new Date(value);
+}

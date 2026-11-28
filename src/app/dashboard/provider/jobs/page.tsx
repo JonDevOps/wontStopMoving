@@ -1,4 +1,5 @@
 "use client";
+import { moveDay } from "@/lib/move-details";
 
 import { ProviderLayout } from "@/components/layout/provider-layout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -87,7 +88,7 @@ export default function ProviderJobsPage() {
                           <div>
                             <p className="text-[10px] font-bold text-slate-500 uppercase">Date</p>
                             <p className="text-sm font-bold text-slate-900">
-                              {job.moveDate ? format(new Date(job.moveDate), "MMM d, yyyy") : "TBD"}
+                              {job.moveDate ? format(moveDay(job.moveDate), "MMM d, yyyy") : "TBD"}
                             </p>
                           </div>
                         </div>

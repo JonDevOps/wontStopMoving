@@ -1,4 +1,5 @@
 "use client";
+import { moveDay } from "@/lib/move-details";
 
 import { useAuth, useDoc, useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { apiFetch } from "@/lib/api-client";
@@ -195,7 +196,7 @@ function CustomerDetailContent({ id }: { id: string }) {
                           <div>
                             <p className="font-bold text-primary">{job.pickupAddress?.split(',')[0]} → {job.dropoffAddress?.split(',')[0]}</p>
                             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                              {job.moveDate ? format(new Date(job.moveDate), "MMM d, yyyy") : "Date TBD"} • ${job.price?.toLocaleString()}
+                              {job.moveDate ? format(moveDay(job.moveDate), "MMM d, yyyy") : "Date TBD"} • ${job.price?.toLocaleString()}
                             </p>
                           </div>
                         </div>

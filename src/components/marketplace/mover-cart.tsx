@@ -1,4 +1,5 @@
 'use client';
+import { creditBreakdown } from '@/lib/rewards';
 import { SmsConsent } from '@/components/forms/sms-consent';
 import { SMS_DISCLOSURE_VERSION } from '@/lib/sms-consent';
 import { useEffect, useState } from 'react';
@@ -16,6 +17,11 @@ export function MoverCart() {
   const checkoutEnabled = process.env.NEXT_PUBLIC_MARKETPLACE_CHECKOUT_ENABLED === 'true';
   const auth = useAuth(), { user } = useUser();
   const [items, setItems] = useState<MoverCartItem[]>([]), [ready, setReady] = useState(false), [error, setError] = useState('');
+  const [wallet, setWallet] = useState({balance:0,giftBalance:0});
+  const [useCredit, setUseCredit] = useState(true);
+  useEffect(() => { if (user) apiFetch<{balance:number;giftBalance:number}>(auth,'/api/rewards/me').then(setWallet).catch(() => setWallet({balance:0,giftBalance:0})); else setWallet({balance:0,giftBalance:0}); },[user,auth]);
+  const subtotal = items.reduce((sum,item) => sum+(item.quotedRate || 0)*item.hours,0);
+  const funding = creditBreakdown(subtotal,useCredit ? wallet.giftBalance : 0,useCredit ? wallet.giftBalance : 0);
   const [terms, setTerms] = useState(false), [sms, setSms] = useState(false), [phone, setPhone] = useState(''), [busy, setBusy] = useState(false);
   // Guest checkout (#151): pay without signing in; the account is created from these details.
   const [guestName, setGuestName] = useState(''), [guestEmail, setGuestEmail] = useState(''), [guestPhone, setGuestPhone] = useState(''), [needsSignIn, setNeedsSignIn] = useState(false);
@@ -25,11 +31,11 @@ export function MoverCart() {
     event.preventDefault(); setError(''); setNeedsSignIn(false);
     setBusy(true);
     try {
-      const fingerprint = JSON.stringify({items,phone,sms});
+      const fingerprint = JSON.stringify({items,phone,sms,useCredit});
       const saved = JSON.parse(sessionStorage.getItem('wsm-cart-attempt') || 'null');
       const requestId = saved?.fingerprint === fingerprint ? saved.requestId : crypto.randomUUID();
       sessionStorage.setItem('wsm-cart-attempt', JSON.stringify({fingerprint,requestId}));
-      const body = {items,requestId,phone,smsConsent:sms,smsDisclosureVersion:SMS_DISCLOSURE_VERSION,smsSourcePage:window.location.pathname,termsAccepted:terms,termsVersion:TERMS_VERSION};
+      const body = {items,requestId,useCredit:!!user && useCredit,phone,smsConsent:sms,smsDisclosureVersion:SMS_DISCLOSURE_VERSION,smsSourcePage:window.location.pathname,termsAccepted:terms,termsVersion:TERMS_VERSION};
       let result: { url?: string };
       if (user) result = await apiFetch<{url: string}>(auth, '/api/movers/checkout', body);
       else {
@@ -40,13 +46,14 @@ export function MoverCart() {
       }
       if (!result.url) throw new Error('Checkout is unavailable. Please try again.');
       window.location.assign(result.url);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Checkout is unavailable.'); setBusy(false); }
+    } catch (e) { if (e instanceof Error && /checkout expired|credit balance changed|not enough credit|no longer available/i.test(e.message)) sessionStorage.removeItem('wsm-cart-attempt'); setError(e instanceof Error ? e.message : 'Checkout is unavailable.'); setBusy(false); }
   }
   return <div className="space-y-6"><h1 className="text-4xl font-bold">Your moving crews</h1><p>Pay once. Each crew receives its own job and payment code. Release each code only after that crew finishes their work.</p>
     {!ready ? <p>Loading your cart…</p> : !items.length ? <p>Your cart is empty. <Link className="underline" href="/movers">Find a moving crew</Link>.</p> : <>
       {items.map(item => <article key={item.id} className="rounded-2xl border bg-white p-5 space-y-3"><h2 className="text-xl font-bold">{item.providerName}</h2><p>{item.service} · {item.moveDate} · {item.preferredStartTime} · {item.hours} hours</p><p className="break-words">{item.pickupAddress} → {item.dropoffAddress}</p><p className="font-bold">${((item.quotedRate || 0) * item.hours).toFixed(2)} service subtotal</p><Button variant="outline" onClick={() => remove(item.id)} disabled={busy}>Remove {item.service} crew</Button></article>)}
       <div className="flex flex-wrap gap-4"><Link href="/movers?leg=unloading" className="underline font-semibold">Add an unloading crew</Link><Link href="/movers" className="underline">Add another service</Link></div>
-      <form onSubmit={pay} className="bg-white border rounded-2xl p-6 space-y-5"><p className="font-bold text-2xl">Total: ${items.reduce((sum,item) => sum+(item.quotedRate || 0)*item.hours,0).toFixed(2)} USD</p><p className="text-sm">We verify current provider rates and availability before opening Stripe checkout. The provider receives 85%; W3Develops retains 15%. After the payment code is redeemed, submit an honest review of any rating for a $5 refund per eligible job to your original payment method. Optional tipping unlocks after the review. Your card is saved securely so you can approve extra hours from the app if your crew needs more time; it is only charged when you tap Accept.</p>
+      <form onSubmit={pay} className="bg-white border rounded-2xl p-6 space-y-5"><p className="font-bold text-2xl">Total: ${items.reduce((sum,item) => sum+(item.quotedRate || 0)*item.hours,0).toFixed(2)} USD</p><p className="text-sm">We verify current provider rates and availability before opening Stripe checkout. The provider receives 85%; W3Develops retains 15%. After the payment code is redeemed, submit an honest review of any rating for a $5 refund per eligible job to your original payment types; gift-card payments return to gift-card balance. Optional tipping unlocks after the review. When part of the total is paid by card, your card is saved securely so you can approve extra hours from the app if your crew needs more time; it is only charged when you tap Accept.</p>
+        {wallet.giftBalance > 0 && <div className="space-y-2 rounded-xl bg-green-50 p-4"><label className="flex gap-2"><input type="checkbox" checked={useCredit} onChange={e=>setUseCredit(e.target.checked)} disabled={busy}/>Use my gift-card balance</label><p>Gift card: ${funding.gift.toFixed(2)}</p><p className="font-bold">Remaining payment: ${(subtotal-funding.credit).toFixed(2)}</p><p className="text-sm">Unused balance stays in your account. We confirm these amounts before checkout.</p></div>}
         {<><div><Label htmlFor="cart-phone">Mobile number for payment-code texts (optional)</Label><Input id="cart-phone" type="tel" placeholder="+14155550123" value={phone} onChange={e => setPhone(e.target.value)} maxLength={40}/></div>
         <SmsConsent id="cart-sms-consent" checked={sms} onChange={setSms} disabled={busy}/></>}
         {!user && <fieldset className="space-y-3 border-t pt-4"><legend className="font-bold">Your contact details</legend>

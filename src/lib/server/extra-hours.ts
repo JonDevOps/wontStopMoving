@@ -25,8 +25,9 @@ export async function requestExtraHours(p: { jobId: string; uid: string; isAdmin
     if (!job) throw new HttpError(404, 'Job not found.');
     if (!p.isAdmin && !(Array.isArray(job.providerIds) && job.providerIds.includes(p.uid))) throw new HttpError(403, 'You are not assigned to this job.');
     if (job.paymentStatus !== 'paid' || job.paymentHold || !['confirmed', 'in-progress'].includes(job.status)) throw new HttpError(409, 'Hours can only change on a paid job that isn’t finished.');
-    const from = Number(job.hoursReserved), rate = Number(job.hourlyRate);
-    if (!job.orderId || !Number.isFinite(from) || !Number.isFinite(rate) || rate <= 0) throw new HttpError(409, 'This job’s hours can’t be changed here. Contact support.');
+    // Book Now jobs created before hourlyRate was stored: price / hours is the rate.
+    const from = Number(job.hoursReserved), rate = Number(job.hourlyRate ?? Number(job.price) / from);
+    if (!Number.isFinite(from) || !Number.isFinite(rate) || rate <= 0) throw new HttpError(409, 'This job’s hours can’t be changed here. Contact support.');
     if (!Number.isInteger(hours) || hours <= from || hours > 24) throw new HttpError(400, `Choose a whole number of hours above ${from} (up to 24).`);
     if (!reason) throw new HttpError(400, 'Tell the customer why more time is needed.');
     const next: HoursRequest = { id: randomUUID(), hours, fromHours: from, extraCents: Math.round(rate * 100) * (hours - from), reason, requestedBy: p.uid, requestedAt: Date.now(), status: 'pending' };

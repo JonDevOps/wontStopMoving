@@ -1,5 +1,6 @@
 "use client";
 
+import { useAdminProviders } from "@/hooks/use-admin-providers";
 import { EmployeeLayout } from "@/components/layout/employee-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -64,14 +65,6 @@ function AdminDashboardContent() {
     return query(collection(firestore, "quotes"), where("status", "==", "new"));
   }, [firestore]);
 
-  const pendingProvidersQuery = useMemoFirebase(() => {
-    return query(
-      collection(firestore, "providers"),
-      where("status", "==", "pending"),
-      limit(5)
-    );
-  }, [firestore]);
-
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !authUser) return null;
     return doc(firestore, "users", authUser.uid);
@@ -80,18 +73,12 @@ function AdminDashboardContent() {
   const { data: profile } = useDoc(userProfileRef);
   const { data: quotes, isLoading: quotesLoading } = useCollection(quotesQuery);
   const { data: pendingQuotes } = useCollection(pendingQuotesCountQuery);
-  const { data: pendingProviders, isLoading: providersLoading } = useCollection(
-    pendingProvidersQuery
-  );
+  const { pendingProviders: pendingProviderCount, isLoading: providersLoading } = useAdminProviders();
+  const pendingProviders = pendingProviderCount.slice(0, 5);
 
   // Real totals from Firestore (admins can read all jobs).
   const jobsQuery = useMemoFirebase(() => query(collection(firestore, "jobs")), [firestore]);
   const { data: allJobs } = useCollection(jobsQuery);
-  const pendingProviderCountQuery = useMemoFirebase(
-    () => query(collection(firestore, "providers"), where("status", "==", "pending")),
-    [firestore]
-  );
-  const { data: pendingProviderCount } = useCollection(pendingProviderCountQuery);
   const paidJobs = (allJobs || []).filter((j: any) => j.paymentStatus === "paid");
   const platformRevenue = paidJobs.reduce((sum: number, j: any) => sum + (Number(j.amountPaid) || 0), 0);
   const activeJobs = (allJobs || []).filter((j: any) => ["confirmed", "in-progress"].includes(j.status));
@@ -185,11 +172,11 @@ function AdminDashboardContent() {
       done: false,
     },
     {
-      title: `Review Pending Service Providers (${pendingProviders?.length || 0} in queue)`,
+      title: `Review Pending Service Providers (${pendingProviderCount.length} in queue)`,
       desc: "Verify provider ID uploads, insurance COIs, and approve marketplace listings",
       href: "/dashboard/admin/providers",
       cta: "Review Providers",
-      done: (pendingProviders?.length || 0) === 0,
+      done: pendingProviderCount.length === 0,
     },
     {
       title: `Follow Up on New Customer Quotes (${pendingQuotes?.length || 0} open)`,

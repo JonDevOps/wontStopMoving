@@ -1,0 +1,66 @@
+name: Auto ship
+
+# Every push to a branch (other than main) opens a pull request into main and
+# turns on auto-merge: GitHub merges it once the required "Verify" check
+# passes, and merging to main deploys the site. Failing checks never merge.
+#
+# Skip it: name the branch wip/... (or draft/...), or put [no-ship] in the
+# commit message. Turn auto-merge off on a PR to stop it.
+on:
+  push:
+    branches-ignore:
+      - main
+      - 'wip/**'
+      - 'draft/**'
+      - 'dependabot/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: auto-ship-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ship:
+    if: ${{ !contains(github.event.head_commit.message, '[no-ship]') && github.event.deleted == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      BRANCH: ${{ github.ref_name }}
+      MESSAGE: ${{ github.event.head_commit.message }}
+    steps:
+      - name: Open a pull request and turn on auto-merge
+        run: |
+          set -euo pipefail
+          existing=$(gh pr list --repo "$REPO" --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          if [ -z "$existing" ]; then
+            title=$(printf '%s\n' "$MESSAGE" | head -n1 | cut -c1-120)
+            body=$(printf 'Opened automatically when `%s` was pushed. It merges by itself once the Verify check passes; merging deploys the site.\n\nTo stop it: turn off auto-merge on this PR, or push to a `wip/` branch next time.\n\n---\n%s' "$BRANCH" "$MESSAGE")
+            url=$(gh pr create --repo "$REPO" --base main --head "$BRANCH" --title "$title" --body "$body")
+            echo "Opened $url"
+            existing=${url##*/}
+            # GitHub holds the CI run for a PR the Actions bot opened until someone
+            # approves it ("action_required"). Approve it so Verify runs on the PR.
+            approved=""
+            for _ in $(seq 1 12); do
+              sleep 5
+              runs=$(gh api "repos/$REPO/actions/runs?head_sha=$GITHUB_SHA&event=pull_request" \
+                --jq '.workflow_runs[] | select(.conclusion == "action_required" or .status == "waiting") | .id')
+              for id in $runs; do
+                gh api -X POST "repos/$REPO/actions/runs/$id/approve" >/dev/null && approved=1 && echo "Approved CI run $id"
+              done
+              [ -n "$approved" ] && break
+            done
+            if [ -z "$approved" ]; then
+              echo "::warning::No held CI run found to approve; starting CI by hand."
+              gh workflow run ci.yml --repo "$REPO" --ref "$BRANCH"
+            fi
+          else
+            echo "PR #$existing already open; this push updates it and CI runs on it as usual."
+          fi
+          gh pr merge "$existing" --repo "$REPO" --auto --merge --delete-branch
